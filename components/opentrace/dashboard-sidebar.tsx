@@ -9,27 +9,33 @@ import {
   CircleHelp,
   Command,
   Database,
+  FileText,
   Gauge,
-  Settings2,
   ShieldCheck,
   TerminalSquare,
 } from "lucide-react"
+import { UserProfileMenu, type UserRole } from "./user-profile-menu"
 
-export type DashboardSection = "overview" | "traces" | "errors" | "sql"
+export type DashboardSection = "overview" | "traces" | "errors" | "sql" | "logs"
 
 const navItems = [
   { id: "overview" as const, label: "Overview", icon: Gauge },
   { id: "traces" as const, label: "Traces", icon: Activity, count: "1.2k" },
   { id: "errors" as const, label: "Errors", icon: AlertTriangle, count: "3" },
   { id: "sql" as const, label: "SQL queries", icon: Database },
+  { id: "logs" as const, label: "Log Stream", icon: FileText, count: "14" },
 ]
 
 export function DashboardSidebar({
   active,
   onNavigate,
+  role,
+  onRoleChange,
 }: {
   active: DashboardSection
   onNavigate: (section: DashboardSection) => void
+  role: UserRole
+  onRoleChange: (role: UserRole) => void
 }) {
   return (
     <aside className="app-sidebar" aria-label="OpenTrace navigation">
@@ -77,7 +83,7 @@ export function DashboardSidebar({
           <p>72k of 100k events this month</p>
         </div>
         <button className="side-nav-item support-item" type="button" aria-label="Documentation" disabled title="Documentation is in opentrace/ARCHITECTURE.md"><CircleHelp aria-hidden="true" /><span>Documentation</span></button>
-        <div className="user-row"><div className="user-avatar">AK</div><div className="user-copy"><strong>Alex Kim</strong><span>Workspace admin</span></div><Settings2 aria-hidden="true" /></div>
+        <UserProfileMenu role={role} onRoleChange={onRoleChange} />
       </div>
       <div className="sidebar-shortcut"><Command aria-hidden="true" /><span>K</span><small>Search anything</small></div>
     </aside>

@@ -3,25 +3,29 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { Bell, ChevronDown, Command, ExternalLink, Plus, RefreshCw, Search, Sparkles } from "lucide-react"
 import { demoTraces, type DemoEnvironment, type DemoService, type DemoTrace } from "@/lib/opentrace/demo-data"
+import { demoLogs } from "@/lib/opentrace/demo-logs"
 import { DashboardMetrics } from "./dashboard-metrics"
 import { DashboardSidebar, type DashboardSection } from "./dashboard-sidebar"
+import { LogStreamTab } from "./log-stream-tab"
 import { LatencyChart } from "./latency-chart"
 import { SqlStudioPage } from "./sql-studio-page"
 import { TraceDetailPanel } from "./trace-detail-panel"
 import { TracesTable } from "./traces-table"
+import type { UserRole } from "./user-profile-menu"
 
 const sectionTitles: Record<DashboardSection, string> = {
   overview: "Overview",
   traces: "Traces",
   errors: "Errors",
   sql: "SQL Studio",
+  logs: "Log Stream",
 }
 
 const environments: DemoEnvironment[] = ["production", "staging", "development"]
 const services: DemoService[] = ["MES-API", "Order-Service", "Inventory-Worker"]
 
 function isDashboardSection(value: string | null): value is DashboardSection {
-  return value === "overview" || value === "traces" || value === "errors" || value === "sql"
+  return value === "overview" || value === "traces" || value === "errors" || value === "sql" || value === "logs"
 }
 
 function buildLiveTrace(sequence: number, environment: DemoEnvironment, service: DemoService | "all"): DemoTrace {
@@ -70,6 +74,7 @@ export function OpenTraceDashboard() {
   const [environment, setEnvironment] = useState<DemoEnvironment>("production")
   const [service, setService] = useState<DemoService | "all">("all")
   const [liveStream, setLiveStream] = useState(false)
+  const [userRole, setUserRole] = useState<UserRole>("Admin")
   const [refreshing, setRefreshing] = useState(false)
   const traceRef = useRef<DemoTrace[]>(demoTraces)
   const liveSequence = useRef(0)
@@ -110,6 +115,9 @@ export function OpenTraceDashboard() {
   const filteredTraces = useMemo(() => traces.filter((trace) =>
     trace.environment === environment && (service === "all" || trace.service === service),
   ), [traces, environment, service])
+  const filteredLogs = useMemo(() => demoLogs.filter((log) =>
+    log.environment === environment && (service === "all" || log.service === service),
+  ), [environment, service])
 
   function navigateSection(nextSection: DashboardSection) {
     setSection(nextSection)
@@ -121,6 +129,11 @@ export function OpenTraceDashboard() {
     setSection("traces")
     setSelectedTrace(trace)
     updateQueryState({ tab: "traces", traceId: trace.id })
+  }
+
+  function openTraceFromLog(traceId: string) {
+    const trace = traceRef.current.find((item) => item.id === traceId)
+    if (trace) openTrace(trace)
   }
 
   function closeTrace() {
@@ -151,7 +164,7 @@ export function OpenTraceDashboard() {
 
   return (
     <div className="opentrace-app">
-      <DashboardSidebar active={section} onNavigate={navigateSection} />
+      <DashboardSidebar active={section} onNavigate={navigateSection} role={userRole} onRoleChange={setUserRole} />
       <main className="dashboard-main">
         <header className="topbar">
           <div className="breadcrumb"><span>MES Production</span><span className="breadcrumb-slash">/</span><strong>{sectionTitles[section]}</strong><ChevronDown aria-hidden="true" /></div>
@@ -177,7 +190,7 @@ export function OpenTraceDashboard() {
             <div className="page-actions"><span className="last-updated"><i className={liveStream ? "is-pulsing" : ""} />{liveStream ? "Receiving simulated events" : "Updated just now"}</span><button className={`icon-button refresh-button${refreshing ? " refreshing" : ""}`} type="button" onClick={refreshDashboard} aria-label="Refresh dashboard"><RefreshCw /></button><button className="primary-button" type="button" disabled title="Alert creation is not included in this PoC"><Plus aria-hidden="true" />New alert</button></div>
           </div>
 
-          {section === "sql" ? <SqlStudioPage traces={filteredTraces} /> : (
+          {section === "logs" ? <LogStreamTab logs={filteredLogs} onOpenTrace={openTraceFromLog} /> : section === "sql" ? <SqlStudioPage traces={filteredTraces} role={userRole} /> : (
             <>
               <DashboardMetrics />
               <div className="chart-row">

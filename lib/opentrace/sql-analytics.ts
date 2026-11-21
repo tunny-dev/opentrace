@@ -23,6 +23,7 @@ export interface AggregatedQuery {
   maxDuplicateCount: number
   callSite: string
   sampleQuery: string
+  sampleBindValues?: string[]
   slowCalls: number
 }
 
@@ -91,6 +92,7 @@ export function aggregateQueries(traces: DemoTrace[]): AggregatedQuery[] {
   const groups = new Map<string, {
     fingerprint: string
     sampleQuery: string
+    sampleBindValues?: string[]
     statementType: StatementType
     callSite: string
     totalCalls: number
@@ -109,6 +111,7 @@ export function aggregateQueries(traces: DemoTrace[]): AggregatedQuery[] {
       const group = groups.get(fingerprint) ?? {
         fingerprint,
         sampleQuery: query.query,
+        sampleBindValues: query.sampleBindValues,
         statementType: getStatementType(fingerprint),
         callSite: getCallSite(trace, query),
         totalCalls: 0,
@@ -119,6 +122,7 @@ export function aggregateQueries(traces: DemoTrace[]): AggregatedQuery[] {
         maxDuplicateCount: 0,
         slowCalls: 0,
       }
+      if (!group.sampleBindValues && query.sampleBindValues) group.sampleBindValues = query.sampleBindValues
       group.totalCalls += calls
       group.totalDurationMs += query.duration * calls
       group.routes.add(trace.route)
@@ -146,6 +150,7 @@ export function aggregateQueries(traces: DemoTrace[]): AggregatedQuery[] {
       maxDuplicateCount: group.maxDuplicateCount,
       callSite: group.callSite,
       sampleQuery: group.sampleQuery,
+      sampleBindValues: group.sampleBindValues,
       slowCalls: group.slowCalls,
     }))
     .sort((left, right) => right.totalDurationMs - left.totalDurationMs)
