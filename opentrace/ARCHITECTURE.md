@@ -35,7 +35,7 @@ Daily range partitions enable fast retention by detaching/dropping an expired ch
 
 ## Package layout and install
 
-The distributable package lives in `packages/opentrace`; its `exports` map targets compiled ESM and declaration files under `dist/`, and `prepack` builds them for publication. In a consumer project, install the published package with `pnpm add opentrace`. In this workspace, `pnpm run build:opentrace` builds the local workspace package.
+The distributable package lives in `packages/opentrace`; its `exports` map targets compiled ESM and declaration files under `dist/`, and `prepack` builds them for publication. In a consumer project, install the published package with `pnpm add opentrace`. In this workspace, `pnpm run build:opentrace` builds the local workspace package. Root `dev` and `build` scripts compile this workspace package before starting Next.js or running its TypeScript checks, so clean Vercel builds do not depend on ignored `dist/` artifacts.
 
 ## Install and mount
 
