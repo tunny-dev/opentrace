@@ -52,6 +52,7 @@ export function DashboardSidebar({
             key={id}
             className={`side-nav-item${active === id ? " is-active" : ""}`}
             type="button"
+            aria-label={label}
             aria-current={active === id ? "page" : undefined}
             onClick={() => onNavigate(id)}
           >
@@ -64,9 +65,9 @@ export function DashboardSidebar({
 
       <div className="sidebar-label services-label">PLATFORM</div>
       <nav className="side-nav" aria-label="Platform">
-        <button className="side-nav-item" type="button" disabled title="Not included in this PoC"><Boxes aria-hidden="true" /><span>Services</span><span className="nav-count">4</span></button>
-        <button className="side-nav-item" type="button" disabled title="Not included in this PoC"><ShieldCheck aria-hidden="true" /><span>Releases</span></button>
-        <button className="side-nav-item" type="button" disabled title="Not included in this PoC"><TerminalSquare aria-hidden="true" /><span>Settings</span></button>
+        <button className="side-nav-item" type="button" aria-label="Services" disabled title="Not included in this PoC"><Boxes aria-hidden="true" /><span>Services</span><span className="nav-count">4</span></button>
+        <button className="side-nav-item" type="button" aria-label="Releases" disabled title="Not included in this PoC"><ShieldCheck aria-hidden="true" /><span>Releases</span></button>
+        <button className="side-nav-item" type="button" aria-label="Settings" disabled title="Not included in this PoC"><TerminalSquare aria-hidden="true" /><span>Settings</span></button>
       </nav>
 
       <div className="sidebar-bottom">
@@ -75,7 +76,7 @@ export function DashboardSidebar({
           <div className="usage-track"><span /></div>
           <p>72k of 100k events this month</p>
         </div>
-        <button className="side-nav-item support-item" type="button" disabled title="Documentation is in opentrace/ARCHITECTURE.md"><CircleHelp aria-hidden="true" /><span>Documentation</span></button>
+        <button className="side-nav-item support-item" type="button" aria-label="Documentation" disabled title="Documentation is in opentrace/ARCHITECTURE.md"><CircleHelp aria-hidden="true" /><span>Documentation</span></button>
         <div className="user-row"><div className="user-avatar">AK</div><div className="user-copy"><strong>Alex Kim</strong><span>Workspace admin</span></div><Settings2 aria-hidden="true" /></div>
       </div>
       <div className="sidebar-shortcut"><Command aria-hidden="true" /><span>K</span><small>Search anything</small></div>

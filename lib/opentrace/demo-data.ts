@@ -12,7 +12,12 @@ export interface DemoQuery {
   rows?: number
   duplicateCount: number
   slow?: boolean
+  slowCount?: number
+  callSite?: string
 }
+
+export type DemoEnvironment = "production" | "staging" | "development"
+export type DemoService = "MES-API" | "Order-Service" | "Inventory-Worker"
 
 export interface DemoTrace {
   id: string
@@ -22,6 +27,9 @@ export interface DemoTrace {
   duration: number
   createdAt: string
   ageLabel: string
+  environment: DemoEnvironment
+  service: DemoService
+  isLive?: boolean
   sqlCount: number
   state: "success" | "error" | "slow"
   spans: DemoSpan[]
@@ -33,7 +41,7 @@ const timestamp = (secondsAgo: number) => new Date(Date.now() - secondsAgo * 100
 
 export const demoTraces: DemoTrace[] = [
   {
-    id: "tr_8b72f0e1a9", method: "GET", route: "/api/v1/orders/842", status: 200, duration: 86, createdAt: timestamp(4), ageLabel: "4s ago", sqlCount: 4, state: "success",
+    id: "tr_8b72f0e1a9", method: "GET", route: "/api/v1/orders/842", status: 200, duration: 86, createdAt: timestamp(4), ageLabel: "4s ago", environment: "production", service: "Order-Service", sqlCount: 3, state: "success",
     spans: [
       { name: "HTTP request", kind: "middleware", start: 0, duration: 86 },
       { name: "Load order + customer", kind: "db", start: 12, duration: 68 },
@@ -46,7 +54,7 @@ export const demoTraces: DemoTrace[] = [
     ],
   },
   {
-    id: "tr_9ac401f7d2", method: "PATCH", route: "/api/v1/orders/842", status: 500, duration: 422, createdAt: timestamp(18), ageLabel: "18s ago", sqlCount: 3, state: "error",
+    id: "tr_9ac401f7d2", method: "PATCH", route: "/api/v1/orders/842", status: 500, duration: 422, createdAt: timestamp(18), ageLabel: "18s ago", environment: "production", service: "Order-Service", sqlCount: 2, state: "error",
     spans: [
       { name: "HTTP request", kind: "middleware", start: 0, duration: 422 },
       { name: "Update inventory", kind: "db", start: 22, duration: 301 },
@@ -59,7 +67,7 @@ export const demoTraces: DemoTrace[] = [
     exception: { name: "ConflictError", message: "Inventory reservation version changed during commit", signature: "conflicterror: inventory reservation version changed during commit" },
   },
   {
-    id: "tr_4f1d36a8c0", method: "GET", route: "/api/v1/inventory/sku-992", status: 200, duration: 38, createdAt: timestamp(31), ageLabel: "31s ago", sqlCount: 1, state: "success",
+    id: "tr_4f1d36a8c0", method: "GET", route: "/api/v1/inventory/sku-992", status: 200, duration: 38, createdAt: timestamp(31), ageLabel: "31s ago", environment: "production", service: "Inventory-Worker", sqlCount: 1, state: "success",
     spans: [
       { name: "HTTP request", kind: "middleware", start: 0, duration: 38 },
       { name: "Fetch inventory item", kind: "db", start: 4, duration: 27 },
@@ -68,20 +76,20 @@ export const demoTraces: DemoTrace[] = [
     queries: [{ query: "SELECT sku, quantity, warehouse_id FROM inventory WHERE sku = 'sku-992'", fingerprint: "select sku, quantity, warehouse_id from inventory where sku = ?", duration: 27, rows: 1, duplicateCount: 1 }],
   },
   {
-    id: "tr_0de773b5a1", method: "GET", route: "/api/v1/orders", status: 200, duration: 2410, createdAt: timestamp(53), ageLabel: "53s ago", sqlCount: 24, state: "slow",
+    id: "tr_0de773b5a1", method: "GET", route: "/api/v1/orders", status: 200, duration: 2410, createdAt: timestamp(53), ageLabel: "53s ago", environment: "production", service: "Order-Service", sqlCount: 24, state: "slow",
     spans: [
       { name: "HTTP request", kind: "middleware", start: 0, duration: 2410 },
       { name: "Load order list", kind: "db", start: 14, duration: 1926 },
       { name: "Render response", kind: "app", start: 1940, duration: 470 },
     ],
     queries: [
-      { query: "SELECT * FROM orders WHERE status = 'open'", fingerprint: "select * from orders where status = ?", duration: 246, rows: 24, duplicateCount: 1 },
-      { query: "SELECT * FROM customers WHERE id = 51", fingerprint: "select * from customers where id = ?", duration: 82, rows: 1, duplicateCount: 24, slow: true },
-      { query: "SELECT * FROM customers WHERE id = 52", fingerprint: "select * from customers where id = ?", duration: 79, rows: 1, duplicateCount: 24 },
+      { query: "SELECT * FROM orders WHERE status = 'open'", fingerprint: "select * from orders where status = ?", duration: 246, rows: 24, duplicateCount: 1, callSite: "src/services/order.service.ts:142" },
+      { query: "SELECT * FROM customers WHERE id = 51", fingerprint: "select * from customers where id = ?", duration: 82, rows: 1, duplicateCount: 22, slow: true, slowCount: 3, callSite: "src/repositories/customer.repository.ts:51" },
+      { query: "SELECT * FROM order_items WHERE order_id = 842", fingerprint: "select * from order_items where order_id = ?", duration: 27, rows: 3, duplicateCount: 1, callSite: "src/repositories/order.repository.ts:77" },
     ],
   },
   {
-    id: "tr_b932aac4e8", method: "POST", route: "/api/v1/payment/authorize", status: 201, duration: 184, createdAt: timestamp(85), ageLabel: "1m ago", sqlCount: 2, state: "success",
+    id: "tr_b932aac4e8", method: "POST", route: "/api/v1/payment/authorize", status: 201, duration: 184, createdAt: timestamp(85), ageLabel: "1m ago", environment: "production", service: "MES-API", sqlCount: 1, state: "success",
     spans: [
       { name: "HTTP request", kind: "middleware", start: 0, duration: 184 },
       { name: "Insert payment intent", kind: "db", start: 9, duration: 17 },
@@ -90,7 +98,7 @@ export const demoTraces: DemoTrace[] = [
     queries: [{ query: "INSERT INTO payment_intents (order_id, state) VALUES (842, 'pending')", fingerprint: "insert into payment_intents (order_id, state) values (?, ?)", duration: 17, rows: 1, duplicateCount: 1 }],
   },
   {
-    id: "tr_609c8f332e", method: "GET", route: "/api/v1/reports/daily", status: 200, duration: 1180, createdAt: timestamp(141), ageLabel: "2m ago", sqlCount: 6, state: "slow",
+    id: "tr_609c8f332e", method: "GET", route: "/api/v1/reports/daily", status: 200, duration: 1180, createdAt: timestamp(141), ageLabel: "2m ago", environment: "staging", service: "MES-API", sqlCount: 1, state: "slow",
     spans: [
       { name: "HTTP request", kind: "middleware", start: 0, duration: 1180 },
       { name: "Aggregate daily metrics", kind: "db", start: 7, duration: 940 },
@@ -99,7 +107,7 @@ export const demoTraces: DemoTrace[] = [
     queries: [{ query: "SELECT date(created_at), count(*) FROM orders GROUP BY 1", fingerprint: "select date(created_at), count(*) from orders group by ?", duration: 940, rows: 31, duplicateCount: 1, slow: true }],
   },
   {
-    id: "tr_2bc03a7d14", method: "DELETE", route: "/api/v1/sessions/expired", status: 204, duration: 64, createdAt: timestamp(188), ageLabel: "3m ago", sqlCount: 1, state: "success",
+    id: "tr_2bc03a7d14", method: "DELETE", route: "/api/v1/sessions/expired", status: 204, duration: 64, createdAt: timestamp(188), ageLabel: "3m ago", environment: "development", service: "Inventory-Worker", sqlCount: 1, state: "success",
     spans: [
       { name: "HTTP request", kind: "middleware", start: 0, duration: 64 },
       { name: "Delete expired sessions", kind: "db", start: 5, duration: 42 },
