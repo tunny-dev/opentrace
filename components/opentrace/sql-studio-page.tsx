@@ -5,6 +5,7 @@ import { Activity, ArrowDown, ArrowUp, ChevronRight, Database, Search, Zap } fro
 import type { DemoTrace } from "@/lib/opentrace/demo-data"
 import { aggregateQueries, type AggregatedQuery, type StatementType } from "@/lib/opentrace/sql-analytics"
 import { SqlQueryDrawer } from "./sql-query-drawer"
+import type { UserRole } from "./user-profile-menu"
 
 const statementTypes: Array<StatementType | "ALL"> = ["ALL", "SELECT", "UPDATE", "INSERT", "DELETE", "OTHER"]
 
@@ -12,7 +13,7 @@ function formatDuration(value: number) {
   return value >= 1000 ? `${(value / 1000).toFixed(2)} s` : `${value.toFixed(value < 10 ? 1 : 0)} ms`
 }
 
-export function SqlStudioPage({ traces }: { traces: DemoTrace[] }) {
+export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: UserRole }) {
   const [search, setSearch] = useState("")
   const [statementFilter, setStatementFilter] = useState<StatementType | "ALL">("ALL")
   const [sortByImpact, setSortByImpact] = useState(true)
@@ -35,7 +36,7 @@ export function SqlStudioPage({ traces }: { traces: DemoTrace[] }) {
     <div className="sql-studio-page">
       <div className="sql-workspace-context">
         <div className="section-kicker">DATABASE / GLOBAL PROFILER <span className="demo-label">SAMPLE DATA</span></div>
-        <div className="sql-studio-status"><span className="collector-dot" />{traces.length} traces analyzed</div>
+        <div className="sql-studio-context-meta"><div className="sql-studio-status"><span className="collector-dot" />{traces.length} traces analyzed</div>{role === "Viewer" && <span className="sql-role-notice">VIEWER · VALUES MASKED</span>}</div>
       </div>
 
       <section className="sql-metrics-grid" aria-label="SQL profile summary">
@@ -80,9 +81,9 @@ export function SqlStudioPage({ traces }: { traces: DemoTrace[] }) {
             </tbody>
           </table>
         </div>
-        <footer className="sql-table-footer"><span>Templates are normalized; values and bind parameters are not retained.</span><span><i /> Aggregated from {traces.length} filtered traces</span></footer>
+        <footer className="sql-table-footer"><span>Runtime bind values are never collected; parameter previews are fixture-only.</span><span><i /> Aggregated from {traces.length} filtered traces</span></footer>
       </section>
-      {selectedQuery && <SqlQueryDrawer query={selectedQuery} onClose={() => setSelectedQuery(null)} />}
+      {selectedQuery && <SqlQueryDrawer query={selectedQuery} role={role} onClose={() => setSelectedQuery(null)} />}
     </div>
   )
 }

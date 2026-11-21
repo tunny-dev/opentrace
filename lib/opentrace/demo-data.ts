@@ -14,6 +14,7 @@ export interface DemoQuery {
   slow?: boolean
   slowCount?: number
   callSite?: string
+  sampleBindValues?: string[]
 }
 
 export type DemoEnvironment = "production" | "staging" | "development"
@@ -84,7 +85,7 @@ export const demoTraces: DemoTrace[] = [
     ],
     queries: [
       { query: "SELECT * FROM orders WHERE status = 'open'", fingerprint: "select * from orders where status = ?", duration: 246, rows: 24, duplicateCount: 1, callSite: "src/services/order.service.ts:142" },
-      { query: "SELECT * FROM customers WHERE id = 51", fingerprint: "select * from customers where id = ?", duration: 82, rows: 1, duplicateCount: 22, slow: true, slowCount: 3, callSite: "src/repositories/customer.repository.ts:51" },
+      { query: "SELECT * FROM customers WHERE id = 51", fingerprint: "select * from customers where id = ?", duration: 82, rows: 1, duplicateCount: 22, slow: true, slowCount: 3, callSite: "src/repositories/customer.repository.ts:51", sampleBindValues: ["51", "52", "53"] },
       { query: "SELECT * FROM order_items WHERE order_id = 842", fingerprint: "select * from order_items where order_id = ?", duration: 27, rows: 3, duplicateCount: 1, callSite: "src/repositories/order.repository.ts:77" },
     ],
   },

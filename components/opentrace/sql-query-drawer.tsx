@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import type { CSSProperties } from "react"
 import { AlertTriangle, Check, Clipboard, Copy, Database, X } from "lucide-react"
 import type { AggregatedQuery } from "@/lib/opentrace/sql-analytics"
+import type { UserRole } from "./user-profile-menu"
 import { buildExplainPlan, formatSql } from "@/lib/opentrace/sql-analytics"
 import { SqlSyntax } from "./sql-syntax"
 
@@ -11,7 +12,7 @@ function formatDuration(value: number) {
   return value >= 1000 ? `${(value / 1000).toFixed(2)} s` : `${value.toFixed(value < 10 ? 1 : 0)} ms`
 }
 
-export function SqlQueryDrawer({ query, onClose }: { query: AggregatedQuery; onClose: () => void }) {
+export function SqlQueryDrawer({ query, role, onClose }: { query: AggregatedQuery; role: UserRole; onClose: () => void }) {
   const [activeTab, setActiveTab] = useState<"inspector" | "explain">("inspector")
   const [formatted, setFormatted] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -63,6 +64,7 @@ export function SqlQueryDrawer({ query, onClose }: { query: AggregatedQuery; onC
 
             <div className="sql-detail-block"><div className="sql-detail-title">CALL SITE <span>DEMO FRAMEWORK TRACE</span></div><div className="call-site"><span className="call-site-dot" /><code>{query.callSite}</code><span className="call-site-hint">sampled source location</span></div></div>
             <div className="sql-detail-block"><div className="sql-detail-title">ASSOCIATED ROUTES <span>{query.routes.length}</span></div><div className="sql-route-list">{query.routes.map((route) => <span className="sql-route-chip" key={route}>{route}</span>)}</div></div>
+            {query.sampleBindValues && <div className="sql-detail-block"><div className="sql-detail-title">SAMPLE BIND VALUES <span>FIXTURE ONLY · {role === "Viewer" ? "MASKED" : "ADMIN VIEW"}</span></div><div className="sql-bind-values">{query.sampleBindValues.map((value, index) => <code key={`${index}-${value}`}>{role === "Viewer" ? "***" : value}</code>)}</div></div>}
             <div className="sql-detail-block"><div className="sql-detail-title">FINGERPRINT <button className="inline-copy" type="button" onClick={() => void copySql()} aria-label="Copy SQL fingerprint">{copied ? <Check /> : <Clipboard />}</button></div><code className="fingerprint-value">{query.fingerprint}</code></div>
           </section>
         ) : (
