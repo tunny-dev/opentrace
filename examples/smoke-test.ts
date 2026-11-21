@@ -4,6 +4,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { BatchWriter, fingerprintSql, SqliteStorageAdapter } from "opentrace"
 import type { StorageAdapter, TraceRecord } from "opentrace"
+import { aggregateQueries, expandTraceQueries, formatSql, getStatementType } from "../lib/opentrace/sql-analytics.ts"
+import { demoTraces } from "../lib/opentrace/demo-data.ts"
 
 function traceRecord(traceId: string, priority: TraceRecord["priority"] = "normal"): TraceRecord {
   return {
@@ -33,6 +35,23 @@ async function main() {
     fingerprintSql("SELECT * FROM orders WHERE id IN (4, 5)"),
     "IN-list values should normalize to a stable fingerprint",
   )
+
+  assert.equal(getStatementType("UPDATE inventory SET quantity = ?"), "UPDATE")
+  assert.equal(getStatementType("INSERT INTO orders (id) VALUES (?)"), "INSERT")
+  assert.equal(getStatementType("DELETE FROM sessions WHERE id = ?"), "DELETE")
+  assert.ok(formatSql("SELECT id FROM orders WHERE state = ? AND total > ?").includes("\nFROM"))
+  assert.ok(formatSql("SELECT 'FROM, AND' AS label FROM orders WHERE id = ?").includes("'FROM, AND'"))
+
+  const nPlusOneTrace = demoTraces.find((trace) => trace.id === "tr_0de773b5a1")
+  assert.ok(nPlusOneTrace)
+  const expandedStatements = expandTraceQueries(nPlusOneTrace)
+  assert.equal(expandedStatements.length, 24)
+  assert.equal(expandedStatements.filter((statement) => statement.isSlow).length, 3)
+  assert.equal(expandedStatements.filter((statement) => statement.isDuplicate).length, 22)
+  const customerQuery = aggregateQueries(demoTraces).find((query) => query.fingerprint === "select * from customers where id = ?")
+  assert.ok(customerQuery)
+  assert.equal(customerQuery.nPlusOneRoutes.includes("/api/v1/orders"), true)
+  assert.equal(customerQuery.maxDuplicateCount, 22)
 
   const written: TraceRecord[] = []
   const fakeStorage: StorageAdapter = {

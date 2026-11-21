@@ -13,10 +13,12 @@ export function TracesTable({
   traces,
   section,
   onSelect,
+  liveStream,
 }: {
   traces: DemoTrace[]
   section: DashboardSection
   onSelect: (trace: DemoTrace) => void
+  liveStream: boolean
 }) {
   const title = section === "errors" ? "Error traces" : section === "sql" ? "Slow & duplicate queries" : section === "overview" ? "Recent traces" : "All traces"
   const [search, setSearch] = useState("")
@@ -30,8 +32,10 @@ export function TracesTable({
       const searchText = search.trim().toLowerCase()
       return !searchText || `${trace.method} ${trace.route} ${trace.id} ${trace.queries.map((query) => query.fingerprint).join(" ")}`.toLowerCase().includes(searchText)
     })
-    .sort((left, right) => descending ? right.duration - left.duration : left.duration - right.duration),
-  [traces, section, statusFilter, search, descending])
+    .sort((left, right) => liveStream
+      ? new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+      : descending ? right.duration - left.duration : left.duration - right.duration),
+  [traces, section, statusFilter, search, descending, liveStream])
 
   return (
     <section className="panel-card traces-panel" aria-labelledby="traces-heading">
@@ -41,14 +45,14 @@ export function TracesTable({
       </div>
       <div className="table-controls">
         <label className="trace-search"><Search aria-hidden="true" /><input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search by route, trace ID, or SQL…" aria-label="Search traces" /></label>
-        <div className="table-sort"><span>Sort by</span><button type="button" onClick={() => setDescending((value) => !value)}>Duration {descending ? <ArrowDown aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}</button></div>
+        <div className="table-sort"><span>Sort by</span><button type="button" onClick={() => setDescending((value) => !value)}>{liveStream ? "Newest" : "Duration"} {descending ? <ArrowDown aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}</button></div>
       </div>
       <div className="trace-table-scroll">
         <table className="trace-table">
           <thead><tr><th scope="col">STATUS</th><th scope="col">REQUEST</th><th scope="col">DURATION</th><th scope="col">WATERFALL</th><th scope="col">SQL</th><th scope="col">WHEN</th></tr></thead>
           <tbody>
-            {visibleTraces.map((trace) => <tr key={trace.id} tabIndex={0} onClick={() => onSelect(trace)} onKeyDown={(event) => event.key === "Enter" && onSelect(trace)} aria-label={`Open ${trace.method} ${trace.route} trace`}>
-              <td><span className={`trace-status status-${trace.state}`}><i />{trace.state === "success" ? "OK" : trace.state === "slow" ? "SLOW" : "ERROR"}</span><span className="status-code">{trace.status}</span></td>
+            {visibleTraces.map((trace) => <tr key={trace.id} className={trace.isLive ? "is-live-row" : undefined} tabIndex={0} onClick={() => onSelect(trace)} onKeyDown={(event) => event.key === "Enter" && onSelect(trace)} aria-label={`Open ${trace.method} ${trace.route} trace`}>
+              <td><span className={`trace-status status-${trace.state}`}><i className={trace.isLive ? "live-row-dot" : undefined} />{trace.state === "success" ? "OK" : trace.state === "slow" ? "SLOW" : "ERROR"}</span><span className="status-code">{trace.status}</span></td>
               <td><div className="request-cell"><span className={`method method-${trace.method.toLowerCase()}`}>{trace.method}</span><div><strong>{trace.route}</strong><small>{trace.id}</small></div></div></td>
               <td><span className={`duration-cell${trace.state === "slow" ? " duration-slow" : ""}`}>{formatDuration(trace.duration)}</span></td>
               <td><div className="mini-waterfall" aria-label={`${trace.spans.length} spans`}><span style={{ width: `${Math.min(96, Math.max(15, trace.duration / 25))}%` }} /><i style={{ width: `${Math.min(72, Math.max(10, trace.sqlCount * 2))}%` }} /><b style={{ width: `${Math.min(38, Math.max(8, trace.duration / 70))}%` }} /></div></td>

@@ -1,15 +1,18 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Check, Copy, X } from "lucide-react"
+import { Check, Copy, Search, X } from "lucide-react"
 import type { DemoTrace } from "@/lib/opentrace/demo-data"
+import { expandTraceQueries, getStatementType } from "@/lib/opentrace/sql-analytics"
 
 function formatDuration(value: number) {
   return value >= 1000 ? `${(value / 1000).toFixed(2)} s` : `${value.toFixed(value < 10 ? 1 : 0)} ms`
 }
 
 export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose: () => void }) {
-  const [copiedQuery, setCopiedQuery] = useState<number | null>(null)
+  const [copiedQuery, setCopiedQuery] = useState<string | null>(null)
+  const [queryFilter, setQueryFilter] = useState<"all" | "slow" | "duplicates">("all")
+  const [showAllQueries, setShowAllQueries] = useState(false)
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -19,7 +22,7 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [onClose])
 
-  async function copyQuery(query: string, index: number) {
+  async function copyQuery(query: string, index: string) {
     try {
       await navigator.clipboard.writeText(query)
       setCopiedQuery(index)
@@ -38,6 +41,13 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
     { label: "External", value: externalTotal, color: "var(--violet)" },
   ]
   const visibleBreakdown = breakdown.filter((item) => item.value > 0)
+  const statements = expandTraceQueries(trace)
+  const slowStatements = statements.filter((statement) => statement.isSlow)
+  const duplicateStatements = statements.filter((statement) => statement.isDuplicate)
+  const visibleStatements = statements.filter((statement) => queryFilter === "all"
+    || (queryFilter === "slow" && statement.isSlow)
+    || (queryFilter === "duplicates" && statement.isDuplicate))
+  const displayedStatements = showAllQueries ? visibleStatements : visibleStatements.slice(0, 8)
 
   return (
     <div className="detail-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
@@ -80,14 +90,24 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
         </section>
 
         <section className="detail-section sql-section">
-          <div className="detail-section-title"><div><h3>SQL studio</h3><span className="subtle-count">{trace.sqlCount} statements · {formatDuration(sqlTotal)}</span></div><span>FINGERPRINTED</span></div>
-          <div className="query-list">
-            {trace.queries.map((query, index) => <article className="query-card" key={`${query.fingerprint}-${index}`}>
-              <div className="query-meta"><span className="query-kind">SELECT</span><span>{formatDuration(query.duration)}</span>{query.slow && <span className="query-warning">SLOW</span>}{query.duplicateCount > 2 && <span className="query-warning">N+1 · {query.duplicateCount}×</span>}<button type="button" className="copy-button" aria-label="Copy SQL query" onClick={() => void copyQuery(query.query, index)}>{copiedQuery === index ? <Check /> : <Copy />}{copiedQuery === index && <span>Copied</span>}</button></div>
-              <pre>{query.query}</pre>
-              <div className="query-fingerprint"><span>FP</span>{query.fingerprint}<span className="rows-count">{query.rows ?? 0} rows</span></div>
-            </article>)}
+          <div className="detail-section-title"><div><h3>SQL statements</h3><span className="subtle-count">{trace.sqlCount} statements · {formatDuration(sqlTotal)}</span></div><span>FINGERPRINTED</span></div>
+          <div className="trace-query-filters" role="group" aria-label="Filter SQL statements">
+            <button type="button" className={queryFilter === "all" ? "is-active" : ""} onClick={() => { setQueryFilter("all"); setShowAllQueries(false) }}>All <b>{statements.length}</b></button>
+            <button type="button" className={queryFilter === "slow" ? "is-active" : ""} onClick={() => { setQueryFilter("slow"); setShowAllQueries(false) }}>Slow only <b>{slowStatements.length}</b></button>
+            <button type="button" className={queryFilter === "duplicates" ? "is-active" : ""} onClick={() => { setQueryFilter("duplicates"); setShowAllQueries(false) }}>Duplicates / N+1 <b>{duplicateStatements.length}</b></button>
           </div>
+          <div className="query-list">
+            {displayedStatements.map((statement) => {
+              const statementType = getStatementType(statement.query)
+              return <article className="query-card" key={statement.id}>
+                <div className="query-meta"><span className={`query-kind statement-${statementType.toLowerCase()}`}>{statementType}</span><span>{formatDuration(statement.duration)}</span>{statement.isSlow && <span className="query-warning">SLOW</span>}{statement.isDuplicate && <span className="query-warning">N+1 · {statement.duplicateCount}×</span>}<button type="button" className="copy-button" aria-label="Copy SQL query" onClick={() => void copyQuery(statement.query, statement.id)}>{copiedQuery === statement.id ? <Check /> : <Copy />}{copiedQuery === statement.id && <span>Copied</span>}</button></div>
+                <pre>{statement.query}</pre>
+                <div className="query-fingerprint"><span>FP</span>{statement.fingerprint}<span className="rows-count">{statement.rows ?? 0} rows</span></div>
+              </article>
+            })}
+            {visibleStatements.length === 0 && <div className="no-query-state"><Search aria-hidden="true" />No SQL statements match this filter.</div>}
+          </div>
+          {visibleStatements.length > 8 && <button className="show-all-queries" type="button" onClick={() => setShowAllQueries((value) => !value)}>{showAllQueries ? "Show fewer queries" : `Show all ${visibleStatements.length} queries`}</button>}
         </section>
 
         <section className="detail-section breadcrumb-section">
