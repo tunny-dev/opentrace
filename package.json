@@ -5,8 +5,8 @@
   "packageManager": "pnpm@12.3.4",
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "pnpm --filter opentrace build && next dev",
+    "build": "pnpm --filter opentrace build && next build",
     "start": "next start",
     "build:opentrace": "pnpm --filter opentrace build",
     "demo": "pnpm --filter opentrace build && node --experimental-strip-types examples/server.ts",
