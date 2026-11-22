@@ -235,8 +235,10 @@ small {
   font-family: var(--font-manrope), Manrope, sans-serif !important;
 }
 
-button {
-  color: inherit;
+@layer base {
+  button {
+    color: inherit;
+  }
 }
 
 .opentrace-app {
