@@ -1,10 +1,31 @@
 import { AsyncLocalStorage } from "node:async_hooks"
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto"
+import { existsSync, readFileSync, statSync } from "node:fs"
+import { dirname, extname, join, resolve } from "node:path"
 import { performance } from "node:perf_hooks"
+import { fileURLToPath } from "node:url"
 import { BatchWriter } from "./batch-writer.ts"
 import { EMBEDDED_DASHBOARD_HTML } from "./dashboard/embedded-ui.ts"
 import { fingerprintError, fingerprintSql } from "./sql-fingerprint.ts"
 import type { Breadcrumb, SpanKind, StorageAdapter, TraceException, TraceRecord, TraceSpan } from "./types.ts"
+
+const MIME_MAP: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "application/javascript; charset=utf-8",
+  ".mjs": "application/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".ico": "image/x-icon",
+  ".woff": "font/woff",
+  ".woff2": "font/woff2",
+  ".ttf": "font/ttf",
+  ".txt": "text/plain; charset=utf-8",
+}
 
 interface HttpRequest {
   method?: string
@@ -19,7 +40,7 @@ interface HttpResponse {
   statusCode: number
   once(event: "finish" | "close", listener: () => void): this
   setHeader(name: string, value: string): this
-  end(body?: string): this
+  end(body?: string | Uint8Array): this
 }
 
 type Next = (error?: unknown) => void
@@ -38,6 +59,7 @@ export interface OpenTraceOptions {
   slowQueryThresholdMs?: number
   retentionDays?: number
   ignoreRoutes?: RegExp[]
+  dashboardUiPath?: string
   auth?: { enabled?: boolean; users?: Array<{ username: string; password: string }> }
   logger?: (message: string, error?: unknown) => void
 }
@@ -256,7 +278,64 @@ export class OpenTrace {
         }
         return
       }
-      if ((request.method ?? "GET").toUpperCase() !== "GET" || (path !== "/" && path !== "/index.html")) {
+      if ((request.method ?? "GET").toUpperCase() !== "GET") {
+        next()
+        return
+      }
+
+      // 1. Serve packaged Next.js static UI if present
+      const candidates = [
+        this.options.dashboardUiPath,
+        resolve(dirname(fileURLToPath(import.meta.url)), "dashboard-ui"),
+        resolve(dirname(fileURLToPath(import.meta.url)), "../dist/dashboard-ui"),
+        resolve(process.cwd(), "packages/opentrace/dist/dashboard-ui"),
+        resolve(process.cwd(), "out"),
+      ].filter((dir): dir is string => Boolean(dir && existsSync(dir)))
+
+      const uiDir = candidates[0]
+      if (uiDir) {
+        let relative = path.replace(/^\/?(?:_telemetry\/?)?/, "").replace(/\/$/, "")
+        if (!relative || relative === "index.html") relative = "index.html"
+
+        const isRsc = request.headers?.["rsc"] === "1" || (request.url || "").includes("_rsc=")
+        let filePath = join(uiDir, relative)
+        if (isRsc && existsSync(filePath + ".txt")) {
+          filePath = filePath + ".txt"
+        } else if (existsSync(filePath + ".html")) {
+          filePath = filePath + ".html"
+        } else if (existsSync(join(filePath, "index.html"))) {
+          filePath = join(filePath, "index.html")
+        }
+
+        if (existsSync(filePath) && statSync(filePath).isFile()) {
+          const ext = extname(filePath).toLowerCase()
+          let contentType = MIME_MAP[ext] ?? "application/octet-stream"
+          if (ext === ".txt") {
+            contentType = "text/x-component; charset=utf-8"
+          }
+          response.statusCode = 200
+          response.setHeader("Content-Type", contentType)
+          if (ext === ".html") {
+            response.setHeader("Cache-Control", "no-cache")
+          } else {
+            response.setHeader("Cache-Control", "public, max-age=31536000, immutable")
+          }
+          response.end(readFileSync(filePath))
+          return
+        }
+
+        // Fallback for SPA routing without extension
+        if (!extname(path) && existsSync(join(uiDir, "index.html"))) {
+          response.statusCode = 200
+          response.setHeader("Content-Type", "text/html; charset=utf-8")
+          response.setHeader("Cache-Control", "no-cache")
+          response.end(readFileSync(join(uiDir, "index.html")))
+          return
+        }
+      }
+
+      // 2. Embedded mini UI fallback
+      if (path !== "/" && path !== "/index.html") {
         next()
         return
       }
@@ -366,9 +445,12 @@ export class OpenTrace {
   }
 }
 
-export function createOpenTrace(options: OpenTraceOptions) {
+export function createSpurTrace(options: OpenTraceOptions) {
   return new OpenTrace(options)
 }
+
+export const createOpenTrace = createSpurTrace
+export { OpenTrace as SpurTrace }
 
 export { BatchWriter, fingerprintError, fingerprintSql }
 export { SqliteStorageAdapter } from "./storage/sqlite-adapter.ts"

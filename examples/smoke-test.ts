@@ -4,8 +4,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { BatchWriter, fingerprintSql, SqliteStorageAdapter } from "opentrace"
 import type { StorageAdapter, TraceRecord } from "opentrace"
-import { aggregateQueries, expandTraceQueries, formatSql, getStatementType } from "../lib/opentrace/sql-analytics.ts"
-import { demoTraces } from "../lib/opentrace/demo-data.ts"
+import { aggregateQueries, expandTraceQueries, formatSql, getStatementType } from "../apps/dashboard/lib/opentrace/sql-analytics.ts"
+import { demoTraces } from "../apps/dashboard/lib/opentrace/demo-data.ts"
 
 function traceRecord(traceId: string, priority: TraceRecord["priority"] = "normal"): TraceRecord {
   return {

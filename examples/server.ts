@@ -43,13 +43,14 @@ app.get("/api/orders/:id", async (request, response, next) => {
   }
 })
 app.use("/_telemetry", trace.dashboardMiddleware())
+app.use("/_next", trace.dashboardMiddleware())
 app.use(trace.errorMiddleware())
 app.use((error: unknown, _request: express.Request, response: express.Response, _next: express.NextFunction) => {
   response.status(500).json({ error: error instanceof Error ? error.message : "Request failed" })
 })
 
 const server = app.listen(port, async () => {
-  console.log(`OpenTrace demo listening on http://localhost:${port}`)
+  console.log(`SpurTrace demo listening on http://localhost:${port}`)
   console.log(`Embedded dashboard: http://localhost:${port}/_telemetry/`)
   const startedAt = performance.now()
   const results = await Promise.allSettled(

@@ -1,40 +1,32 @@
 {
-  "name": "opentrace-poc",
+  "name": "spurtrace-monorepo",
   "version": "0.1.0",
   "private": true,
   "packageManager": "pnpm@12.3.4",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --filter opentrace build && next dev",
-    "build": "pnpm --filter opentrace build && next build",
-    "start": "next start",
+    "dev": "pnpm --filter spurtrace-dashboard dev",
+    "dev:all": "pnpm --parallel dev",
+    "dev:docs": "pnpm --filter opentrace-docs dev",
+    "build": "pnpm --filter opentrace build && pnpm --filter spurtrace-dashboard build && pnpm --filter opentrace-docs build",
     "build:opentrace": "pnpm --filter opentrace build",
+    "build:dashboard": "pnpm --filter spurtrace-dashboard build",
+    "build:docs": "pnpm --filter opentrace-docs build",
+    "bundle:ui": "node scripts/build-dashboard-bundle.mjs",
+    "package": "node scripts/build-dashboard-bundle.mjs && pnpm --filter opentrace build",
     "demo": "pnpm --filter opentrace build && node --experimental-strip-types examples/server.ts",
-    "test:smoke": "pnpm --filter opentrace build && node --experimental-strip-types examples/smoke-test.ts"
+    "test:smoke": "pnpm --filter opentrace build && node --experimental-strip-types examples/smoke-test.ts",
+    "lint": "pnpm --filter spurtrace-dashboard lint",
+    "format": "prettier --write \"apps/**/*.{ts,tsx}\" \"packages/**/*.{ts,tsx}\" \"examples/**/*.{ts,tsx}\""
   },
   "dependencies": {
-    "@base-ui/react": "^1.5.0",
-    "opentrace": "workspace:*",
-    "@vercel/analytics": "1.6.1",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
     "express": "^5.3.0",
-    "lucide-react": "^1.16.0",
-    "next": "16.4.6",
-    "react": "^19",
-    "react-dom": "^19",
-    "shadcn": "^4.11.0",
-    "tailwind-merge": "^3.3.1",
-    "tw-animate-css": "^1.4.0"
+    "opentrace": "workspace:*"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.3.3",
     "@types/express": "^5.0.6",
     "@types/node": "^24",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "postcss": "^8.5",
-    "tailwindcss": "^4.3.3",
+    "prettier": "^3.5.0",
     "typescript": "5.7.3"
   }
 }

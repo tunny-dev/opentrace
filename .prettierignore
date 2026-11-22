@@ -1,0 +1,10 @@
+node_modules
+.next
+dist
+build
+coverage
+.system_generated
+*.tsbuildinfo
+pnpm-lock.yaml
+packages
+public
