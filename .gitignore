@@ -93,4 +93,4 @@ temp/
 **/temp/
 
 # Agent & Local caches
-.agents/
+# .agents/

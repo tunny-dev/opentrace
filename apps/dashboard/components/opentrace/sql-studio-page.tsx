@@ -56,6 +56,10 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
   const [studioOpen, setStudioOpen] = useState(false);
   const [studioInitialQuery, setStudioInitialQuery] = useState<StudioQueryItem | null>(null);
 
+  const closeStudio = () => {
+    setStudioOpen(false);
+  };
+
   const queries = useMemo(() => aggregateQueries(traces), [traces]);
   const visibleQueries = useMemo(
     () =>
@@ -72,9 +76,32 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
     [queries, statementFilter, search, sortByImpact]
   );
 
-  const totalCalls = queries.reduce((total, query) => total + query.totalCalls, 0);
-  const totalDbTime = queries.reduce((total, query) => total + query.totalDurationMs, 0);
-  const nPlusOneCount = queries.filter((query) => query.nPlusOneRoutes.length > 0).length;
+  const totalCalls = useMemo(
+    () => queries.reduce((total, query) => total + query.totalCalls, 0),
+    [queries]
+  );
+  const totalDbTime = useMemo(
+    () => queries.reduce((total, query) => total + query.totalDurationMs, 0),
+    [queries]
+  );
+  const nPlusOneCount = useMemo(
+    () => queries.filter((query) => query.nPlusOneRoutes.length > 0).length,
+    [queries]
+  );
+  const studioQueries = useMemo<StudioQueryItem[]>(
+    () =>
+      visibleQueries.slice(0, 5).map((q, i) => ({
+        id: `prof_${i}`,
+        sql: q.template,
+        paramsJson: { id: i + 1, factory: "VN", status: "completed" },
+        durationMs: Math.round(q.avgLatencyMs),
+      })),
+    [visibleQueries]
+  );
+  const studioModalQueries = useMemo(
+    () => (studioInitialQuery ? [studioInitialQuery] : studioQueries),
+    [studioInitialQuery, studioQueries]
+  );
 
   function handleOpenStudioWithSql(sql: string) {
     setStudioInitialQuery({
@@ -359,26 +386,14 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
         />
       )}
 
-      {/* Full MES SQL Studio & Debugger Modal with Resizable Panels (MESProductionReport style) */}
+      {/* Full SQL Studio modal */}
       <SqlStudioModal
         isOpen={studioOpen}
-        onClose={() => {
-          setStudioOpen(false);
-          setStudioInitialQuery(null);
-        }}
+        onClose={closeStudio}
         traceId="sql_prof_auto_fleet"
         endpoint="GLOBAL SQL PROFILER"
-        traceLatency={`${formatDuration(totalDbTime)}`}
-        queries={
-          studioInitialQuery
-            ? [studioInitialQuery]
-            : visibleQueries.slice(0, 5).map((q, i) => ({
-                id: `prof_${i}`,
-                sql: q.template,
-                paramsJson: { id: i + 1, factory: "VN", status: "completed" },
-                durationMs: Math.round(q.avgLatencyMs),
-              }))
-        }
+        traceLatency={formatDuration(totalDbTime)}
+        queries={studioModalQueries}
       />
     </div>
   );

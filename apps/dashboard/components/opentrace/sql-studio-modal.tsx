@@ -47,6 +47,16 @@ export interface StudioQueryItem {
   name?: string;
 }
 
+const DEFAULT_QUERY: StudioQueryItem = {
+  sql: `SELECT DC001 AS MfgCode, DC002 AS MfgTypeName, DC003 AS Factory\nFROM SSFDC WITH (NOLOCK)\nWHERE ISNULL(DC003, '') LIKE '%' + ISNULL(@Factory, DC003) + '%'\nORDER BY DC001`,
+  paramsJson: JSON.stringify({ Factory: "VN" }, null, 2),
+  durationMs: 50,
+};
+
+function getParamsText(params: StudioQueryItem["paramsJson"]) {
+  return typeof params === "string" ? params : JSON.stringify(params || {}, null, 2);
+}
+
 export function SqlStudioModal({
   isOpen,
   onClose,
@@ -66,22 +76,16 @@ export function SqlStudioModal({
   initialQueryIndex?: number;
   role?: UserRole;
 }) {
-  const defaultQuery: StudioQueryItem = {
-    sql: `SELECT DC001 AS MfgCode, DC002 AS MfgTypeName, DC003 AS Factory\nFROM SSFDC WITH (NOLOCK)\nWHERE ISNULL(DC003, '') LIKE '%' + ISNULL(@Factory, DC003) + '%'\nORDER BY DC001`,
-    paramsJson: JSON.stringify({ Factory: "VN" }, null, 2),
-    durationMs: 50,
-  };
-
-  const queryList = queries.length > 0 ? queries : [defaultQuery];
+  const queryList = useMemo(
+    () => (queries.length > 0 ? queries : [DEFAULT_QUERY]),
+    [queries]
+  );
   const [selectedIndex, setSelectedIndex] = useState(initialQueryIndex);
-  const currentItem = queryList[selectedIndex] || defaultQuery;
+  const safeIndex = Math.min(selectedIndex, Math.max(queryList.length - 1, 0));
+  const currentItem = queryList[safeIndex] || DEFAULT_QUERY;
 
   const [sqlText, setSqlText] = useState(currentItem.sql);
-  const [paramsText, setParamsText] = useState(
-    typeof currentItem.paramsJson === "string"
-      ? currentItem.paramsJson
-      : JSON.stringify(currentItem.paramsJson || {}, null, 2)
-  );
+  const [paramsText, setParamsText] = useState(getParamsText(currentItem.paramsJson));
 
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeTab, setActiveTab] = useState<"grid" | "stats" | "inlined">("grid");
@@ -93,14 +97,20 @@ export function SqlStudioModal({
   const [resultRows, setResultRows] = useState<any[]>([]);
 
   useEffect(() => {
-    if (queryList[selectedIndex]) {
-      setSqlText(queryList[selectedIndex].sql);
-      const p = queryList[selectedIndex].paramsJson;
-      setParamsText(typeof p === "string" ? p : JSON.stringify(p || {}, null, 2));
-      setHasExecuted(false);
-      setResultRows([]);
+    if (isOpen) {
+      setSelectedIndex(initialQueryIndex);
     }
-  }, [selectedIndex]);
+  }, [isOpen, initialQueryIndex]);
+
+  useEffect(() => {
+    const item = queryList[safeIndex] || DEFAULT_QUERY;
+    setSqlText(item.sql);
+    setParamsText(getParamsText(item.paramsJson));
+    setHasExecuted(false);
+    setResultRows([]);
+    setExecutionStats(null);
+    setSearchFilter("");
+  }, [safeIndex, queryList]);
 
   function handleCopy(text: string, key: string) {
     if (!text) return;
@@ -124,11 +134,11 @@ export function SqlStudioModal({
 
   function handleReset() {
     setSqlText(currentItem.sql);
-    const p = currentItem.paramsJson;
-    setParamsText(typeof p === "string" ? p : JSON.stringify(p || {}, null, 2));
+    setParamsText(getParamsText(currentItem.paramsJson));
     setHasExecuted(false);
     setResultRows([]);
     setExecutionStats(null);
+    setSearchFilter("");
   }
 
   const inlinedSql = useMemo(() => {
@@ -218,7 +228,7 @@ export function SqlStudioModal({
       <DialogContent
         showCloseButton={false}
         className={cn(
-          "bg-card text-card-foreground border border-border p-0 flex flex-col gap-0 shadow-2xl transition-all duration-150 overflow-hidden",
+          "bg-card text-card-foreground border border-border p-0 flex flex-col gap-0 shadow-2xl overflow-hidden duration-200 data-open:zoom-in-100 data-closed:zoom-out-100",
           isMaximized
             ? "fixed! inset-2! top-2! left-2! translate-x-0! translate-y-0! w-[calc(100vw-16px)]! h-[calc(100vh-16px)]! max-w-none! rounded-lg"
             : "w-[97vw] max-w-[1600px] h-[92vh] max-h-[960px] rounded-lg"

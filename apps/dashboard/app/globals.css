@@ -2578,7 +2578,7 @@ button {
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #858a94;
+  color: var(--ot-muted);
   font: 8px var(--font-manrope), sans-serif;
   letter-spacing: .08em;
 }
@@ -2586,13 +2586,13 @@ button {
 .sql-metric-card>div svg {
   width: 12px;
   height: 12px;
-  color: #8b9099;
+  color: var(--ot-muted);
 }
 
 .sql-metric-card>strong {
   display: block;
   margin-top: 11px;
-  color: #e7e9ed;
+  color: var(--ot-text);
   font-size: 20px;
   font-weight: 520;
   letter-spacing: -.04em;
@@ -2601,7 +2601,7 @@ button {
 .sql-metric-card>small {
   display: block;
   margin-top: 5px;
-  color: #737882;
+  color: var(--ot-muted);
   font-size: 8px;
 }
 
@@ -2714,7 +2714,7 @@ button {
 
 .sql-analytics-table tbody tr {
   height: 64px;
-  border-bottom: 1px solid #202226;
+  border-bottom: 1px solid var(--ot-border);
   outline: 0;
   cursor: pointer;
   transition: background .12s ease;
@@ -2722,12 +2722,12 @@ button {
 
 .sql-analytics-table tbody tr:hover,
 .sql-analytics-table tbody tr:focus-visible {
-  background: #17191b;
+  background: var(--ot-table-hover);
 }
 
 .sql-analytics-table td {
-  color: #b9bdc6;
-  font-size: 8px;
+  color: var(--ot-text-subtle);
+  font-size: 12px;
 }
 
 .sql-sort-button {
@@ -2756,16 +2756,16 @@ button {
 
 .sql-template-cell>code {
   overflow: hidden;
-  color: #d7dae0;
-  font: 8px var(--font-manrope), sans-serif;
+  color: var(--ot-text);
+  font: 12px var(--font-manrope), sans-serif;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .sql-template-cell>small {
   grid-column: 2;
-  color: #686d77;
-  font: 7px var(--font-manrope), sans-serif;
+  color: var(--ot-muted);
+  font: 11px var(--font-manrope), sans-serif;
 }
 
 .statement-badge {
@@ -2819,9 +2819,9 @@ button {
 }
 
 .impact-cell strong {
-  color: #d3d6dd;
-  font: 9px var(--font-manrope), sans-serif;
-  font-weight: 450;
+  color: var(--ot-text);
+  font: 11px var(--font-manrope), sans-serif;
+  font-weight: 500;
 }
 
 .impact-track {
@@ -2829,7 +2829,7 @@ button {
   height: 4px;
   overflow: hidden;
   border-radius: 4px;
-  background: #292b30;
+  background: color-mix(in srgb, var(--ot-muted) 20%, transparent);
 }
 
 .impact-track i {
@@ -2841,8 +2841,8 @@ button {
 
 .sql-calls-count,
 .latency-pair strong {
-  color: #d5d8df;
-  font: 9px var(--font-manrope), sans-serif;
+  color: var(--ot-text);
+  font: 12px var(--font-manrope), sans-serif;
 }
 
 .latency-pair {
@@ -2852,8 +2852,8 @@ button {
 }
 
 .latency-pair small {
-  color: #858a94;
-  font: 8px var(--font-manrope), sans-serif;
+  color: var(--ot-muted);
+  font: 11px var(--font-manrope), sans-serif;
 }
 
 .n1-alert-badge {
@@ -2880,7 +2880,7 @@ button {
 }
 
 .no-n1 {
-  color: #666b74;
+  color: var(--ot-muted);
 }
 
 .associated-routes {
@@ -2895,29 +2895,29 @@ button {
   overflow: hidden;
   max-width: 200px;
   padding: 3px 5px;
-  border: 1px solid #2a2c31;
+  border: 1px solid var(--ot-border);
   border-radius: 4px;
-  background: #151619;
-  color: #9da2ab;
-  font: 7px var(--font-manrope), sans-serif;
+  background: var(--ot-panel-raised);
+  color: var(--ot-text-subtle);
+  font: 11px var(--font-manrope), sans-serif;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .route-more {
-  color: #7b8089;
-  font: 7px var(--font-manrope), sans-serif;
+  color: var(--ot-muted);
+  font: 11px var(--font-manrope), sans-serif;
 }
 
 .sql-row-chevron {
   width: 12px;
   height: 12px;
-  color: #6f747e;
+  color: var(--ot-muted);
 }
 
 .no-sql-results {
   height: 96px;
-  color: #858a94 !important;
+  color: var(--ot-muted) !important;
   text-align: center;
 }
 
@@ -2928,8 +2928,8 @@ button {
   justify-content: space-between;
   gap: 10px;
   padding: 0 14px;
-  color: #70757f;
-  font-size: 8px;
+  color: var(--ot-muted);
+  font-size: 11px;
 }
 
 .sql-table-footer>span:last-child {
