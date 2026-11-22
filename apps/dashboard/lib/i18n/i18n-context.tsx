@@ -4,11 +4,23 @@ import * as React from "react";
 import { useState, useEffect, useMemo, useCallback, useContext } from "react";
 import { type Locale, type TranslationDictionary, translations } from "./translations";
 
+export type TranslateParams = Record<string, string | number>;
+
+/**
+ * `t("path")`, `t("path", "fallback")`, `t("path", { count: 3 })` or
+ * `t("path", "fallback", { count: 3 })`. Placeholders look like `{count}`.
+ */
+export type TranslateFn = (
+  path: string,
+  fallbackOrParams?: string | TranslateParams,
+  params?: TranslateParams
+) => string;
+
 interface I18nContextType {
   locale: Locale;
   setLocale: (locale: Locale) => void;
   toggleLocale: () => void;
-  t: (path: string, fallback?: string) => string;
+  t: TranslateFn;
   dict: TranslationDictionary;
   isVietnamese: boolean;
 }
@@ -16,6 +28,34 @@ interface I18nContextType {
 const I18nContext = React.createContext<I18nContextType | null>(null);
 
 const STORAGE_KEY = "opentrace_locale";
+
+function interpolate(text: string, params?: TranslateParams) {
+  if (!params) return text;
+  return text.replace(/\{(\w+)\}/g, (match, key: string) =>
+    key in params ? String(params[key]) : match
+  );
+}
+
+function translate(
+  dict: TranslationDictionary,
+  path: string,
+  fallbackOrParams?: string | TranslateParams,
+  maybeParams?: TranslateParams
+): string {
+  const fallback = typeof fallbackOrParams === "string" ? fallbackOrParams : undefined;
+  const params = typeof fallbackOrParams === "object" ? fallbackOrParams : maybeParams;
+
+  // Resolve dot-notated paths, e.g. "common.overview"
+  let current: unknown = dict;
+  for (const part of path.split(".")) {
+    if (current && typeof current === "object" && part in current) {
+      current = (current as Record<string, unknown>)[part];
+    } else {
+      return interpolate(fallback ?? path, params);
+    }
+  }
+  return interpolate(typeof current === "string" ? current : (fallback ?? path), params);
+}
 
 export function I18nProvider({
   children,
@@ -85,20 +125,8 @@ export function I18nProvider({
 
   const dict = translations[locale] || translations.vi;
 
-  // Helper function to resolve dot-notated paths, e.g. "common.overview"
-  const t = useCallback(
-    (path: string, fallback?: string): string => {
-      const parts = path.split(".");
-      let current: any = dict;
-      for (const part of parts) {
-        if (current && typeof current === "object" && part in current) {
-          current = current[part];
-        } else {
-          return fallback ?? path;
-        }
-      }
-      return typeof current === "string" ? current : (fallback ?? path);
-    },
+  const t = useCallback<TranslateFn>(
+    (path, fallbackOrParams, params) => translate(dict, path, fallbackOrParams, params),
     [dict]
   );
 
@@ -117,32 +145,19 @@ export function I18nProvider({
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 
-export function useI18n() {
-  const ctx = useContext(I18nContext);
-  if (!ctx) {
-    // Graceful fallback for components rendered outside I18nProvider
-    const fallbackDict = translations.vi;
-    return {
-      locale: "vi" as Locale,
-      setLocale: () => {},
-      toggleLocale: () => {},
-      t: (path: string, fallback?: string) => {
-        const parts = path.split(".");
-        let current: any = fallbackDict;
-        for (const part of parts) {
-          if (current && typeof current === "object" && part in current) {
-            current = current[part];
-          } else {
-            return fallback ?? path;
-          }
-        }
-        return typeof current === "string" ? current : (fallback ?? path);
-      },
-      dict: fallbackDict,
-      isVietnamese: true,
-    };
-  }
-  return ctx;
+const fallbackContext: I18nContextType = {
+  locale: "vi",
+  setLocale: () => {},
+  toggleLocale: () => {},
+  t: (path, fallbackOrParams, params) =>
+    translate(translations.vi, path, fallbackOrParams, params),
+  dict: translations.vi,
+  isVietnamese: true,
+};
+
+export function useI18n(): I18nContextType {
+  // Graceful fallback for components rendered outside I18nProvider
+  return useContext(I18nContext) ?? fallbackContext;
 }
 
 // Convenient alias
