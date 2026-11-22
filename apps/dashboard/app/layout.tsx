@@ -5,7 +5,6 @@ import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryProvider } from "@/components/opentrace/query-provider";
 import { I18nProvider } from "@/lib/i18n/i18n-context";
-import { SmallScreenWarning } from "@/components/opentrace/small-screen-warning";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -60,7 +59,6 @@ export default function RootLayout({
             <QueryProvider>
               <TooltipProvider delay={150}>
                 {children}
-                <SmallScreenWarning />
                 <Toaster richColors position="top-right" />
               </TooltipProvider>
             </QueryProvider>

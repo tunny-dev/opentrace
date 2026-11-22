@@ -2,8 +2,7 @@
 
 import * as React from "react";
 import { useState } from "react";
-import { usePathname } from "next/navigation";
-import { Bell, ChevronDown, Command, RefreshCw, Search } from "lucide-react";
+import { Search } from "lucide-react";
 
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
@@ -24,20 +23,7 @@ import { CommandSearch } from "@/components/opentrace/command-search";
 import { TelemetryProvider, useTelemetry } from "@/lib/opentrace/telemetry-context";
 import { useI18n } from "@/lib/i18n/i18n-context";
 
-const pageTitles: Record<string, string> = {
-  "/": "Overview",
-  "/traces": "Traces",
-  "/errors": "Errors",
-  "/sql": "SQL Studio",
-  "/alerts": "Alerts",
-  "/logs": "Log Stream",
-  "/services": "Services",
-  "/releases": "Releases",
-  "/settings": "Settings",
-};
-
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
   const [searchOpen, setSearchOpen] = useState(false);
   const { dict } = useI18n();
 
@@ -59,33 +45,6 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     return <LoginPage onLogin={login} />;
   }
 
-  const getPageTitle = (path: string): string => {
-    switch (path) {
-      case "/":
-        return dict.common.overview;
-      case "/traces":
-        return dict.common.traces;
-      case "/errors":
-        return dict.common.errors;
-      case "/sql":
-        return dict.common.sql;
-      case "/alerts":
-        return dict.common.alerts;
-      case "/logs":
-        return dict.common.logs;
-      case "/services":
-        return dict.common.services;
-      case "/releases":
-        return dict.common.releases;
-      case "/settings":
-        return dict.common.settings;
-      default:
-        return dict.common.overview;
-    }
-  };
-
-  const currentTitle = getPageTitle(pathname);
-
   return (
     <SidebarProvider defaultOpen={true} className="h-svh overflow-hidden">
       {/* Shadcn UI Sidebar (matching MESProductionReport AppSidebar) */}
@@ -103,18 +62,9 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             <div className="flex h-6 shrink-0">
               <Separator orientation="vertical" />
             </div>
-            <div className="flex min-w-0 items-center gap-1.5 text-xs">
-              <span className="hidden shrink-0 font-medium text-muted-foreground sm:inline">
-                MES Production
-              </span>
-              <span className="hidden shrink-0 text-muted-foreground/60 sm:inline">/</span>
-              <strong className="truncate font-semibold text-foreground">{currentTitle}</strong>
-            </div>
-
-            <div className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[11px] font-semibold">
-              <span className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>App: MES-Production</span>
-            </div>
+            <span className="truncate text-xs font-medium text-muted-foreground sm:text-sm">
+              MES Production
+            </span>
           </div>
 
           <div className="ms-auto flex min-w-0 items-center gap-2 sm:gap-3">
@@ -136,6 +86,17 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
               </kbd>
             </Button>
 
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="h-8 w-8 shrink-0 cursor-pointer sm:hidden"
+              onClick={() => setSearchOpen(true)}
+              aria-label={dict.header.searchPlaceholder}
+            >
+              <Search />
+            </Button>
+
             <div className="hidden h-4 w-px shrink-0 bg-(--ot-border) sm:block" />
 
             {/* Language Switcher */}
@@ -149,7 +110,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         {/* Full-width scroll container so the scrollbar stays on the viewport edge,
             while the content is free to use the whole width on large screens. */}
         <div className="min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto">
-          <main className="w-full min-w-0 p-3 sm:p-4 lg:p-6">{children}</main>
+          <main className="w-full min-w-0 p-4 sm:p-6">{children}</main>
         </div>
       </SidebarInset>
 
