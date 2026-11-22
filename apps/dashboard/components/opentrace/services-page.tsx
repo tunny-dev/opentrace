@@ -127,17 +127,6 @@ export function ServicesPage({
 
   return (
     <div className="services-page">
-      <div className="sql-workspace-context">
-        <div className="section-kicker">
-          PLATFORM / SERVICE CATALOG <span className="demo-label">SAMPLE TOPOLOGY</span>
-        </div>
-        <div className="sql-studio-context-meta">
-          <div className="sql-studio-status">
-            <span className="collector-dot" />4 active telemetry producers
-          </div>
-        </div>
-      </div>
-
       <section className="sql-metrics-grid" aria-label="Services overview metrics">
         <article className="sql-metric-card">
           <div>

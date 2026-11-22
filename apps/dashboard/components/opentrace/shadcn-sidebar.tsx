@@ -1,27 +1,35 @@
 "use client";
 
-import * as React from "react";
-import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
   AlertTriangle,
   Bell,
-  BookOpen,
   Boxes,
-  Check,
+  ChevronsUpDown,
   Database,
   FileText,
   Gauge,
   LogOut,
+  Settings2,
   ShieldCheck,
   TerminalSquare,
   UserRound,
-  Settings2,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/i18n-context";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import {
   Sidebar,
@@ -49,9 +57,6 @@ export function OpenTraceShadcnSidebar({
 }) {
   const pathname = usePathname();
   const { dict, locale, setLocale } = useI18n();
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
-
   const observabilityItems = [
     { href: "/", label: dict.common.overview, icon: Gauge },
     { href: "/traces", label: dict.common.traces, icon: Activity },
@@ -65,17 +70,6 @@ export function OpenTraceShadcnSidebar({
     { href: "/releases", label: dict.common.releases, icon: ShieldCheck },
     { href: "/settings", label: dict.common.settings, icon: TerminalSquare },
   ];
-
-  useEffect(() => {
-    if (!userMenuOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (!menuRef.current?.contains(e.target as Node)) {
-        setUserMenuOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [userMenuOpen]);
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
@@ -106,7 +100,7 @@ export function OpenTraceShadcnSidebar({
 
       <SidebarContent className="gap-1 px-2 group-data-[collapsible=icon]:px-1 py-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-[9px] font-semibold tracking-wider text-muted-foreground px-2 py-1 group-data-[collapsible=icon]:hidden">
+          <SidebarGroupLabel className="px-2 py-1 text-xs font-medium tracking-wide text-muted-foreground group-data-[collapsible=icon]:hidden">
             {dict.sidebar.observabilityGroup}
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -124,19 +118,13 @@ export function OpenTraceShadcnSidebar({
                       onClick={(e) => {
                         if (isActive) e.preventDefault();
                       }}
-                      className={`h-9 font-medium rounded-lg transition-colors group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:justify-center ${
+                      className={`h-10 rounded-xl text-sm font-medium transition-colors group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center ${
                         isActive
-                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-semibold shadow-xs"
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                           : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       }`}
                     >
-                      <Icon
-                        className={`size-4.5 shrink-0 ${
-                          isActive
-                            ? "text-emerald-700 dark:text-emerald-400"
-                            : "text-muted-foreground"
-                        }`}
-                      />
+                      <Icon className="size-4 shrink-0" />
                       <span className="truncate group-data-[collapsible=icon]:hidden text-xs">
                         {item.label}
                       </span>
@@ -148,8 +136,8 @@ export function OpenTraceShadcnSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup className="mt-2">
-          <SidebarGroupLabel className="text-[9px] font-semibold tracking-wider text-muted-foreground px-2 py-1 group-data-[collapsible=icon]:hidden">
+        <SidebarGroup className="mt-4">
+          <SidebarGroupLabel className="px-2 py-1 text-xs font-medium tracking-wide text-muted-foreground group-data-[collapsible=icon]:hidden">
             {dict.sidebar.platformGroup}
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -166,19 +154,13 @@ export function OpenTraceShadcnSidebar({
                       onClick={(e) => {
                         if (isActive) e.preventDefault();
                       }}
-                      className={`h-9 font-medium rounded-lg transition-colors group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:justify-center ${
+                      className={`h-10 rounded-xl text-sm font-medium transition-colors group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center ${
                         isActive
-                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 font-semibold shadow-xs"
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
                           : "text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       }`}
                     >
-                      <Icon
-                        className={`size-4.5 shrink-0 ${
-                          isActive
-                            ? "text-emerald-700 dark:text-emerald-400"
-                            : "text-muted-foreground"
-                        }`}
-                      />
+                      <Icon className="size-4 shrink-0" />
                       <span className="truncate group-data-[collapsible=icon]:hidden text-xs">
                         {item.label}
                       </span>
@@ -203,150 +185,138 @@ export function OpenTraceShadcnSidebar({
           <p className="text-[9px] text-(--ot-muted) mt-1">72k of 100k events</p>
         </div>
 
-        <div
-          className="relative group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center"
-          ref={menuRef}
-        >
-          <Button
-            type="button"
-            variant="outline"
-            className="flex items-center gap-2.5 w-full p-1.5 h-auto rounded-lg border-sidebar-border bg-sidebar hover:bg-sidebar-accent transition-colors group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:p-0 group-data-[collapsible=icon]:justify-center cursor-pointer font-normal justify-start"
-            onClick={() => setUserMenuOpen(!userMenuOpen)}
-            title="Alex Kim (Admin)"
-            aria-label="User profile options"
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                className="flex h-10 w-full cursor-pointer items-center justify-start gap-2.5 rounded-xl px-1 font-normal text-sidebar-foreground transition-colors hover:bg-sidebar-accent group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
+                aria-label={`${dict.sidebar.signedInAs} Alex Kim, ${role}`}
+              >
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+                  AK
+                </div>
+                <div className="grid min-w-0 flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
+                  <span className="truncate font-medium text-sidebar-foreground">Alex Kim</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    alex.kim@opentrace.dev
+                  </span>
+                </div>
+                <span
+                  className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold group-data-[collapsible=icon]:hidden ${
+                    role === "Admin"
+                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                      : "bg-sky-500/15 text-sky-600 dark:text-sky-400"
+                  }`}
+                >
+                  {role}
+                </span>
+                <ChevronsUpDown className="size-4 shrink-0 text-muted-foreground group-data-[collapsible=icon]:hidden" />
+              </Button>
+            }
+          />
+          <DropdownMenuContent
+            side="top"
+            align="start"
+            sideOffset={8}
+            className="w-64 rounded-2xl p-1.5"
           >
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-[11px] font-bold text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-              AK
-            </div>
-            <div className="grid min-w-0 flex-1 text-left text-xs leading-tight group-data-[collapsible=icon]:hidden">
-              <span className="truncate font-semibold text-sidebar-foreground">Alex Kim</span>
-              <span className="truncate text-[10px] text-muted-foreground">
-                alex.kim@opentrace.dev
-              </span>
-            </div>
-            <span
-              className={`ml-auto text-[8px] font-bold px-1.5 py-0.5 rounded group-data-[collapsible=icon]:hidden ${
-                role === "Admin"
-                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25"
-                  : "bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/25"
-              }`}
-            >
-              {role}
-            </span>
-          </Button>
-
-          {userMenuOpen && (
-            <div className="absolute bottom-full left-0 mb-2 w-60 rounded-lg bg-popover border border-border p-1.5 shadow-2xl z-50 animate-in fade-in slide-in-from-bottom-2">
-              <div className="p-2 border-b border-border mb-1">
-                <strong className="block text-xs font-semibold text-popover-foreground">
-                  Alex Kim
-                </strong>
-                <span className="block text-[10px] text-muted-foreground">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="px-3 py-2 font-normal">
+                <span className="block text-sm font-medium text-popover-foreground">Alex Kim</span>
+                <span className="block truncate text-xs text-muted-foreground">
                   alex.kim@opentrace.dev
                 </span>
-              </div>
-              <div className="px-2 py-1 text-[8px] font-bold text-muted-foreground uppercase tracking-wider">
-                {dict.sidebar.roleSwitching}
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                className="flex items-center gap-2 w-full px-2 py-1.5 h-auto rounded text-left text-xs hover:bg-accent text-foreground transition-colors cursor-pointer justify-start font-normal bg-transparent"
-                onClick={() => {
-                  onRoleChange("Admin");
-                  setUserMenuOpen(false);
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{dict.sidebar.roleSwitching}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={role}
+                onValueChange={(value) => {
+                  if (value === "Admin" || value === "Viewer") onRoleChange(value);
                 }}
               >
-                <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
-                <div className="flex flex-col">
-                  <span className="font-medium text-foreground">{dict.common.admin}</span>
-                  <span className="text-[9px] text-muted-foreground">
-                    {dict.sidebar.adminDesc || "Full SQL & settings access"}
-                  </span>
-                </div>
-                {role === "Admin" && <Check className="ml-auto h-3 w-3 text-emerald-500" />}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                className="flex items-center gap-2 w-full px-2 py-1.5 h-auto rounded text-left text-xs hover:bg-accent text-foreground transition-colors cursor-pointer justify-start font-normal bg-transparent"
-                onClick={() => {
-                  onRoleChange("Viewer");
-                  setUserMenuOpen(false);
-                }}
-              >
-                <UserRound className="h-3.5 w-3.5 text-sky-500" />
-                <div className="flex flex-col">
-                  <span className="font-medium text-foreground">{dict.common.viewer}</span>
-                  <span className="text-[9px] text-muted-foreground">
-                    {dict.sidebar.viewerDesc || "Masked runtime values"}
-                  </span>
-                </div>
-                {role === "Viewer" && <Check className="ml-auto h-3 w-3 text-sky-500" />}
-              </Button>
-
-              <div className="h-px bg-border my-1.5" />
-
-              <div className="px-2 py-1 text-[8px] font-bold text-muted-foreground uppercase tracking-wider">
-                {dict.header.languageToggle}
-              </div>
-              <div className="grid grid-cols-2 gap-1 px-1 mb-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className={`flex items-center justify-center gap-1.5 px-2 py-1.5 h-auto rounded text-xs transition-colors cursor-pointer font-normal ${
-                    locale === "vi"
-                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/30"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent bg-transparent"
-                  }`}
-                  onClick={() => setLocale("vi")}
+                <DropdownMenuRadioItem
+                  value="Admin"
+                  className="min-h-12 cursor-pointer rounded-xl py-2 pl-3 pr-8"
                 >
-                  <span className="text-[10px] font-bold px-1 rounded bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                  <ShieldCheck className="text-emerald-500" />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="font-medium">{dict.common.admin}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {dict.sidebar.adminDesc || "Full SQL & settings access"}
+                    </span>
+                  </span>
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem
+                  value="Viewer"
+                  className="min-h-12 cursor-pointer rounded-xl py-2 pl-3 pr-8"
+                >
+                  <UserRound className="text-sky-500" />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="font-medium">{dict.common.viewer}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {dict.sidebar.viewerDesc || "Masked runtime values"}
+                    </span>
+                  </span>
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
+
+            <DropdownMenuSeparator />
+
+            <DropdownMenuGroup>
+              <DropdownMenuLabel>{dict.header.languageToggle}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={locale}
+                onValueChange={(value) => {
+                  if (value === "vi" || value === "en") setLocale(value);
+                }}
+              >
+                <DropdownMenuRadioItem
+                  value="vi"
+                  className="min-h-10 cursor-pointer rounded-xl pl-3 pr-8"
+                >
+                  <span className="inline-flex size-6 items-center justify-center rounded-md bg-emerald-500/15 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
                     VI
                   </span>
-                  <span className="text-[11px]">Tiếng Việt</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className={`flex items-center justify-center gap-1.5 px-2 py-1.5 h-auto rounded text-xs transition-colors cursor-pointer font-normal ${
-                    locale === "en"
-                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/30"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent bg-transparent"
-                  }`}
-                  onClick={() => setLocale("en")}
+                  <span>{dict.header.langVi}</span>
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem
+                  value="en"
+                  className="min-h-10 cursor-pointer rounded-xl pl-3 pr-8"
                 >
-                  <span className="text-[10px] font-bold px-1 rounded bg-sky-500/15 text-sky-600 dark:text-sky-400">
+                  <span className="inline-flex size-6 items-center justify-center rounded-md bg-sky-500/15 text-[10px] font-bold text-sky-600 dark:text-sky-400">
                     EN
                   </span>
-                  <span className="text-[11px]">English</span>
-                </Button>
-              </div>
+                  <span>{dict.header.langEn}</span>
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuGroup>
 
-              <div className="h-px bg-border my-1" />
-              <Link
-                href="/settings"
-                className="flex items-center gap-2 px-2 py-1.5 rounded text-xs text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                onClick={() => setUserMenuOpen(false)}
-              >
-                <Settings2 className="h-3.5 w-3.5" />
-                <span>{dict.common.settings}</span>
-              </Link>
-              <Button
-                type="button"
-                variant="ghost"
-                className="flex items-center gap-2 w-full px-2 py-1.5 h-auto rounded text-xs text-red-500 hover:bg-red-500/10 hover:text-red-600 transition-colors cursor-pointer justify-start font-normal bg-transparent"
-                onClick={() => {
-                  setUserMenuOpen(false);
-                  if (onSignOut) onSignOut();
-                }}
-              >
-                <LogOut className="h-3.5 w-3.5" />
-                <span>{dict.common.signOut}</span>
-              </Button>
-            </div>
-          )}
-        </div>
+            <DropdownMenuSeparator />
+
+            <DropdownMenuItem
+              render={<Link href="/settings" />}
+              className="min-h-10 cursor-pointer rounded-xl px-3 py-2"
+            >
+              <Settings2 />
+              <span>{dict.common.settings}</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="min-h-10 cursor-pointer rounded-xl px-3 py-2 text-muted-foreground hover:bg-rose-500/10 hover:text-rose-700 focus:bg-rose-500/10 focus:text-rose-700 dark:hover:text-rose-400 dark:focus:text-rose-400"
+              onClick={onSignOut}
+            >
+              <LogOut />
+              <span>{dict.common.signOut}</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </SidebarFooter>
 
       <SidebarRail />
