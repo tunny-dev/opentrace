@@ -47,7 +47,7 @@ export function LogStreamView({ events = [], onInspect }) {
     setTimeout(() => setCopiedIdx(null), 1800);
   };
 
-  // Format time to YYYY-MM-DD HH:mm:ss.SSS like Grafana Loki
+  // Keep timestamps consistent and easy to scan in dense log streams.
   const formatTime = (iso) => {
     if (!iso) return '';
     try {
@@ -120,9 +120,27 @@ export function LogStreamView({ events = [], onInspect }) {
     return list;
   }, [events, consoleSearch, sortOrder]);
 
+  const levelCounts = useMemo(() => processedEvents.reduce((counts, event) => {
+    const level = String(event.level || 'info').toLowerCase();
+    if (level.includes('error') || level.includes('fatal')) counts.errors += 1;
+    else if (level.includes('warn')) counts.warnings += 1;
+    return counts;
+  }, { errors: 0, warnings: 0 }), [processedEvents]);
+
   return (
     <TooltipProvider delayDuration={150}>
-      <div className="space-y-2 rounded border dark:border-[#22252b] border-slate-200 dark:bg-[#181b1f] bg-white p-3 shadow-xs transition-colors">
+      <div className="space-y-3 rounded-lg border dark:border-[#22252b] border-slate-200 dark:bg-[#181b1f] bg-white p-3 shadow-xs transition-colors sm:p-4" aria-label="Application log explorer">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b dark:border-[#22252b] border-slate-200 pb-3">
+          <div>
+            <h2 className="text-sm font-semibold dark:text-slate-100 text-slate-900">Log stream</h2>
+            <p className="mt-0.5 text-[11px] dark:text-[#8e94a0] text-slate-500">Application events from the selected time range</p>
+          </div>
+          <div className="flex items-center gap-2 text-[11px]" aria-label="Log level summary">
+            <span className="rounded border border-[#f2495c]/30 bg-[#f2495c]/10 px-2 py-1 text-[#f2495c]">{levelCounts.errors} errors</span>
+            <span className="rounded border border-[#faad14]/30 bg-[#faad14]/10 px-2 py-1 text-[#b77900] dark:text-[#faad14]">{levelCounts.warnings} warnings</span>
+            <span className="rounded border dark:border-[#2c323f] border-slate-200 px-2 py-1 dark:text-slate-300 text-slate-600">{processedEvents.length} events</span>
+          </div>
+        </div>
         <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2 border-b dark:border-[#22252b] border-slate-200">
           <div className="flex items-center gap-2">
             <div className="flex items-center rounded border dark:border-[#2c323f] border-slate-300 dark:bg-[#111217] bg-slate-100 p-0.5">

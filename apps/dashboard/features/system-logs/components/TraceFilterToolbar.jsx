@@ -73,6 +73,7 @@ export function TraceFilterToolbar({
   resolvedTheme = 'dark',
   toggleTheme,
   isSubPage = false,
+  isLogMode = false,
 }) {
   const location = useLocation();
   const isSystemLogsActive =
@@ -288,20 +289,22 @@ export function TraceFilterToolbar({
               availableDates={dates}
             />
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  onClick={handleExecuteQuery}
-                  disabled={loading}
-                  className="h-8 px-3.5 bg-[#3274d9] hover:bg-[#2463eb] text-white font-medium text-xs rounded shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer transition active:scale-95 disabled:opacity-60"
-                >
-                  <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-                  <span>Run query</span>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Execute search query (Shortcut: Enter)</TooltipContent>
-            </Tooltip>
+            {!isLogMode && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    onClick={handleExecuteQuery}
+                    disabled={loading}
+                    className="h-8 px-3.5 bg-[#3274d9] hover:bg-[#2463eb] text-white font-medium text-xs rounded shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer transition active:scale-95 disabled:opacity-60"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                    <span>Run query</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Execute search query (Shortcut: Enter)</TooltipContent>
+              </Tooltip>
+            )}
 
             {!isSubPage && onAutoRefreshChange && (
               <div className="flex items-center gap-1.5 rounded border dark:border-[#2c323f] border-slate-300 dark:bg-[#111217] bg-slate-50 px-2 py-0.5 text-xs">
@@ -336,20 +339,22 @@ export function TraceFilterToolbar({
               </div>
             )}
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={onOpenFiles}
-                  className="h-8 text-xs dark:border-[#2c323f] border-slate-300 dark:bg-[#111217] bg-slate-50 dark:text-[#c7d0d9] text-slate-700 hover:text-slate-900 dark:hover:text-white"
-                >
-                  <FolderOpen className="h-3.5 w-3.5 mr-1 text-[#5794f2]" />
-                  Log Files
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Browse raw server log files on disk</TooltipContent>
-            </Tooltip>
+            {!isLogMode && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onOpenFiles}
+                    className="h-8 text-xs dark:border-[#2c323f] border-slate-300 dark:bg-[#111217] bg-slate-50 dark:text-[#c7d0d9] text-slate-700 hover:text-slate-900 dark:hover:text-white"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5 mr-1 text-[#5794f2]" />
+                    Log Files
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Browse raw server log files on disk</TooltipContent>
+              </Tooltip>
+            )}
 
             {toggleTheme && (
               <Tooltip>
@@ -523,4 +528,5 @@ TraceFilterToolbar.propTypes = {
   resolvedTheme: PropTypes.string,
   toggleTheme: PropTypes.func,
   isSubPage: PropTypes.bool,
+  isLogMode: PropTypes.bool,
 };
