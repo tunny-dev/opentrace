@@ -34,32 +34,32 @@ export interface DocContentRecord {
 export const docsContentMap: Record<string, DocContentRecord> = {
   // 1. Introduction
   "getting-started/introduction": {
-    title: "Introduction to OpenTrace",
+    title: "Introduction to SpurTrace",
     description: "An embedded, lightweight APM and observability platform with zero cloud lock-in.",
     group: "Getting Started",
     lastUpdated: "November 2026",
     badge: "Core",
     toc: [
-      { id: "what-is-opentrace", title: "What is OpenTrace?", level: 2 },
+      { id: "what-is-opentrace", title: "What is SpurTrace?", level: 2 },
       { id: "core-pillars", title: "Core Architectural Pillars", level: 2 },
-      { id: "comparison", title: "OpenTrace vs Traditional APM", level: 2 },
+      { id: "comparison", title: "SpurTrace vs Traditional APM", level: 2 },
       { id: "next-steps", title: "Next Steps", level: 2 },
     ],
     content: (
       <div className="space-y-6">
         <h2 id="what-is-opentrace" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-          What is OpenTrace?
+          What is SpurTrace?
         </h2>
         <p className="text-sm leading-relaxed text-zinc-700 dark:text-zinc-300">
-          <strong>OpenTrace</strong> is an open-source, developer-friendly Application Performance Monitoring (APM)
+          <strong>SpurTrace</strong> is an open-source, developer-friendly Application Performance Monitoring (APM)
           and telemetry suite designed for modern web applications and microservices. Unlike heavyweight commercial
           APM solutions that require complex host agents, cloud billing accounts, and sending confidential data outside,
-          OpenTrace embeds directly into your backend service and stores traces locally in high-performance SQLite (WAL mode)
+          SpurTrace embeds directly into your backend service and stores traces locally in high-performance SQLite (WAL mode)
           or your existing database.
         </p>
 
         <Callout type="tip" title="Designed for Internal Enterprise & Factory Networks">
-          OpenTrace keeps 100% of telemetry data within your infrastructure. No external network requests are made,
+          SpurTrace keeps 100% of telemetry data within your infrastructure. No external network requests are made,
           making it ideal for internal MES, ERP, banking, and high-security enterprise environments.
         </Callout>
 
@@ -88,14 +88,14 @@ export const docsContentMap: Record<string, DocContentRecord> = {
         </Cards>
 
         <h2 id="comparison" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
-          OpenTrace vs Traditional APM
+          SpurTrace vs Traditional APM
         </h2>
         <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
           <table className="w-full text-left text-xs">
             <thead className="border-b border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-900/50 text-zinc-900 dark:text-zinc-200">
               <tr>
                 <th className="p-3 font-bold">Feature</th>
-                <th className="p-3 font-bold text-emerald-600 dark:text-emerald-400">OpenTrace</th>
+                <th className="p-3 font-bold text-emerald-600 dark:text-emerald-400">SpurTrace</th>
                 <th className="p-3 font-bold">Datadog / New Relic</th>
                 <th className="p-3 font-bold">Self-Hosted Jaeger</th>
               </tr>
@@ -142,50 +142,50 @@ export const docsContentMap: Record<string, DocContentRecord> = {
   // 2. Quickstart
   "getting-started/quickstart": {
     title: "Quickstart Guide",
-    description: "Install OpenTrace and inspect live telemetry in under 2 minutes.",
+    description: "Install SpurTrace and inspect live telemetry in under 2 minutes.",
     group: "Getting Started",
     lastUpdated: "November 2026",
     badge: "2 min",
     toc: [
       { id: "step-1-install", title: "1. Install the SDK", level: 2 },
-      { id: "step-2-initialize", title: "2. Initialize OpenTrace", level: 2 },
+      { id: "step-2-initialize", title: "2. Initialize SpurTrace", level: 2 },
       { id: "step-3-inspect", title: "3. Open the Dashboard", level: 2 },
     ],
     content: (
       <div className="space-y-6">
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          Choose your package manager or framework below to integrate OpenTrace into your service:
+          Choose your package manager or framework below to integrate SpurTrace into your service:
         </p>
 
         <Steps>
-          <Step number={1} title="Install OpenTrace SDK">
+          <Step number={1} title="Install SpurTrace SDK">
             <p className="mb-2 text-zinc-700 dark:text-zinc-300">Install the package from npm or NuGet depending on your backend runtime:</p>
             <Tabs
               items={[
                 {
                   id: "pnpm",
                   label: "pnpm",
-                  content: <CodeBlock code="pnpm add opentrace" language="bash" />,
+                  content: <CodeBlock code="pnpm add spurtrace" language="bash" />,
                 },
                 {
                   id: "npm",
                   label: "npm",
-                  content: <CodeBlock code="npm install opentrace" language="bash" />,
+                  content: <CodeBlock code="npm install spurtrace" language="bash" />,
                 },
                 {
                   id: "yarn",
                   label: "yarn",
-                  content: <CodeBlock code="yarn add opentrace" language="bash" />,
+                  content: <CodeBlock code="yarn add spurtrace" language="bash" />,
                 },
                 {
                   id: "bun",
                   label: "bun",
-                  content: <CodeBlock code="bun add opentrace" language="bash" />,
+                  content: <CodeBlock code="bun add spurtrace" language="bash" />,
                 },
                 {
                   id: "dotnet",
                   label: ".NET CLI (6+)",
-                  content: <CodeBlock code="dotnet add package OpenTrace.AspNetCore" language="bash" />,
+                  content: <CodeBlock code="dotnet add package SpurTrace.AspNetCore" language="bash" />,
                 },
               ]}
             />
@@ -204,14 +204,14 @@ export const docsContentMap: Record<string, DocContentRecord> = {
                     <CodeBlock
                       filename="server.ts"
                       code={`import express from "express"
-import { createOpenTrace, SqliteStorageAdapter } from "opentrace"
+import { createSpurTrace, SqliteStorageAdapter } from "spurtrace"
 
 const app = express()
 
-// 1. Initialize OpenTrace with SQLite storage
-const trace = createOpenTrace({
+// 1. Initialize SpurTrace with SQLite storage
+const trace = createSpurTrace({
   appName: "OrderService",
-  storage: new SqliteStorageAdapter({ path: "./opentrace.sqlite" }),
+  storage: new SqliteStorageAdapter({ path: "./spurtrace.sqlite" }),
 })
 
 // 2. Mount HTTP middleware at the top of your pipeline
@@ -222,7 +222,7 @@ app.use("/_telemetry", trace.dashboardMiddleware())
 
 // 4. Sample route with automatic timing
 app.get("/api/orders", async (req, res) => {
-  res.json({ message: "Hello OpenTrace" })
+  res.json({ message: "Hello SpurTrace" })
 })
 
 app.listen(3000, () => console.log("Running on http://localhost:3000"))`}
@@ -235,26 +235,26 @@ app.listen(3000, () => console.log("Running on http://localhost:3000"))`}
                   content: (
                     <CodeBlock
                       filename="Program.cs"
-                      code={`using OpenTrace.AspNetCore;
+                      code={`using SpurTrace.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Add OpenTrace services via Dependency Injection (.NET 6+)
-builder.Services.AddOpenTrace(options =>
+// 1. Add SpurTrace services via Dependency Injection (.NET 6+)
+builder.Services.AddSpurTrace(options =>
 {
     options.AppName = "MESProductionAPI";
-    options.StoragePath = "./opentrace.sqlite";
+    options.StoragePath = "./spurtrace.sqlite";
     options.SampleRateSuccess = 0.2; // 20% sample on healthy 200 OKs
     options.SlowRequestThresholdMs = 500;
 });
 
 var app = builder.Build();
 
-// 2. OpenTrace HTTP Middleware (Place before controllers)
-app.UseOpenTrace();
+// 2. SpurTrace HTTP Middleware (Place before controllers)
+app.UseSpurTrace();
 
 // 3. Mount Embedded Dashboard UI at /_telemetry
-app.UseOpenTraceDashboard("/_telemetry");
+app.UseSpurTraceDashboard("/_telemetry");
 
 app.MapGet("/api/orders", () => Results.Ok(new { message = "Hello from .NET 8 / 9" }));
 
@@ -269,19 +269,19 @@ app.Run();`}
                     <CodeBlock
                       filename="app.module.ts"
                       code={`import { Module, NestModule, MiddlewareConsumer } from "@nestjs/common"
-import { OpenTraceModule, OpenTraceMiddleware } from "opentrace/nestjs"
+import { SpurTraceModule, SpurTraceMiddleware } from "spurtrace/nestjs"
 
 @Module({
   imports: [
-    OpenTraceModule.forRoot({
+    SpurTraceModule.forRoot({
       appName: "Nest-Inventory-Service",
-      storagePath: "./opentrace.sqlite",
+      storagePath: "./spurtrace.sqlite",
     }),
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(OpenTraceMiddleware).forRoutes("*")
+    consumer.apply(SpurTraceMiddleware).forRoutes("*")
   }
 }`}
                     />
@@ -295,10 +295,10 @@ export class AppModule implements NestModule {
                       filename="instrumentation.ts"
                       code={`export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { initOpenTrace } = await import("opentrace/next")
-    initOpenTrace({
+    const { initSpurTrace } = await import("spurtrace/next")
+    initSpurTrace({
       appName: "Next-Web-App",
-      storagePath: "./opentrace.sqlite",
+      storagePath: "./spurtrace.sqlite",
     })
   }
 }`}
@@ -314,7 +314,7 @@ export class AppModule implements NestModule {
               Visit <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-zinc-900 dark:text-zinc-100 font-semibold">http://localhost:3000/_telemetry/</code> (or port 5000 in .NET) in your browser. You will see live requests, response times, and waterfall breakdowns immediately.
             </p>
             <Callout type="note" title="Storage Connected">
-              OpenTrace automatically creates the <code className="font-mono">opentrace.sqlite</code> file in your working directory and applies WAL mode for concurrent, lock-free operations.
+              SpurTrace automatically creates the <code className="font-mono">spurtrace.sqlite</code> file in your working directory and applies WAL mode for concurrent, lock-free operations.
             </Callout>
           </Step>
         </Steps>
@@ -325,7 +325,7 @@ export class AppModule implements NestModule {
   // 3. Architecture
   "getting-started/architecture": {
     title: "Architecture Overview",
-    description: "Deep dive into OpenTrace's internal worker threads, batch writers, and storage engine.",
+    description: "Deep dive into SpurTrace's internal worker threads, batch writers, and storage engine.",
     group: "Getting Started",
     lastUpdated: "November 2026",
     toc: [
@@ -339,7 +339,7 @@ export class AppModule implements NestModule {
           Execution Flow
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          The diagram below illustrates how a single HTTP request travels through your application and how OpenTrace captures telemetry without introducing latency:
+          The diagram below illustrates how a single HTTP request travels through your application and how SpurTrace captures telemetry without introducing latency:
         </p>
 
         <ArchitectureDiagram />
@@ -348,14 +348,14 @@ export class AppModule implements NestModule {
           Context Propagation
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          In Node.js, OpenTrace uses Node&apos;s native <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">AsyncLocalStorage</code> API. In .NET, it utilizes <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">AsyncLocal&lt;TraceContext&gt;</code>. This allows nested database queries, service calls, and helper functions to automatically inherit the current request&apos;s trace ID and execution waterfall without passing a trace context parameter through every function.
+          In Node.js, SpurTrace uses Node&apos;s native <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">AsyncLocalStorage</code> API. In .NET, it utilizes <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">AsyncLocal&lt;TraceContext&gt;</code>. This allows nested database queries, service calls, and helper functions to automatically inherit the current request&apos;s trace ID and execution waterfall without passing a trace context parameter through every function.
         </p>
 
         <h2 id="batch-writer" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
           Non-Blocking Batch Writer
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          Writing to disk on every request would degrade throughput under load. OpenTrace uses an in-memory ring buffer with a worker thread that flushes every 1,500ms or when 500 records accumulate. If the storage adapter experiences transient delays, backpressure safeguards prevent memory exhaustion.
+          Writing to disk on every request would degrade throughput under load. SpurTrace uses an in-memory ring buffer with a worker thread that flushes every 1,500ms or when 500 records accumulate. If the storage adapter experiences transient delays, backpressure safeguards prevent memory exhaustion.
         </p>
       </div>
     ),
@@ -364,7 +364,7 @@ export class AppModule implements NestModule {
   // 4. Express.js
   "backend/express": {
     title: "Express.js Integration",
-    description: "Complete guide to integrating OpenTrace in Express.js applications with SQL tracking.",
+    description: "Complete guide to integrating SpurTrace in Express.js applications with SQL tracking.",
     group: "Backend SDKs",
     lastUpdated: "November 2026",
     badge: "Node.js",
@@ -383,22 +383,22 @@ export class AppModule implements NestModule {
             {
               id: "pnpm",
               label: "pnpm",
-              content: <CodeBlock code="pnpm add opentrace" language="bash" />,
+              content: <CodeBlock code="pnpm add spurtrace" language="bash" />,
             },
             {
               id: "npm",
               label: "npm",
-              content: <CodeBlock code="npm install opentrace" language="bash" />,
+              content: <CodeBlock code="npm install spurtrace" language="bash" />,
             },
             {
               id: "yarn",
               label: "yarn",
-              content: <CodeBlock code="yarn add opentrace" language="bash" />,
+              content: <CodeBlock code="yarn add spurtrace" language="bash" />,
             },
             {
               id: "bun",
               label: "bun",
-              content: <CodeBlock code="bun add opentrace" language="bash" />,
+              content: <CodeBlock code="bun add spurtrace" language="bash" />,
             },
           ]}
         />
@@ -409,19 +409,19 @@ export class AppModule implements NestModule {
         <CodeBlock
           filename="app.ts"
           code={`import express from "express"
-import { createOpenTrace, SqliteStorageAdapter } from "opentrace"
+import { createSpurTrace, SqliteStorageAdapter } from "spurtrace"
 
 const app = express()
 
-const trace = createOpenTrace({
+const trace = createSpurTrace({
   appName: "MES-Production-API",
-  storage: new SqliteStorageAdapter({ path: "./opentrace.sqlite" }),
+  storage: new SqliteStorageAdapter({ path: "./spurtrace.sqlite" }),
   sampleRateSuccess: 0.2, // Tail sampling: 20% healthy requests
   slowRequestThresholdMs: 500, // Flag requests > 500ms
   slowQueryThresholdMs: 200,   // Flag SQL queries > 200ms
   auth: {
     enabled: true,
-    users: [{ username: "admin", password: process.env.OPENTRACE_PASSWORD || "admin123" }]
+    users: [{ username: "admin", password: process.env.SPURTRACE_PASSWORD || "admin123" }]
   }
 })
 
@@ -495,22 +495,22 @@ app.use((err, req, res, next) => {
             {
               id: "pnpm",
               label: "pnpm",
-              content: <CodeBlock code="pnpm add opentrace @nestjs/common" language="bash" />,
+              content: <CodeBlock code="pnpm add spurtrace @nestjs/common" language="bash" />,
             },
             {
               id: "npm",
               label: "npm",
-              content: <CodeBlock code="npm install opentrace @nestjs/common" language="bash" />,
+              content: <CodeBlock code="npm install spurtrace @nestjs/common" language="bash" />,
             },
             {
               id: "yarn",
               label: "yarn",
-              content: <CodeBlock code="yarn add opentrace @nestjs/common" language="bash" />,
+              content: <CodeBlock code="yarn add spurtrace @nestjs/common" language="bash" />,
             },
             {
               id: "bun",
               label: "bun",
-              content: <CodeBlock code="bun add opentrace @nestjs/common" language="bash" />,
+              content: <CodeBlock code="bun add spurtrace @nestjs/common" language="bash" />,
             },
           ]}
         />
@@ -521,13 +521,13 @@ app.use((err, req, res, next) => {
         <CodeBlock
           filename="app.module.ts"
           code={`import { Module, NestModule, MiddlewareConsumer } from "@nestjs/common"
-import { OpenTraceModule, OpenTraceMiddleware } from "opentrace/nestjs"
+import { SpurTraceModule, SpurTraceMiddleware } from "spurtrace/nestjs"
 
 @Module({
   imports: [
-    OpenTraceModule.forRoot({
+    SpurTraceModule.forRoot({
       appName: "Nest-Inventory-Service",
-      storagePath: "./opentrace.sqlite",
+      storagePath: "./spurtrace.sqlite",
       slowRequestThresholdMs: 400,
       slowQueryThresholdMs: 250,
     }),
@@ -535,7 +535,7 @@ import { OpenTraceModule, OpenTraceMiddleware } from "opentrace/nestjs"
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(OpenTraceMiddleware).forRoutes("*")
+    consumer.apply(SpurTraceMiddleware).forRoutes("*")
   }
 }`}
         />
@@ -547,11 +547,11 @@ export class AppModule implements NestModule {
           filename="main.ts"
           code={`import { NestFactory } from "@nestjs/core"
 import { AppModule } from "./app.module"
-import { OpenTraceInterceptor } from "opentrace/nestjs"
+import { SpurTraceInterceptor } from "spurtrace/nestjs"
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
-  app.useGlobalInterceptors(new OpenTraceInterceptor())
+  app.useGlobalInterceptors(new SpurTraceInterceptor())
   await app.listen(3000)
 }
 bootstrap()`}
@@ -563,7 +563,7 @@ bootstrap()`}
         <CodeBlock
           filename="order.service.ts"
           code={`import { Injectable } from "@nestjs/common"
-import { TraceSpan } from "opentrace/nestjs"
+import { TraceSpan } from "spurtrace/nestjs"
 
 @Injectable()
 export class OrderService {
@@ -599,22 +599,22 @@ export class OrderService {
             {
               id: "pnpm",
               label: "pnpm",
-              content: <CodeBlock code="pnpm add opentrace" language="bash" />,
+              content: <CodeBlock code="pnpm add spurtrace" language="bash" />,
             },
             {
               id: "npm",
               label: "npm",
-              content: <CodeBlock code="npm install opentrace" language="bash" />,
+              content: <CodeBlock code="npm install spurtrace" language="bash" />,
             },
             {
               id: "yarn",
               label: "yarn",
-              content: <CodeBlock code="yarn add opentrace" language="bash" />,
+              content: <CodeBlock code="yarn add spurtrace" language="bash" />,
             },
             {
               id: "bun",
               label: "bun",
-              content: <CodeBlock code="bun add opentrace" language="bash" />,
+              content: <CodeBlock code="bun add spurtrace" language="bash" />,
             },
           ]}
         />
@@ -629,10 +629,10 @@ export class OrderService {
           filename="instrumentation.ts"
           code={`export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
-    const { initOpenTrace } = await import("opentrace/next")
-    initOpenTrace({
+    const { initSpurTrace } = await import("spurtrace/next")
+    initSpurTrace({
       appName: "Next-Web-App",
-      storagePath: "./opentrace.sqlite",
+      storagePath: "./spurtrace.sqlite",
     })
   }
 }`}
@@ -643,10 +643,10 @@ export class OrderService {
         </h2>
         <CodeBlock
           filename="app/api/users/route.ts"
-          code={`import { withOpenTrace } from "opentrace/next"
+          code={`import { withSpurTrace } from "spurtrace/next"
 import { NextResponse } from "next/server"
 
-export const GET = withOpenTrace(async (request) => {
+export const GET = withSpurTrace(async (request) => {
   const users = await db.user.findMany()
   return NextResponse.json(users)
 })`}
@@ -675,7 +675,7 @@ export const GET = withOpenTrace(async (request) => {
           Supported .NET Versions
         </h2>
         <Callout type="tip" title="Modern .NET First (from .NET 6 onwards)">
-          OpenTrace for .NET targets modern unified .NET versions: <strong>.NET 6 (LTS), .NET 7, .NET 8 (LTS), and .NET 9</strong>. It leverages modern C# 10/11/12 features, <code className="font-mono">AsyncLocal&lt;T&gt;</code>, and high-performance zero-allocation buffers.
+          SpurTrace for .NET targets modern unified .NET versions: <strong>.NET 6 (LTS), .NET 7, .NET 8 (LTS), and .NET 9</strong>. It leverages modern C# 10/11/12 features, <code className="font-mono">AsyncLocal&lt;T&gt;</code>, and high-performance zero-allocation buffers.
         </Callout>
 
         <h2 id="nuget-package" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
@@ -686,12 +686,12 @@ export const GET = withOpenTrace(async (request) => {
             {
               id: "cli",
               label: ".NET CLI",
-              content: <CodeBlock code="dotnet add package OpenTrace.AspNetCore" language="bash" />,
+              content: <CodeBlock code="dotnet add package SpurTrace.AspNetCore" language="bash" />,
             },
             {
               id: "pm",
               label: "Package Manager",
-              content: <CodeBlock code="Install-Package OpenTrace.AspNetCore" language="powershell" />,
+              content: <CodeBlock code="Install-Package SpurTrace.AspNetCore" language="powershell" />,
             },
             {
               id: "xml",
@@ -699,7 +699,7 @@ export const GET = withOpenTrace(async (request) => {
               content: (
                 <CodeBlock
                   language="xml"
-                  code={`<PackageReference Include="OpenTrace.AspNetCore" Version="1.0.0" />`}
+                  code={`<PackageReference Include="SpurTrace.AspNetCore" Version="1.0.0" />`}
                 />
               ),
             },
@@ -710,19 +710,19 @@ export const GET = withOpenTrace(async (request) => {
           2. Program.cs Configuration
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          In your modern ASP.NET Core project (like <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">MESProductionDashboardAPI</code>), configure OpenTrace in <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">Program.cs</code>:
+          In your modern ASP.NET Core project (like <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">MESProductionDashboardAPI</code>), configure SpurTrace in <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">Program.cs</code>:
         </p>
         <CodeBlock
           filename="Program.cs"
-          code={`using OpenTrace.AspNetCore;
+          code={`using SpurTrace.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Add OpenTrace Services & Configure Storage
-builder.Services.AddOpenTrace(options =>
+// 1. Add SpurTrace Services & Configure Storage
+builder.Services.AddSpurTrace(options =>
 {
     options.AppName = "MESProductionDashboardAPI";
-    options.StoragePath = "./opentrace.sqlite";
+    options.StoragePath = "./spurtrace.sqlite";
     options.SampleRateSuccess = 0.2; // 20% healthy requests
     options.SlowRequestThresholdMs = 500;
     options.SlowQueryThresholdMs = 250;
@@ -732,11 +732,11 @@ builder.Services.AddOpenTrace(options =>
 
 var app = builder.Build();
 
-// 2. OpenTrace HTTP Middleware (Must be before routing/controllers)
-app.UseOpenTrace();
+// 2. SpurTrace HTTP Middleware (Must be before routing/controllers)
+app.UseSpurTrace();
 
 // 3. Serve the Embedded Dashboard UI
-app.UseOpenTraceDashboard("/_telemetry");
+app.UseSpurTraceDashboard("/_telemetry");
 
 app.MapControllers();
 app.Run();`}
@@ -766,7 +766,7 @@ app.Run();`}
         <CodeBlock
           filename="Program.cs"
           code={`app.MapGet("/api/status", () => Results.Ok(new { status = "operational" }))
-   .WithOpenTrace("HealthCheck");`}
+   .WithSpurTrace("HealthCheck");`}
         />
       </div>
     ),
@@ -775,7 +775,7 @@ app.Run();`}
   // 8. Frontend Overview
   "frontend/overview": {
     title: "Frontend Integration Overview",
-    description: "Detailed architecture patterns for connecting frontend apps (React, Vite, Vue, Next.js) to OpenTrace UI.",
+    description: "Detailed architecture patterns for connecting frontend apps (React, Vite, Vue, Next.js) to SpurTrace UI.",
     group: "Frontend Integration",
     lastUpdated: "November 2026",
     badge: "Guide",
@@ -795,7 +795,7 @@ app.Run();`}
           Nhiều bạn hỏi: <em>&ldquo;Tại sao ở Frontend lại dùng iframe? Nếu dùng React hoặc Next.js thì phải là component chứ, còn với JavaScript / TypeScript thuần thì thế nào?&rdquo;</em>
         </p>
         <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-          Hoàn toàn chính xác! Trong kiến trúc hiện đại, <strong>iframe chỉ là phương án dự phòng</strong>. OpenTrace cung cấp <strong>Native Component Packages</strong> và <strong>Vanilla Mount API</strong> để bạn nhúng trực tiếp như một UI component bình thường, tận dụng chung React context, TanStack Query, và theme của ứng dụng!
+          Hoàn toàn chính xác! Trong kiến trúc hiện đại, <strong>iframe chỉ là phương án dự phòng</strong>. SpurTrace cung cấp <strong>Native Component Packages</strong> và <strong>Vanilla Mount API</strong> để bạn nhúng trực tiếp như một UI component bình thường, tận dụng chung React context, TanStack Query, và theme của ứng dụng!
         </p>
 
         <h2 id="integration-options" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
@@ -804,21 +804,21 @@ app.Run();`}
         <Cards cols={3}>
           <Card
             title="React / Next.js Component"
-            description="Import <OpenTraceDashboard /> trực tiếp vào React/Vite/Next.js. Không dùng iframe."
+            description="Import <SpurTraceDashboard /> trực tiếp vào React/Vite/Next.js. Không dùng iframe."
             href="/docs/frontend/react-component"
             iconName="laptop"
             badge="Khuyên Dùng"
           />
           <Card
             title="Vanilla JS / TS Mount"
-            description="Dùng hàm mountOpenTrace('#container') cho JavaScript thuần, TypeScript, Vue hoặc HTML thông thường."
+            description="Dùng hàm mountSpurTrace('#container') cho JavaScript thuần, TypeScript, Vue hoặc HTML thông thường."
             href="/docs/frontend/vanilla-js"
             iconName="code"
             badge="Universal"
           />
           <Card
             title="Direct Link in Menu"
-            description="Đặt nút liên kết 'OpenTrace APM' trong navbar (như đã cắm vào MESProductionReport) mở tab riêng."
+            description="Đặt nút liên kết 'SpurTrace APM' trong navbar (như đã cắm vào MESProductionReport) mở tab riêng."
             href="/docs/frontend/overview#direct-link"
             iconName="globe"
             badge="Siêu Nhẹ"
@@ -829,18 +829,18 @@ app.Run();`}
           Pattern 1: React & Next.js Component Package
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          Cài đặt package <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">@opentrace/react</code> trong dự án React hoặc Next.js của bạn:
+          Cài đặt package <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">@spurtrace/react</code> trong dự án React hoặc Next.js của bạn:
         </p>
-        <CodeBlock code="pnpm add @opentrace/react" language="bash" />
+        <CodeBlock code="pnpm add @spurtrace/react" language="bash" />
         <CodeBlock
           filename="MyTelemetryPage.tsx"
-          code={`import { OpenTraceDashboard } from "@opentrace/react"
-import "@opentrace/react/styles.css"
+          code={`import { SpurTraceDashboard } from "@spurtrace/react"
+import "@spurtrace/react/styles.css"
 
 export function SystemApmPage() {
   return (
     <div className="w-full h-screen p-6 bg-background">
-      <OpenTraceDashboard
+      <SpurTraceDashboard
         endpoint="http://localhost:5119/_telemetry/api"
         theme="dark"
         pollIntervalMs={3000}
@@ -858,9 +858,9 @@ export function SystemApmPage() {
         </p>
         <CodeBlock
           filename="app.ts"
-          code={`import { mountOpenTrace } from "@opentrace/vanilla"
+          code={`import { mountSpurTrace } from "@spurtrace/vanilla"
 
-mountOpenTrace(document.getElementById("telemetry-container"), {
+mountSpurTrace(document.getElementById("telemetry-container"), {
   endpoint: "http://localhost:5119/_telemetry/api",
   theme: "auto",
 })`}
@@ -879,7 +879,7 @@ mountOpenTrace(document.getElementById("telemetry-container"), {
   // 9. React Component Package
   "frontend/react-component": {
     title: "React & Next.js Component Package",
-    description: "Embed OpenTrace as a first-class React component with props, theme synchronization, and sub-components.",
+    description: "Embed SpurTrace as a first-class React component with props, theme synchronization, and sub-components.",
     group: "Frontend Integration",
     lastUpdated: "November 2026",
     badge: "React",
@@ -899,22 +899,22 @@ mountOpenTrace(document.getElementById("telemetry-container"), {
             {
               id: "pnpm",
               label: "pnpm",
-              content: <CodeBlock code="pnpm add @opentrace/react" language="bash" />,
+              content: <CodeBlock code="pnpm add @spurtrace/react" language="bash" />,
             },
             {
               id: "npm",
               label: "npm",
-              content: <CodeBlock code="npm install @opentrace/react" language="bash" />,
+              content: <CodeBlock code="npm install @spurtrace/react" language="bash" />,
             },
             {
               id: "yarn",
               label: "yarn",
-              content: <CodeBlock code="yarn add @opentrace/react" language="bash" />,
+              content: <CodeBlock code="yarn add @spurtrace/react" language="bash" />,
             },
             {
               id: "bun",
               label: "bun",
-              content: <CodeBlock code="bun add @opentrace/react" language="bash" />,
+              content: <CodeBlock code="bun add @spurtrace/react" language="bash" />,
             },
           ]}
         />
@@ -933,18 +933,18 @@ mountOpenTrace(document.getElementById("telemetry-container"), {
               label: "JSX (JavaScript)",
               content: (
                 <CodeBlock
-                  filename="src/features/system-logs/OpenTraceView.jsx"
+                  filename="src/features/system-logs/SpurTraceView.jsx"
                   code={`import React from "react"
-import { OpenTraceDashboard } from "@opentrace/react"
-import "@opentrace/react/styles.css"
+import { SpurTraceDashboard } from "@spurtrace/react"
+import "@spurtrace/react/styles.css"
 import { useTheme } from "@/hooks/useTheme"
 
-export function OpenTraceView() {
+export function SpurTraceView() {
   const { resolvedTheme } = useTheme()
 
   return (
     <div className="w-full h-full min-h-[700px] rounded-2xl overflow-hidden border border-border">
-      <OpenTraceDashboard
+      <SpurTraceDashboard
         endpoint={import.meta.env.VITE_API_BASE_URL + "/_telemetry/api"}
         theme={resolvedTheme} // "dark" | "light"
         features={{
@@ -964,20 +964,20 @@ export function OpenTraceView() {
               label: "TSX (TypeScript)",
               content: (
                 <CodeBlock
-                  filename="src/features/system-logs/OpenTraceView.tsx"
+                  filename="src/features/system-logs/SpurTraceView.tsx"
                   code={`import * as React from "react"
-import { OpenTraceDashboard, type OpenTraceDashboardProps } from "@opentrace/react"
-import "@opentrace/react/styles.css"
+import { SpurTraceDashboard, type SpurTraceDashboardProps } from "@spurtrace/react"
+import "@spurtrace/react/styles.css"
 import { useTheme } from "@/hooks/useTheme"
 
-export function OpenTraceView(): React.JSX.Element {
+export function SpurTraceView(): React.JSX.Element {
   const { resolvedTheme } = useTheme()
 
   return (
     <div className="w-full h-full min-h-[700px] rounded-2xl overflow-hidden border border-border">
-      <OpenTraceDashboard
+      <SpurTraceDashboard
         endpoint={process.env.NEXT_PUBLIC_API_URL ? \`\${process.env.NEXT_PUBLIC_API_URL}/_telemetry/api\` : "/_telemetry/api"}
-        theme={(resolvedTheme as OpenTraceDashboardProps["theme"]) || "dark"}
+        theme={(resolvedTheme as SpurTraceDashboardProps["theme"]) || "dark"}
         features={{
           sqlStudio: true,
           errorTracking: true,
@@ -1009,7 +1009,7 @@ export function OpenTraceView(): React.JSX.Element {
                 <CodeBlock
                   filename="OrderDetailTraceModal.jsx"
                   code={`import React from "react"
-import { TraceWaterfall } from "@opentrace/react"
+import { TraceWaterfall } from "@spurtrace/react"
 
 export function OrderDetailTraceModal({ traceId }) {
   return (
@@ -1031,7 +1031,7 @@ export function OrderDetailTraceModal({ traceId }) {
                 <CodeBlock
                   filename="OrderDetailTraceModal.tsx"
                   code={`import * as React from "react"
-import { TraceWaterfall } from "@opentrace/react"
+import { TraceWaterfall } from "@spurtrace/react"
 
 interface OrderDetailTraceModalProps {
   traceId: string;
@@ -1071,7 +1071,7 @@ export function OrderDetailTraceModal({ traceId }: OrderDetailTraceModalProps): 
                 <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">endpoint</td>
                 <td className="p-3 text-cyan-600 dark:text-cyan-400">string</td>
                 <td className="p-3 italic">required</td>
-                <td className="p-3 font-sans">URL trỏ tới API của backend OpenTrace.</td>
+                <td className="p-3 font-sans">URL trỏ tới API của backend SpurTrace.</td>
               </tr>
               <tr>
                 <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">theme</td>
@@ -1095,7 +1095,7 @@ export function OrderDetailTraceModal({ traceId }: OrderDetailTraceModalProps): 
   // 10. Vanilla JS
   "frontend/vanilla-js": {
     title: "Vanilla JS / TypeScript Integration",
-    description: "Mount OpenTrace into any standard DOM node without React or bundlers.",
+    description: "Mount SpurTrace into any standard DOM node without React or bundlers.",
     group: "Frontend Integration",
     lastUpdated: "November 2026",
     badge: "Vanilla",
@@ -1113,12 +1113,12 @@ export function OrderDetailTraceModal({ traceId }: OrderDetailTraceModalProps): 
         </p>
         <CodeBlock
           filename="main.ts"
-          code={`import { mountOpenTrace } from "@opentrace/vanilla"
-import "@opentrace/vanilla/styles.css"
+          code={`import { mountSpurTrace } from "@spurtrace/vanilla"
+import "@spurtrace/vanilla/styles.css"
 
 const container = document.getElementById("apm-mount-point")
 
-const instance = mountOpenTrace(container, {
+const instance = mountSpurTrace(container, {
   endpoint: "http://localhost:5119/_telemetry/api",
   theme: "dark",
 })
@@ -1138,14 +1138,14 @@ const instance = mountOpenTrace(container, {
           code={`<!DOCTYPE html>
 <html>
 <head>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@opentrace/vanilla/dist/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@spurtrace/vanilla/dist/style.css" />
 </head>
 <body>
-  <div id="opentrace-root" style="height: 100vh;"></div>
+  <div id="spurtrace-root" style="height: 100vh;"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/@opentrace/vanilla/dist/index.umd.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@spurtrace/vanilla/dist/index.umd.js"></script>
   <script>
-    OpenTrace.mount(document.getElementById('opentrace-root'), {
+    SpurTrace.mount(document.getElementById('spurtrace-root'), {
       endpoint: '/_telemetry/api'
     });
   </script>
@@ -1159,7 +1159,7 @@ const instance = mountOpenTrace(container, {
   // Database Setup & Schemas
   "storage/database-setup": {
     title: "Database Setup & Schemas",
-    description: "Connect OpenTrace to SQLite WAL, PostgreSQL, or Microsoft SQL Server with automated schema migrations.",
+    description: "Connect SpurTrace to SQLite WAL, PostgreSQL, or Microsoft SQL Server with automated schema migrations.",
     group: "Storage Adapters",
     lastUpdated: "November 2026",
     badge: "Setup",
@@ -1177,7 +1177,7 @@ const instance = mountOpenTrace(container, {
           Supported Database Engines
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-          OpenTrace supports flexible storage backends depending on your deployment architecture. Every backend uses <strong>UUIDv4 primary keys</strong>, automated schema initialization on first boot, and non-blocking background workers:
+          SpurTrace supports flexible storage backends depending on your deployment architecture. Every backend uses <strong>UUIDv4 primary keys</strong>, automated schema initialization on first boot, and non-blocking background workers:
         </p>
 
         <Cards cols={3}>
@@ -1212,22 +1212,22 @@ const instance = mountOpenTrace(container, {
         </p>
         <CodeBlock
           filename="server.ts (Node.js)"
-          code={`import { createOpenTrace, SqliteStorageAdapter } from "opentrace"
+          code={`import { createSpurTrace, SqliteStorageAdapter } from "spurtrace"
 
-const trace = createOpenTrace({
+const trace = createSpurTrace({
   appName: "OrderService",
   storage: new SqliteStorageAdapter({
-    path: "./opentrace.sqlite", // Created automatically with WAL mode
+    path: "./spurtrace.sqlite", // Created automatically with WAL mode
     busyTimeoutMs: 5000,
   }),
 })`}
         />
         <CodeBlock
           filename="Program.cs (.NET 6+)"
-          code={`builder.Services.AddOpenTrace(options =>
+          code={`builder.Services.AddSpurTrace(options =>
 {
     options.AppName = "MESProductionAPI";
-    options.StoragePath = "./opentrace.sqlite"; // Auto-configured SQLite WAL
+    options.StoragePath = "./spurtrace.sqlite"; // Auto-configured SQLite WAL
 });`}
         />
 
@@ -1239,9 +1239,9 @@ const trace = createOpenTrace({
         </p>
         <CodeBlock
           filename="server.ts"
-          code={`import { createOpenTrace, PostgresStorageAdapter } from "opentrace"
+          code={`import { createSpurTrace, PostgresStorageAdapter } from "spurtrace"
 
-const trace = createOpenTrace({
+const trace = createSpurTrace({
   appName: "ProductionOrderService",
   storage: new PostgresStorageAdapter({
     connectionString: process.env.DATABASE_URL || "postgres://postgres:secret@db.internal:5432/opentrace_db",
@@ -1259,10 +1259,10 @@ const trace = createOpenTrace({
         </p>
         <CodeBlock
           filename="Program.cs (.NET 8/9)"
-          code={`builder.Services.AddOpenTrace(options =>
+          code={`builder.Services.AddSpurTrace(options =>
 {
     options.AppName = "MESProductionAPI";
-    options.UseSqlServer(builder.Configuration.GetConnectionString("OpenTraceMssql"));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("SpurTraceMssql"));
     options.RetentionDays = 14;
 });`}
         />
@@ -1326,10 +1326,10 @@ CREATE INDEX IF NOT EXISTS idx_opentrace_duration ON opentrace_spans(duration_ms
           SQLite with <strong>Write-Ahead Logging (WAL)</strong> mode provides incredible write throughput (up to 50,000 writes/sec in batch transactions) while allowing concurrent reads without locking.
         </p>
         <CodeBlock
-          code={`import { SqliteStorageAdapter } from "opentrace"
+          code={`import { SqliteStorageAdapter } from "spurtrace"
 
 const storage = new SqliteStorageAdapter({
-  path: "./opentrace.sqlite",
+  path: "./spurtrace.sqlite",
   wal: true,               // Enables WAL mode
   busyTimeoutMs: 5000,     // Prevents SQLITE_BUSY under heavy concurrency
 })`}
@@ -1353,7 +1353,7 @@ const storage = new SqliteStorageAdapter({
           Enterprise Database Setup
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          For distributed container environments (Kubernetes, AWS ECS) where pods are ephemeral, OpenTrace supports storing traces in centralized PostgreSQL or Microsoft SQL Server instances.
+          For distributed container environments (Kubernetes, AWS ECS) where pods are ephemeral, SpurTrace supports storing traces in centralized PostgreSQL or Microsoft SQL Server instances.
         </p>
       </div>
     ),
@@ -1362,7 +1362,7 @@ const storage = new SqliteStorageAdapter({
   // 13. SQL Fingerprinting & N+1
   "performance/sql-fingerprint": {
     title: "SQL Fingerprinting & N+1 Detection",
-    description: "How OpenTrace abstracts queries, protects sensitive parameters, and detects N+1 loops.",
+    description: "How SpurTrace abstracts queries, protects sensitive parameters, and detects N+1 loops.",
     group: "APM & Diagnostics",
     lastUpdated: "November 2026",
     badge: "APM",
@@ -1376,7 +1376,7 @@ const storage = new SqliteStorageAdapter({
           Query Fingerprinting
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          OpenTrace automatically normalizes queries by masking literal strings, numbers, and UUIDs with <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">?</code> so that query patterns can be aggregated:
+          SpurTrace automatically normalizes queries by masking literal strings, numbers, and UUIDs with <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">?</code> so that query patterns can be aggregated:
         </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-4">
@@ -1397,7 +1397,7 @@ const storage = new SqliteStorageAdapter({
           Automatic N+1 Detection
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          When an HTTP request triggers the same fingerprint 3 or more times (such as querying items inside a loop), OpenTrace tags the trace with a prominent red <strong>N+1 Alert</strong> badge and displays the exact execution count in the waterfall view.
+          When an HTTP request triggers the same fingerprint 3 or more times (such as querying items inside a loop), SpurTrace tags the trace with a prominent red <strong>N+1 Alert</strong> badge and displays the exact execution count in the waterfall view.
         </p>
       </div>
     ),
@@ -1418,7 +1418,7 @@ const storage = new SqliteStorageAdapter({
           Span Categories
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          Every trace in OpenTrace is decomposed into visual timeline spans:
+          Every trace in SpurTrace is decomposed into visual timeline spans:
         </p>
         <ul className="list-disc pl-5 text-xs text-zinc-700 dark:text-zinc-300 space-y-1">
           <li><strong>Middleware</strong>: Network parsing, authorization, and route dispatching.</li>
@@ -1432,7 +1432,7 @@ const storage = new SqliteStorageAdapter({
   // 15. REST Endpoints
   "api-reference/endpoints": {
     title: "REST Endpoints",
-    description: "API reference for the telemetry endpoints exposed by OpenTrace dashboard middleware.",
+    description: "API reference for the telemetry endpoints exposed by SpurTrace dashboard middleware.",
     group: "API Reference",
     lastUpdated: "November 2026",
     toc: [
@@ -1471,16 +1471,16 @@ const storage = new SqliteStorageAdapter({
   // 16. Configuration
   "api-reference/configuration": {
     title: "Configuration Options",
-    description: "Comprehensive options reference for createOpenTrace().",
+    description: "Comprehensive options reference for createSpurTrace().",
     group: "API Reference",
     lastUpdated: "November 2026",
     toc: [
-      { id: "options-table", title: "OpenTraceOptions", level: 2 },
+      { id: "options-table", title: "SpurTraceOptions", level: 2 },
     ],
     content: (
       <div className="space-y-6">
         <h2 id="options-table" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-          OpenTraceOptions Reference
+          SpurTraceOptions Reference
         </h2>
         <div className="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-800">
           <table className="w-full text-left text-xs">
@@ -1533,7 +1533,7 @@ const storage = new SqliteStorageAdapter({
   // 17. Docker
   "deployment/docker": {
     title: "Docker & Containerization",
-    description: "Run OpenTrace in containers with persistent storage volumes, Docker Compose, and healthchecks.",
+    description: "Run SpurTrace in containers with persistent storage volumes, Docker Compose, and healthchecks.",
     group: "Deployment & Ops",
     lastUpdated: "November 2026",
     badge: "Guide",
@@ -1550,7 +1550,7 @@ const storage = new SqliteStorageAdapter({
           1. Docker Compose (Recommended)
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          The cleanest way to run your service with persistent OpenTrace telemetry is mounting a host directory for the SQLite WAL file:
+          The cleanest way to run your service with persistent SpurTrace telemetry is mounting a host directory for the SQLite WAL file:
         </p>
         <CodeBlock
           filename="docker-compose.yml"
@@ -1564,17 +1564,17 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
-      - OPENTRACE_APP_NAME=MES-Production-API
-      - OPENTRACE_STORAGE_PATH=/data/opentrace.sqlite
-      - OPENTRACE_AUTH_ENABLED=true
-      - OPENTRACE_AUTH_PASSWORD=YourStrongSecretKey123!
+      - SPURTRACE_APP_NAME=MES-Production-API
+      - SPURTRACE_STORAGE_PATH=/data/spurtrace.sqlite
+      - SPURTRACE_AUTH_ENABLED=true
+      - SPURTRACE_AUTH_PASSWORD=YourStrongSecretKey123!
     volumes:
       # CRITICAL: Mount host directory so SQLite WAL traces survive container restarts
-      - opentrace_data:/data
+      - spurtrace_data:/data
     restart: unless-stopped
 
 volumes:
-  opentrace_data:
+  spurtrace_data:
     driver: local`}
         />
 
@@ -1609,7 +1609,7 @@ COPY --from=builder /app/dist ./dist
 USER node
 EXPOSE 3000
 
-ENV OPENTRACE_STORAGE_PATH=/data/opentrace.sqlite
+ENV SPURTRACE_STORAGE_PATH=/data/spurtrace.sqlite
 CMD ["node", "dist/server.js"]`}
         />
 
@@ -1617,7 +1617,7 @@ CMD ["node", "dist/server.js"]`}
           3. .NET 8 / 9 ASP.NET Core Dockerfile
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          Multi-stage build compiling your modern C# ASP.NET Core Web API with OpenTrace:
+          Multi-stage build compiling your modern C# ASP.NET Core Web API with SpurTrace:
         </p>
         <CodeBlock
           filename="Dockerfile"
@@ -1639,7 +1639,7 @@ ENV ASPNETCORE_URLS=http://+:5000
 RUN mkdir -p /app/data && chmod 777 /app/data
 
 COPY --from=build /app/publish .
-ENV OpenTrace__StoragePath=/app/data/opentrace.sqlite
+ENV SpurTrace__StoragePath=/app/data/spurtrace.sqlite
 
 ENTRYPOINT ["dotnet", "MESProductionAPI.dll"]`}
         />
@@ -1648,7 +1648,7 @@ ENTRYPOINT ["dotnet", "MESProductionAPI.dll"]`}
           4. SQLite Volume Persistence &amp; WAL Locks
         </h2>
         <Callout type="warning" title="Always Mount a Dedicated Volume">
-          SQLite WAL creates auxiliary files <code className="font-mono">opentrace.sqlite-wal</code> and <code className="font-mono">opentrace.sqlite-shm</code>. Always mount a dedicated directory (such as <code className="font-mono">/data</code> or <code className="font-mono">/app/data</code>) rather than mounting only the single file path.
+          SQLite WAL creates auxiliary files <code className="font-mono">spurtrace.sqlite-wal</code> and <code className="font-mono">spurtrace.sqlite-shm</code>. Always mount a dedicated directory (such as <code className="font-mono">/data</code> or <code className="font-mono">/app/data</code>) rather than mounting only the single file path.
         </Callout>
 
         <h2 id="env-vars" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
@@ -1665,22 +1665,22 @@ ENTRYPOINT ["dotnet", "MESProductionAPI.dll"]`}
             </thead>
             <tbody className="divide-y divide-border text-zinc-700 dark:text-zinc-300">
               <tr>
-                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">OPENTRACE_APP_NAME</td>
+                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">SPURTRACE_APP_NAME</td>
                 <td className="p-3">&quot;App&quot;</td>
                 <td className="p-3 font-sans">Tên định danh dịch vụ trong dashboard.</td>
               </tr>
               <tr>
-                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">OPENTRACE_STORAGE_PATH</td>
-                <td className="p-3">&quot;./opentrace.sqlite&quot;</td>
+                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">SPURTRACE_STORAGE_PATH</td>
+                <td className="p-3">&quot;./spurtrace.sqlite&quot;</td>
                 <td className="p-3 font-sans">Đường dẫn tệp cơ sở dữ liệu SQLite trong container.</td>
               </tr>
               <tr>
-                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">OPENTRACE_SAMPLE_RATE</td>
+                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">SPURTRACE_SAMPLE_RATE</td>
                 <td className="p-3">0.2</td>
                 <td className="p-3 font-sans">Tỷ lệ lấy mẫu request thành công (20%).</td>
               </tr>
               <tr>
-                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">OPENTRACE_AUTH_PASSWORD</td>
+                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">SPURTRACE_AUTH_PASSWORD</td>
                 <td className="p-3">undefined</td>
                 <td className="p-3 font-sans">Mật khẩu bảo vệ trang /_telemetry dashboard.</td>
               </tr>
@@ -1694,7 +1694,7 @@ ENTRYPOINT ["dotnet", "MESProductionAPI.dll"]`}
   // 18. IIS (.NET 6+)
   "deployment/iis": {
     title: "IIS & Windows Server Deployment",
-    description: "Configuring OpenTrace for .NET 6+ applications on Windows Server IIS.",
+    description: "Configuring SpurTrace for .NET 6+ applications on Windows Server IIS.",
     group: "Deployment & Ops",
     lastUpdated: "November 2026",
     toc: [

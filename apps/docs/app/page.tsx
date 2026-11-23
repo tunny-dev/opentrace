@@ -243,7 +243,7 @@ export function AdminApmTab() {
                   React / Vite
                 </h3>
                 <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
-                  Embed &lt;OpenTraceDashboard /&gt; with JSX &amp; TSX support.
+                  Embed &lt;SpurTraceDashboard /&gt; with JSX &amp; TSX support.
                 </p>
               </div>
               <div className="mt-4 flex items-center gap-1 text-[10px] font-mono font-medium text-emerald-600 dark:text-emerald-400">
@@ -287,7 +287,7 @@ export function AdminApmTab() {
                   NestJS
                 </h3>
                 <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
-                  Enterprise OpenTraceModule, interceptors &amp; decorators.
+                  Enterprise SpurTraceModule, interceptors &amp; decorators.
                 </p>
               </div>
               <div className="mt-4 flex items-center gap-1 text-[10px] font-mono font-medium text-emerald-600 dark:text-emerald-400">
@@ -331,7 +331,7 @@ export function AdminApmTab() {
                   Vanilla JS / CDN
                 </h3>
                 <p className="mt-1 text-[11px] text-zinc-500 dark:text-zinc-400 leading-snug">
-                  mountOpenTrace() for Vue, Svelte, or traditional HTML.
+                  mountSpurTrace() for Vue, Svelte, or traditional HTML.
                 </p>
               </div>
               <div className="mt-4 flex items-center gap-1 text-[10px] font-mono font-medium text-emerald-600 dark:text-emerald-400">
@@ -367,7 +367,7 @@ export function AdminApmTab() {
                 <Terminal className="size-4" />
                 <span>JavaScript / TypeScript</span>
               </div>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">npm i opentrace</h3>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">npm i spurtrace</h3>
               <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                 Core APM runtime with async context propagation, SQLite WAL adapter, and middleware engine.
               </p>
@@ -381,7 +381,7 @@ export function AdminApmTab() {
                 <Cpu className="size-4" />
                 <span>.NET 6 / 7 / 8 / 9</span>
               </div>
-              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">OpenTrace.AspNetCore</h3>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">SpurTrace.AspNetCore</h3>
               <p className="mt-1.5 text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
                 NuGet package for high-throughput C# ASP.NET Core Web APIs, Dapper, and EF Core tracking.
               </p>
@@ -457,11 +457,11 @@ export function AdminApmTab() {
                 </div>
                 <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">Native Frontend Component</h3>
                 <p className="mt-2 text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                  Embed <code className="font-mono text-zinc-900 dark:text-zinc-100">&lt;OpenTraceDashboard /&gt;</code> natively into React, Vite, or Next.js, or mount with Vanilla JS. No clunky iframes required.
+                  Embed <code className="font-mono text-zinc-900 dark:text-zinc-100">&lt;SpurTraceDashboard /&gt;</code> natively into React, Vite, or Next.js, or mount with Vanilla JS. No clunky iframes required.
                 </p>
               </div>
               <div className="mt-6 font-mono text-[11px] text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 p-2.5 rounded-lg">
-                import &#123; OpenTraceDashboard &#125; from &quot;@opentrace/react&quot;;
+                import &#123; SpurTraceDashboard &#125; from &quot;@spurtrace/react&quot;;
               </div>
             </div>
           </div>
@@ -559,7 +559,7 @@ export function AdminApmTab() {
               <div className="flex size-6 items-center justify-center rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
                 <Activity className="size-3.5" />
               </div>
-              <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">OpenTrace</span>
+              <span className="text-sm font-bold text-zinc-900 dark:text-zinc-100">SpurTrace</span>
               <span className="text-xs text-zinc-500">· Embedded APM & Observability</span>
             </div>
 

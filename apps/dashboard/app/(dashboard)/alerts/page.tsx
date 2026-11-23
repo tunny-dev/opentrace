@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { useTelemetry } from "@/lib/opentrace/telemetry-context";
-import { AlertsPageContent } from "@/components/opentrace/alerts-page";
-import { TelemetryToolbar } from "@/components/opentrace/telemetry-toolbar";
+import { useTelemetry } from "@/lib/spurtrace/telemetry-context";
+import { AlertsPageContent } from "@/components/spurtrace/alerts-page";
+import { TelemetryToolbar } from "@/components/spurtrace/telemetry-toolbar";
 import { useI18n } from "@/lib/i18n/i18n-context";
 
 export default function AlertsPage() {

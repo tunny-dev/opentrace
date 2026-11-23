@@ -1,11 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ServicesPage } from "@/components/opentrace/services-page";
-import { TelemetryToolbar } from "@/components/opentrace/telemetry-toolbar";
-import { useTelemetry } from "@/lib/opentrace/telemetry-context";
+import { ServicesPage } from "@/components/spurtrace/services-page";
+import { TelemetryToolbar } from "@/components/spurtrace/telemetry-toolbar";
+import { useTelemetry } from "@/lib/spurtrace/telemetry-context";
 import { useI18n } from "@/lib/i18n/i18n-context";
-import type { DemoService } from "@/lib/opentrace/demo-data";
+import type { DemoService } from "@/lib/spurtrace/demo-data";
 
 export default function ServicesRoute() {
   const router = useRouter();

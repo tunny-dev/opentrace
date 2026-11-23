@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DashboardMetrics } from "@/components/opentrace/dashboard-metrics";
-import { LatencyChart } from "@/components/opentrace/latency-chart";
-import { TracesTable } from "@/components/opentrace/traces-table";
-import { TelemetryToolbar } from "@/components/opentrace/telemetry-toolbar";
-import { useTelemetry } from "@/lib/opentrace/telemetry-context";
+import { DashboardMetrics } from "@/components/spurtrace/dashboard-metrics";
+import { LatencyChart } from "@/components/spurtrace/latency-chart";
+import { TracesTable } from "@/components/spurtrace/traces-table";
+import { TelemetryToolbar } from "@/components/spurtrace/telemetry-toolbar";
+import { useTelemetry } from "@/lib/spurtrace/telemetry-context";
 import { useI18n } from "@/lib/i18n/i18n-context";
 
 export default function OverviewPage() {

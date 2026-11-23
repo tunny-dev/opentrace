@@ -1,8 +1,8 @@
 "use client";
 
-import { TracesTable } from "@/components/opentrace/traces-table";
-import { TelemetryToolbar } from "@/components/opentrace/telemetry-toolbar";
-import { useTelemetry } from "@/lib/opentrace/telemetry-context";
+import { TracesTable } from "@/components/spurtrace/traces-table";
+import { TelemetryToolbar } from "@/components/spurtrace/telemetry-toolbar";
+import { useTelemetry } from "@/lib/spurtrace/telemetry-context";
 import { useI18n } from "@/lib/i18n/i18n-context";
 
 export default function ErrorsPage() {

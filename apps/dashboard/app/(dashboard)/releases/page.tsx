@@ -1,6 +1,6 @@
 "use client";
 
-import { ReleasesPage } from "@/components/opentrace/releases-page";
+import { ReleasesPage } from "@/components/spurtrace/releases-page";
 import { useI18n } from "@/lib/i18n/i18n-context";
 
 export default function ReleasesRoute() {

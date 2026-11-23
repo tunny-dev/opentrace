@@ -1,7 +1,7 @@
 "use client";
 
-import { SettingsPage } from "@/components/opentrace/settings-page";
-import { useTelemetry } from "@/lib/opentrace/telemetry-context";
+import { SettingsPage } from "@/components/spurtrace/settings-page";
+import { useTelemetry } from "@/lib/spurtrace/telemetry-context";
 import { useI18n } from "@/lib/i18n/i18n-context";
 
 export default function SettingsRoute() {

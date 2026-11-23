@@ -70,7 +70,7 @@ export function TableOfContents({ items }: { items: TocItem[] }) {
 
       <div className="space-y-2 border-t border-zinc-200 dark:border-zinc-800 pt-4 text-[11px] text-zinc-500 dark:text-zinc-400">
         <a
-          href="https://github.com/TunnyProject/opentrace"
+          href="https://github.com/tunny-dev/opentrace"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
@@ -79,7 +79,7 @@ export function TableOfContents({ items }: { items: TocItem[] }) {
           <span>Edit this page on GitHub</span>
         </a>
         <a
-          href="https://github.com/TunnyProject/opentrace/issues"
+          href="https://github.com/tunny-dev/opentrace/issues"
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center gap-1.5 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"

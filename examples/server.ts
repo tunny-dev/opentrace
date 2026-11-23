@@ -1,13 +1,15 @@
 import express from "express"
-import { createOpenTrace, SqliteStorageAdapter } from "opentrace"
+import { createSpurTrace, SqliteStorageAdapter } from "spurtrace"
 
 const app = express()
-const port = Number(process.env.OPENTRACE_DEMO_PORT ?? 4175)
+const port = Number(process.env.SPURTRACE_DEMO_PORT ?? process.env.OPENTRACE_DEMO_PORT ?? 4175)
+const demoUser = process.env.SPURTRACE_USER ?? process.env.OPENTRACE_USER
+const demoPassword = process.env.SPURTRACE_PASSWORD ?? process.env.OPENTRACE_PASSWORD
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-const trace = createOpenTrace({
+const trace = createSpurTrace({
   appName: "MES-Production",
-  storage: new SqliteStorageAdapter({ path: "./opentrace.sqlite" }),
+  storage: new SqliteStorageAdapter({ path: "./spurtrace.sqlite" }),
   batchSize: 200,
   flushIntervalMs: 2000,
   maxBufferSize: 10_000,
@@ -16,10 +18,8 @@ const trace = createOpenTrace({
   slowQueryThresholdMs: 300,
   slowRequestThresholdMs: 500,
   auth: {
-    enabled: process.env.OPENTRACE_USER !== undefined,
-    users: process.env.OPENTRACE_USER && process.env.OPENTRACE_PASSWORD
-      ? [{ username: process.env.OPENTRACE_USER, password: process.env.OPENTRACE_PASSWORD }]
-      : undefined,
+    enabled: demoUser !== undefined,
+    users: demoUser && demoPassword ? [{ username: demoUser, password: demoPassword }] : undefined,
   },
 })
 

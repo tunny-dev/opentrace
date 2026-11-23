@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "OpenTrace",
+    "appName": "SpurTrace",
     "fleetName": "Ứng dụng MES-Production",
     "overview": "Tổng quan",
     "traces": "Dấu vết Traces",
@@ -312,7 +312,7 @@
       "to": "Đến",
       "subject": "Tiêu đề",
       "time": "Thời gian",
-      "heading": "Cảnh báo OpenTrace: {name}",
+      "heading": "Cảnh báo SpurTrace: {name}",
       "body": "Phát hiện điều kiện sự cố trên cluster {cluster}. Chỉ số {metric} đã vượt giới hạn {limit}.",
       "impactedService": "Service bị ảnh hưởng",
       "triggerTraceId": "Trace ID kích hoạt",
@@ -387,7 +387,7 @@
     "tabIngestion": "Thu thập Dữ liệu",
     "tabSecurity": "Bảo mật & API Key",
     "languageTitle": "Ngôn ngữ Hiển thị",
-    "languageDesc": "Chọn ngôn ngữ hiển thị cho giao diện bảng điều khiển OpenTrace",
+    "languageDesc": "Chọn ngôn ngữ hiển thị cho giao diện bảng điều khiển SpurTrace",
     "themeTitle": "Giao diện Màu sắc",
     "themeDesc": "Chuyển đổi giữa chế độ nền tối (Dark) và nền sáng (Light)",
     "themeDark": "Nền Tối (Dark)",
@@ -426,7 +426,7 @@
     "savedSuccess": "Đã cập nhật cấu hình thành công!"
   },
   "auth": {
-    "title": "Đăng nhập OpenTrace APM",
+    "title": "Đăng nhập SpurTrace APM",
     "subtitle": "Bảng điều khiển giám sát hiệu năng nhúng cho hệ thống MES",
     "emailLabel": "Địa chỉ Email hoặc Tên người dùng",
     "passwordLabel": "Mật khẩu",

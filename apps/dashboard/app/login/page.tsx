@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { LoginPage } from "@/components/opentrace/login-page";
-import type { UserRole } from "@/components/opentrace/user-profile-menu";
-import { useAuthStore } from "@/lib/opentrace/auth-store";
+import { LoginPage } from "@/components/spurtrace/login-page";
+import type { UserRole } from "@/components/spurtrace/user-profile-menu";
+import { useAuthStore } from "@/lib/spurtrace/auth-store";
 
 export default function LoginRoute() {
   const router = useRouter();
