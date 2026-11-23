@@ -12,6 +12,7 @@ import {
   Copy,
   Check,
   WrapText,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,8 @@ export function LogStreamView({ events = [], onInspect }) {
 
   // Local search inside console
   const [consoleSearch, setConsoleSearch] = useState('');
+  const [levelFilter, setLevelFilter] = useState('all');
+  const [selectedBucket, setSelectedBucket] = useState(null);
   const [copiedIdx, setCopiedIdx] = useState(null);
 
   const handleCopy = (text, idx) => {
@@ -95,9 +98,50 @@ export function LogStreamView({ events = [], onInspect }) {
     }
   };
 
+  const volumeBuckets = useMemo(() => {
+    const validTimes = events
+      .map((event) => new Date(event.time || 0).getTime())
+      .filter(Number.isFinite);
+    if (validTimes.length === 0) return [];
+
+    const start = Math.min(...validTimes);
+    const end = Math.max(...validTimes);
+    const bucketCount = Math.min(32, Math.max(8, Math.ceil(events.length / 3)));
+    const span = Math.max(1, end - start + 1);
+    const buckets = Array.from({ length: bucketCount }, (_, index) => ({
+      index,
+      count: 0,
+      start: start + (span * index) / bucketCount,
+      end: start + (span * (index + 1)) / bucketCount,
+    }));
+
+    validTimes.forEach((time) => {
+      const index = Math.min(bucketCount - 1, Math.floor(((time - start) / span) * bucketCount));
+      buckets[index].count += 1;
+    });
+    return buckets;
+  }, [events]);
+
   // Sort and filter events
   const processedEvents = useMemo(() => {
     let list = [...events];
+
+    if (levelFilter !== 'all') {
+      list = list.filter((event) => {
+        const level = String(event.level || 'info').toLowerCase();
+        if (levelFilter === 'error') return level.includes('error') || level.includes('fatal');
+        if (levelFilter === 'warn') return level.includes('warn');
+        return !level.includes('error') && !level.includes('fatal') && !level.includes('warn');
+      });
+    }
+
+    if (selectedBucket !== null && volumeBuckets[selectedBucket]) {
+      const bucket = volumeBuckets[selectedBucket];
+      list = list.filter((event) => {
+        const time = new Date(event.time || 0).getTime();
+        return Number.isFinite(time) && time >= bucket.start && time < bucket.end;
+      });
+    }
 
     // Filter by console search
     if (consoleSearch.trim()) {
@@ -118,14 +162,15 @@ export function LogStreamView({ events = [], onInspect }) {
     });
 
     return list;
-  }, [events, consoleSearch, sortOrder]);
+  }, [events, consoleSearch, sortOrder, levelFilter, selectedBucket, volumeBuckets]);
 
-  const levelCounts = useMemo(() => processedEvents.reduce((counts, event) => {
+  const levelCounts = useMemo(() => events.reduce((counts, event) => {
     const level = String(event.level || 'info').toLowerCase();
     if (level.includes('error') || level.includes('fatal')) counts.errors += 1;
     else if (level.includes('warn')) counts.warnings += 1;
     return counts;
-  }, { errors: 0, warnings: 0 }), [processedEvents]);
+  }, { errors: 0, warnings: 0 }), [events]);
+  const maxVolumeCount = Math.max(1, ...volumeBuckets.map((bucket) => bucket.count));
 
   return (
     <TooltipProvider delayDuration={150}>
@@ -133,7 +178,7 @@ export function LogStreamView({ events = [], onInspect }) {
         <div className="flex flex-wrap items-center justify-between gap-3 border-b dark:border-[#22252b] border-slate-200 pb-3">
           <div>
             <h2 className="text-sm font-semibold dark:text-slate-100 text-slate-900">Log stream</h2>
-            <p className="mt-0.5 text-[11px] dark:text-[#8e94a0] text-slate-500">Application events from the selected time range</p>
+            <p className="mt-0.5 text-[11px] dark:text-[#8e94a0] text-slate-500">Events attached to the traces currently loaded</p>
           </div>
           <div className="flex items-center gap-2 text-[11px]" aria-label="Log level summary">
             <span className="rounded border border-[#f2495c]/30 bg-[#f2495c]/10 px-2 py-1 text-[#f2495c]">{levelCounts.errors} errors</span>
@@ -141,6 +186,66 @@ export function LogStreamView({ events = [], onInspect }) {
             <span className="rounded border dark:border-[#2c323f] border-slate-200 px-2 py-1 dark:text-slate-300 text-slate-600">{processedEvents.length} events</span>
           </div>
         </div>
+
+        <section className="rounded-md border dark:border-[#2c323f] border-slate-200 dark:bg-[#111217] bg-slate-50 px-3 py-2.5" aria-label="Log volume over time">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-[11px]">
+              <span className="font-medium dark:text-slate-200 text-slate-700">Log volume</span>
+              <span className="dark:text-slate-500 text-slate-400">{events.length.toLocaleString()} entries</span>
+            </div>
+            {selectedBucket !== null && (
+              <Button type="button" variant="ghost" size="xs" onClick={() => setSelectedBucket(null)} className="h-6 gap-1 px-2 text-[11px] text-[#5794f2]">
+                Clear time filter <X />
+              </Button>
+            )}
+          </div>
+          <div className="flex h-14 items-end gap-1" role="group" aria-label="Select a log volume time bucket">
+            {volumeBuckets.map((bucket) => {
+              const isSelected = selectedBucket === bucket.index;
+              return (
+                <button
+                  key={bucket.index}
+                  type="button"
+                  aria-label={`${bucket.count} log entries in time bucket ${new Date(bucket.start).toLocaleTimeString()}`}
+                  aria-pressed={isSelected}
+                  title={`${bucket.count} log entries · ${new Date(bucket.start).toLocaleTimeString()}`}
+                  onClick={() => setSelectedBucket(isSelected ? null : bucket.index)}
+                  className={`min-w-1 flex-1 rounded-t-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5794f2] ${isSelected ? 'bg-[#5794f2]' : 'bg-[#5794f2]/45 hover:bg-[#5794f2]/75'}`}
+                  style={{ height: `${Math.max(8, (bucket.count / maxVolumeCount) * 100)}%` }}
+                />
+              );
+            })}
+          </div>
+          {volumeBuckets.length > 0 && (
+            <div className="mt-1.5 flex justify-between font-mono text-[10px] dark:text-slate-500 text-slate-400">
+              <span>{new Date(volumeBuckets[0].start).toLocaleTimeString()}</span>
+              <span>{new Date(volumeBuckets[volumeBuckets.length - 1].end).toLocaleTimeString()}</span>
+            </div>
+          )}
+        </section>
+
+        <div className="flex flex-wrap items-center gap-1.5" aria-label="Filter log levels">
+          <span className="mr-1 text-[11px] dark:text-slate-500 text-slate-500">Severity</span>
+          {[
+            { value: 'all', label: 'All levels' },
+            { value: 'error', label: `Error ${levelCounts.errors}` },
+            { value: 'warn', label: `Warn ${levelCounts.warnings}` },
+            { value: 'info', label: 'Info' },
+          ].map((filter) => (
+            <Button
+              key={filter.value}
+              type="button"
+              size="xs"
+              variant={levelFilter === filter.value ? 'secondary' : 'outline'}
+              aria-pressed={levelFilter === filter.value}
+              onClick={() => setLevelFilter(filter.value)}
+              className={`h-7 rounded-full px-2.5 text-[11px] ${levelFilter === filter.value ? 'border-[#5794f2]/50 bg-[#5794f2]/10 text-[#5794f2]' : 'dark:border-[#2c323f] border-slate-200 dark:text-slate-400 text-slate-600'}`}
+            >
+              {filter.label}
+            </Button>
+          ))}
+        </div>
+
         <div className="flex flex-wrap items-center justify-between gap-2.5 pb-2 border-b dark:border-[#22252b] border-slate-200">
           <div className="flex items-center gap-2">
             <div className="flex items-center rounded border dark:border-[#2c323f] border-slate-300 dark:bg-[#111217] bg-slate-100 p-0.5">
