@@ -37,7 +37,7 @@ export function CimdevAuthModal({ isOpen, onSuccess }) {
   const form = useForm({
     resolver: zodResolver(authSchema),
     defaultValues: {
-      username: '',
+      username: 'cimdev',
       password: '',
     },
   });
