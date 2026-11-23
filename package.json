@@ -8,7 +8,7 @@
     "dev": "pnpm --filter spurtrace-dashboard dev",
     "dev:all": "pnpm --parallel dev",
     "dev:docs": "pnpm --filter opentrace-docs dev",
-    "build": "pnpm --filter opentrace build && pnpm --filter spurtrace-dashboard build && pnpm --filter opentrace-docs build",
+    "build": "pnpm --filter spurtrace-dashboard build && pnpm --filter opentrace-docs build",
     "build:opentrace": "pnpm --filter opentrace build",
     "build:dashboard": "pnpm --filter spurtrace-dashboard build",
     "build:docs": "pnpm --filter opentrace-docs build",
