@@ -94,3 +94,4 @@ temp/
 
 # Agent & Local caches
 # .agents/
+.env.local
