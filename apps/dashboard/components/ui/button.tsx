@@ -73,7 +73,7 @@ function Button({
       nativeButton={isNativeButton}
       {...props}
     >
-      {renderProp ? undefined : children}
+      {asChild ? undefined : children}
     </ButtonPrimitive>
   );
 }
