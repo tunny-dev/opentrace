@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Check, Globe, Languages } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/i18n-context";
 import {
   DropdownMenu,
@@ -43,17 +44,19 @@ export function LanguageToggle({
       <Tooltip>
         <TooltipTrigger
           render={
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               type="button"
               aria-label={tooltipLabel}
               onClick={toggleLocale}
-              className={`group flex h-8 items-center gap-1.5 rounded-lg border border-(--ot-border) bg-(--ot-panel-raised) px-2 text-xs text-(--ot-muted) shadow-xs transition-all duration-200 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:border-emerald-500/35 dark:hover:bg-emerald-500/15 dark:hover:text-emerald-400 ${className ?? ""}`}
+              className={`group flex h-8 items-center gap-1.5 rounded-lg border border-(--ot-border) bg-(--ot-panel-raised) px-2 text-xs text-(--ot-muted) shadow-xs transition-all duration-200 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:text-emerald-600 dark:hover:border-emerald-500/35 dark:hover:bg-emerald-500/15 dark:hover:text-emerald-400 cursor-pointer ${className ?? ""}`}
             >
               <Languages className="h-3.5 w-3.5 transition-transform duration-200 group-hover:scale-110" />
               <span className="text-[11px] font-bold tracking-wider">
                 {locale === "vi" ? "VI" : "EN"}
               </span>
-            </button>
+            </Button>
           }
         />
         <TooltipContent side="bottom" align="end">

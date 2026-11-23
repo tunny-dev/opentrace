@@ -5,6 +5,7 @@ import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 
 import { useI18n } from "@/lib/i18n/i18n-context";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface DataTableColumnHeaderProps<TData, TValue> {
   column: Column<TData, TValue>;
@@ -33,7 +34,9 @@ export function DataTableColumnHeader<TData, TValue>({
   const isMultiSort = (table?.getState().sorting.length ?? 0) > 1;
 
   return (
-    <button
+    <Button
+      variant="ghost"
+      size="xs"
       type="button"
       onClick={column.getToggleSortingHandler()}
       title={t("table.sortHint")}
@@ -61,6 +64,6 @@ export function DataTableColumnHeader<TData, TValue>({
           {sortIndex + 1}
         </span>
       )}
-    </button>
+    </Button>
   );
 }
