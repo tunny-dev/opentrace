@@ -1,6 +1,6 @@
 {
   "common": {
-    "appName": "OpenTrace",
+    "appName": "SpurTrace",
     "fleetName": "MES-Production App",
     "overview": "Overview",
     "traces": "Traces",
@@ -312,7 +312,7 @@
       "to": "To",
       "subject": "Subject",
       "time": "Time",
-      "heading": "OpenTrace Alert: {name}",
+      "heading": "SpurTrace Alert: {name}",
       "body": "An incident condition was detected on cluster {cluster}. Metric {metric} exceeded the limit of {limit}.",
       "impactedService": "Impacted Service",
       "triggerTraceId": "Trigger Trace ID",
@@ -387,7 +387,7 @@
     "tabIngestion": "Telemetry Ingestion",
     "tabSecurity": "Security & API Keys",
     "languageTitle": "Interface Language",
-    "languageDesc": "Choose your preferred display language for OpenTrace console",
+    "languageDesc": "Choose your preferred display language for SpurTrace console",
     "themeTitle": "Theme Appearance",
     "themeDesc": "Switch between Dark and Light mode color palettes",
     "themeDark": "Dark Mode",
@@ -426,7 +426,7 @@
     "savedSuccess": "Settings updated successfully!"
   },
   "auth": {
-    "title": "OpenTrace APM Login",
+    "title": "SpurTrace APM Login",
     "subtitle": "Embedded observability console for MES production systems",
     "emailLabel": "Username or email",
     "passwordLabel": "Password",

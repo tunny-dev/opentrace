@@ -2,10 +2,10 @@ import assert from "node:assert/strict"
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { BatchWriter, fingerprintSql, SqliteStorageAdapter } from "opentrace"
-import type { StorageAdapter, TraceRecord } from "opentrace"
-import { aggregateQueries, expandTraceQueries, formatSql, getStatementType } from "../apps/dashboard/lib/opentrace/sql-analytics.ts"
-import { demoTraces } from "../apps/dashboard/lib/opentrace/demo-data.ts"
+import { BatchWriter, fingerprintSql, SqliteStorageAdapter } from "spurtrace"
+import type { StorageAdapter, TraceRecord } from "spurtrace"
+import { aggregateQueries, expandTraceQueries, formatSql, getStatementType } from "../apps/dashboard/lib/spurtrace/sql-analytics.ts"
+import { demoTraces } from "../apps/dashboard/lib/spurtrace/demo-data.ts"
 
 function traceRecord(traceId: string, priority: TraceRecord["priority"] = "normal"): TraceRecord {
   return {
@@ -72,7 +72,7 @@ async function main() {
   assert.equal(writer.getStats().dropped, 1, "critical ingress should evict one normal trace")
   await writer.close()
 
-  const directory = await mkdtemp(join(tmpdir(), "opentrace-smoke-"))
+  const directory = await mkdtemp(join(tmpdir(), "spurtrace-smoke-"))
   const sqlite = new SqliteStorageAdapter({ path: join(directory, "traces.sqlite") })
   try {
     await sqlite.insertBatch([traceRecord("sqlite-1", "critical")])
@@ -86,7 +86,7 @@ async function main() {
     await rm(directory, { recursive: true, force: true })
   }
 
-  console.log("OpenTrace smoke tests passed: SQL fingerprints, priority backpressure, SQLite batch insert, read, and retention.")
+  console.log("SpurTrace smoke tests passed: SQL fingerprints, priority backpressure, SQLite batch insert, read, and retention.")
 }
 
 void main().catch((error) => {

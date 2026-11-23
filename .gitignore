@@ -19,7 +19,7 @@ dist/
 build/
 **/dist/
 **/build/
-packages/opentrace/dist/
+packages/spurtrace/dist/
 apps/dashboard/out/
 apps/docs/out/
 

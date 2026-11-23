@@ -14,13 +14,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { OpenTraceShadcnSidebar } from "@/components/opentrace/shadcn-sidebar";
-import { TraceDetailPanel } from "@/components/opentrace/trace-detail-panel";
-import { LoginPage } from "@/components/opentrace/login-page";
-import { ThemeToggle } from "@/components/opentrace/theme-toggle";
-import { LanguageToggle } from "@/components/opentrace/language-toggle";
-import { CommandSearch } from "@/components/opentrace/command-search";
-import { TelemetryProvider, useTelemetry } from "@/lib/opentrace/telemetry-context";
+import { SpurTraceShadcnSidebar } from "@/components/spurtrace/shadcn-sidebar";
+import { TraceDetailPanel } from "@/components/spurtrace/trace-detail-panel";
+import { LoginPage } from "@/components/spurtrace/login-page";
+import { ThemeToggle } from "@/components/spurtrace/theme-toggle";
+import { LanguageToggle } from "@/components/spurtrace/language-toggle";
+import { CommandSearch } from "@/components/spurtrace/command-search";
+import { TelemetryProvider, useTelemetry } from "@/lib/spurtrace/telemetry-context";
 import { useI18n } from "@/lib/i18n/i18n-context";
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
@@ -48,7 +48,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider defaultOpen={true} className="h-svh overflow-hidden">
       {/* Shadcn UI Sidebar (matching MESProductionReport AppSidebar) */}
-      <OpenTraceShadcnSidebar role={userRole} onRoleChange={setUserRole} onSignOut={signOut} />
+      <SpurTraceShadcnSidebar role={userRole} onRoleChange={setUserRole} onSignOut={signOut} />
 
       {/* Main Content Area via official Shadcn SidebarInset */}
       <SidebarInset className="min-w-0 bg-(--ot-bg) flex flex-col h-svh overflow-hidden">

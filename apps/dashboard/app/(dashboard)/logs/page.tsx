@@ -1,8 +1,8 @@
 "use client";
 
-import { LogStreamTab } from "@/components/opentrace/log-stream-tab";
-import { TelemetryToolbar } from "@/components/opentrace/telemetry-toolbar";
-import { useTelemetry } from "@/lib/opentrace/telemetry-context";
+import { LogStreamTab } from "@/components/spurtrace/log-stream-tab";
+import { TelemetryToolbar } from "@/components/spurtrace/telemetry-toolbar";
+import { useTelemetry } from "@/lib/spurtrace/telemetry-context";
 import { useI18n } from "@/lib/i18n/i18n-context";
 
 export default function LogsPage() {

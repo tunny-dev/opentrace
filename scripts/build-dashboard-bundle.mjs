@@ -6,7 +6,7 @@ console.log("=== Building SpurTrace Static Next.js Dashboard Bundle ===")
 
 const dashboardDir = resolve("apps/dashboard")
 const outDir = resolve("apps/dashboard/out")
-const targetDir = resolve("packages/opentrace/dist/dashboard-ui")
+const targetDir = resolve("packages/spurtrace/dist/dashboard-ui")
 
 if (existsSync(outDir)) {
   rmSync(outDir, { recursive: true, force: true })
@@ -23,11 +23,11 @@ execSync("npx next build", {
   },
 })
 
-console.log("2. Copying static bundle to packages/opentrace/dist/dashboard-ui...")
+console.log("2. Copying static bundle to packages/spurtrace/dist/dashboard-ui...")
 if (!existsSync(targetDir)) {
   mkdirSync(targetDir, { recursive: true })
 }
 
 cpSync(outDir, targetDir, { recursive: true })
 
-console.log("✔ Successfully packaged SpurTrace Dashboard UI into opentrace SDK!")
+console.log("✔ Successfully packaged SpurTrace Dashboard UI into spurtrace SDK!")

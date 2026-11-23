@@ -1,0 +1,519 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Bell,
+  ChevronDown,
+  Command,
+  ExternalLink,
+  Plus,
+  RefreshCw,
+  Search,
+  Sparkles,
+} from "lucide-react";
+import {
+  demoTraces,
+  type DemoEnvironment,
+  type DemoService,
+  type DemoTrace,
+} from "@/lib/spurtrace/demo-data";
+import { demoLogs } from "@/lib/spurtrace/demo-logs";
+import { DashboardMetrics } from "./dashboard-metrics";
+import { DashboardSidebar, type DashboardSection } from "./dashboard-sidebar";
+import { LogStreamTab } from "./log-stream-tab";
+import { LatencyChart } from "./latency-chart";
+import { SqlStudioPage } from "./sql-studio-page";
+import { ServicesPage } from "./services-page";
+import { ReleasesPage } from "./releases-page";
+import { SettingsPage } from "./settings-page";
+import { LoginPage } from "./login-page";
+import { TraceDetailPanel } from "./trace-detail-panel";
+import { TracesTable } from "./traces-table";
+import type { UserRole } from "./user-profile-menu";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+
+const sectionTitles: Record<DashboardSection, string> = {
+  overview: "Overview",
+  traces: "Traces",
+  errors: "Errors",
+  sql: "SQL Studio",
+  logs: "Log Stream",
+  services: "Services",
+  releases: "Releases",
+  settings: "Settings",
+};
+
+const environments: DemoEnvironment[] = ["production", "staging", "development"];
+const services: DemoService[] = ["MES-API", "Order-Service", "Inventory-Worker"];
+
+function isDashboardSection(value: string | null): value is DashboardSection {
+  return (
+    value === "overview" ||
+    value === "traces" ||
+    value === "errors" ||
+    value === "sql" ||
+    value === "logs" ||
+    value === "services" ||
+    value === "releases" ||
+    value === "settings"
+  );
+}
+
+function buildLiveTrace(
+  sequence: number,
+  environment: DemoEnvironment,
+  service: DemoService | "all"
+): DemoTrace {
+  const matching = demoTraces.filter((trace) => service === "all" || trace.service === service);
+  const template = matching[sequence % matching.length] ?? demoTraces[sequence % demoTraces.length];
+  const timestamp = new Date();
+  const failed = sequence % 9 === 0;
+  const duration = Math.round(24 + Math.random() * 240);
+  const route = template.route;
+
+  return {
+    ...template,
+    id: `tr_live_${timestamp.getTime().toString(36)}`,
+    createdAt: timestamp.toISOString(),
+    ageLabel: "now",
+    environment,
+    service: service === "all" ? template.service : service,
+    isLive: true,
+    duration,
+    status: failed ? 500 : 200,
+    state: failed ? "error" : "success",
+    sqlCount: template.queries.length,
+    exception: failed
+      ? {
+          name: "LiveSampleError",
+          message: "Simulated intermittent dependency failure",
+          signature: "livesampleerror: simulated intermittent dependency failure",
+        }
+      : undefined,
+    spans: template.spans.map((span, index) => ({
+      ...span,
+      duration:
+        index === 0 ? duration : Math.min(duration, Math.max(2, Math.round(duration * 0.36))),
+    })),
+    queries: template.queries.map((query) => ({
+      ...query,
+      slow: false,
+      slowCount: 0,
+      duplicateCount: 1,
+    })),
+    route,
+  };
+}
+
+function updateQueryState(values: Record<string, string | null>, replace = false) {
+  const url = new URL(window.location.href);
+  for (const [key, value] of Object.entries(values)) {
+    if (value === null || value === "") url.searchParams.delete(key);
+    else url.searchParams.set(key, value);
+  }
+  window.history[replace ? "replaceState" : "pushState"](
+    {},
+    "",
+    `${url.pathname}${url.search}${url.hash}`
+  );
+}
+
+export function SpurTraceDashboard() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true);
+  const [section, setSection] = useState<DashboardSection>("overview");
+  const [traces, setTraces] = useState<DemoTrace[]>(demoTraces);
+  const [selectedTrace, setSelectedTrace] = useState<DemoTrace | null>(null);
+  const [environment, setEnvironment] = useState<DemoEnvironment>("production");
+  const [service, setService] = useState<DemoService | "all">("all");
+  const [liveStream, setLiveStream] = useState(false);
+  const [userRole, setUserRole] = useState<UserRole>("Admin");
+  const [refreshing, setRefreshing] = useState(false);
+  const traceRef = useRef<DemoTrace[]>(demoTraces);
+  const liveSequence = useRef(0);
+
+  useEffect(() => {
+    traceRef.current = traces;
+  }, [traces]);
+
+  useEffect(() => {
+    // Check local auth session
+    if (typeof window !== "undefined") {
+      const stored = sessionStorage.getItem("opentrace_auth");
+      if (stored === "signed_out") {
+        setIsAuthenticated(false);
+      }
+    }
+
+    const syncFromLocation = () => {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      const env = params.get("env");
+      const selectedService = params.get("service");
+      const traceId = params.get("traceId");
+      setSection(isDashboardSection(tab) ? tab : traceId ? "traces" : "overview");
+      setEnvironment(
+        environments.includes(env as DemoEnvironment) ? (env as DemoEnvironment) : "production"
+      );
+      setService(
+        services.includes(selectedService as DemoService) ? (selectedService as DemoService) : "all"
+      );
+      setLiveStream(params.get("live") === "1");
+      setSelectedTrace(
+        traceId ? (traceRef.current.find((trace) => trace.id === traceId) ?? null) : null
+      );
+    };
+
+    syncFromLocation();
+    window.addEventListener("popstate", syncFromLocation);
+    return () => window.removeEventListener("popstate", syncFromLocation);
+  }, []);
+
+  useEffect(() => {
+    if (!liveStream) return;
+    const interval = window.setInterval(() => {
+      liveSequence.current += 1;
+      const nextTrace = buildLiveTrace(liveSequence.current, environment, service);
+      setTraces((current) => [nextTrace, ...current].slice(0, 100));
+    }, 4000);
+    return () => window.clearInterval(interval);
+  }, [liveStream, environment, service]);
+
+  const filteredTraces = useMemo(
+    () =>
+      traces.filter(
+        (trace) =>
+          trace.environment === environment && (service === "all" || trace.service === service)
+      ),
+    [traces, environment, service]
+  );
+  const filteredLogs = useMemo(
+    () =>
+      demoLogs.filter(
+        (log) => log.environment === environment && (service === "all" || log.service === service)
+      ),
+    [environment, service]
+  );
+
+  function handleLogin(role: UserRole, _username: string) {
+    setUserRole(role);
+    setIsAuthenticated(true);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("opentrace_auth", "signed_in");
+    }
+  }
+
+  function handleSignOut() {
+    setIsAuthenticated(false);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("opentrace_auth", "signed_out");
+    }
+  }
+
+  function navigateSection(nextSection: DashboardSection) {
+    setSection(nextSection);
+    setSelectedTrace(null);
+    updateQueryState({ tab: nextSection, traceId: null });
+  }
+
+  function openTrace(trace: DemoTrace) {
+    setSection("traces");
+    setSelectedTrace(trace);
+    updateQueryState({ tab: "traces", traceId: trace.id });
+  }
+
+  function openTraceFromLog(traceId: string) {
+    const trace = traceRef.current.find((item) => item.id === traceId);
+    if (trace) openTrace(trace);
+  }
+
+  function closeTrace() {
+    setSelectedTrace(null);
+    updateQueryState({ traceId: null }, true);
+  }
+
+  function changeEnvironment(nextEnvironment: DemoEnvironment) {
+    setEnvironment(nextEnvironment);
+    updateQueryState({ env: nextEnvironment });
+  }
+
+  function changeService(nextService: DemoService | "all") {
+    setService(nextService);
+    updateQueryState({ service: nextService === "all" ? null : nextService });
+  }
+
+  function toggleLiveStream() {
+    const nextValue = !liveStream;
+    setLiveStream(nextValue);
+    updateQueryState({ live: nextValue ? "1" : null });
+  }
+
+  function refreshDashboard() {
+    setRefreshing(true);
+    window.setTimeout(() => setRefreshing(false), 550);
+  }
+
+  function handleSelectServiceFromCatalog(selected: DemoService) {
+    setService(selected);
+    setSection("traces");
+    updateQueryState({ tab: "traces", service: selected });
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
+  return (
+    <div className="spurtrace-app">
+      <DashboardSidebar
+        active={section}
+        onNavigate={navigateSection}
+        role={userRole}
+        onRoleChange={setUserRole}
+        onSignOut={handleSignOut}
+      />
+      <main className="dashboard-main">
+        <header className="topbar">
+          <div className="breadcrumb">
+            <span>MES Production</span>
+            <span className="breadcrumb-slash">/</span>
+            <strong>{sectionTitles[section]}</strong>
+            <ChevronDown aria-hidden="true" />
+          </div>
+          <div className="topbar-actions">
+            <div className="global-search">
+              <Search aria-hidden="true" />
+              <span>Search</span>
+              <kbd>
+                <Command aria-hidden="true" /> K
+              </kbd>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="icon-button topbar-icon"
+              type="button"
+              aria-label="Notifications are not configured in this PoC"
+              disabled
+            >
+              <Bell />
+            </Button>
+            <div className="topbar-divider" />
+            <div className="flex items-center gap-1.5">
+              <Select
+                value={environment}
+                onValueChange={(val) => changeEnvironment((val as DemoEnvironment) ?? "production")}
+              >
+                <SelectTrigger className="h-7 text-xs bg-background border-border text-foreground shadow-xs font-sans gap-1.5 w-auto">
+                  <span className="size-2 rounded-full bg-emerald-500 shrink-0" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border text-popover-foreground text-xs shadow-md">
+                  {environments.map((value) => (
+                    <SelectItem key={value} value={value} className="text-xs">
+                      {value[0].toUpperCase() + value.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={service}
+                onValueChange={(val) => changeService((val as DemoService | "all") ?? "all")}
+              >
+                <SelectTrigger className="h-7 text-xs bg-background border-border text-foreground shadow-xs font-sans gap-1.5 w-auto">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border text-popover-foreground text-xs shadow-md">
+                  <SelectItem value="all" className="text-xs">
+                    All services
+                  </SelectItem>
+                  {services.map((value) => (
+                    <SelectItem key={value} value={value} className="text-xs">
+                      {value}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className={`live-toggle h-auto p-0${liveStream ? " is-live" : ""}`}
+              type="button"
+              aria-label={liveStream ? "Stop simulated live stream" : "Start simulated live stream"}
+              title="Simulated in the browser; this PoC does not open a server-sent events connection"
+              aria-pressed={liveStream}
+              onClick={toggleLiveStream}
+            >
+              <i className="live-indicator" />
+              <span>Live stream</span>
+              <small>{liveStream ? "ON" : "SSE"}</small>
+            </Button>
+          </div>
+        </header>
+
+        <div className="dashboard-content">
+          <div className="page-heading">
+            <div>
+              <div className="page-eyebrow">
+                <span className="service-dot" /> MES-PRODUCTION{" "}
+                <span className="page-eyebrow-divider">/</span> LIVE OBSERVABILITY{" "}
+                <span className="demo-label">POC · SAMPLE DATA</span>
+              </div>
+              <h1>{sectionTitles[section]}</h1>
+              <p>
+                {section === "sql" && "Fingerprint-level database performance across routes."}
+                {section === "logs" &&
+                  "High-density streaming console and structured telemetry logs."}
+                {section === "services" &&
+                  "Microservice fleet catalog, health statuses, and topology dependency map."}
+                {section === "releases" &&
+                  "Deployment history, git commit tracking, and regression correlation."}
+                {section === "settings" &&
+                  "Configure ingestion sampling rates, data retention, and security keys."}
+                {(section === "overview" || section === "traces" || section === "errors") &&
+                  "Understand what's happening across your services."}
+              </p>
+            </div>
+            <div className="page-actions">
+              <span className="last-updated">
+                <i className={liveStream ? "is-pulsing" : ""} />
+                {liveStream ? "Receiving simulated events" : "Updated just now"}
+              </span>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                className={`icon-button refresh-button${refreshing ? " refreshing" : ""}`}
+                type="button"
+                onClick={refreshDashboard}
+                aria-label="Refresh dashboard"
+              >
+                <RefreshCw />
+              </Button>
+              <Button
+                className="primary-button"
+                type="button"
+                disabled
+                title="Alert creation is not included in this PoC"
+              >
+                <Plus aria-hidden="true" />
+                New alert
+              </Button>
+            </div>
+          </div>
+
+          {section === "logs" && (
+            <LogStreamTab logs={filteredLogs} onOpenTrace={openTraceFromLog} />
+          )}
+          {section === "sql" && <SqlStudioPage traces={filteredTraces} role={userRole} />}
+          {section === "services" && (
+            <ServicesPage onSelectService={handleSelectServiceFromCatalog} />
+          )}
+          {section === "releases" && <ReleasesPage />}
+          {section === "settings" && <SettingsPage role={userRole} />}
+
+          {(section === "overview" || section === "traces" || section === "errors") && (
+            <>
+              <DashboardMetrics />
+              <div className="chart-row">
+                <LatencyChart />
+                <section className="panel-card breakdown-panel" aria-labelledby="breakdown-title">
+                  <div className="panel-heading">
+                    <div>
+                      <div className="section-kicker">SERVICE HEALTH</div>
+                      <div className="latency-title-row">
+                        <h2 id="breakdown-title">Latency breakdown</h2>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon-xs"
+                      className="more-button"
+                      type="button"
+                      aria-label="More service health options"
+                      disabled
+                    >
+                      ···
+                    </Button>
+                  </div>
+                  <div className="breakdown-total">
+                    <strong>
+                      184<span>ms</span>
+                    </strong>
+                    <span>avg. request duration</span>
+                  </div>
+                  <div
+                    className="composition-track"
+                    role="img"
+                    aria-label="68 percent database, 24 percent application, 8 percent external services"
+                  >
+                    <i />
+                    <span />
+                    <b />
+                  </div>
+                  <div className="composition-list">
+                    <div>
+                      <i className="composition-db" />
+                      <span>Database</span>
+                      <strong>68.4%</strong>
+                      <small>126 ms</small>
+                    </div>
+                    <div>
+                      <i className="composition-app" />
+                      <span>App logic</span>
+                      <strong>23.7%</strong>
+                      <small>44 ms</small>
+                    </div>
+                    <div>
+                      <i className="composition-ext" />
+                      <span>External APIs</span>
+                      <strong>7.9%</strong>
+                      <small>14 ms</small>
+                    </div>
+                  </div>
+                  <Button
+                    variant="link"
+                    className="breakdown-link h-auto p-0"
+                    type="button"
+                    onClick={() => navigateSection("sql")}
+                  >
+                    Explore SQL performance <ExternalLink aria-hidden="true" />
+                  </Button>
+                </section>
+              </div>
+              <TracesTable
+                traces={filteredTraces}
+                section={section}
+                onSelect={openTrace}
+                liveStream={liveStream}
+              />
+            </>
+          )}
+
+          <footer className="dashboard-footer">
+            <span>
+              <i />
+              SpurTrace collector healthy
+            </span>
+            <span>
+              LAST 60 MIN <b>·</b> UTC−07:00
+            </span>
+            <span className="footer-label">
+              <Sparkles aria-hidden="true" />
+              PoC preview
+            </span>
+          </footer>
+        </div>
+      </main>
+      {selectedTrace && <TraceDetailPanel trace={selectedTrace} onClose={closeTrace} />}
+    </div>
+  );
+}

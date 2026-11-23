@@ -2,7 +2,6 @@ import type * as React from "react";
 import type { RowData } from "@tanstack/react-table";
 
 declare module "@tanstack/react-table" {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface ColumnMeta<TData extends RowData, TValue> {
     /** Human readable name used by the column picker and header. */
     label?: string;

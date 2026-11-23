@@ -3,7 +3,7 @@ import type { Metadata, Viewport } from "next";
 import { Manrope } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryProvider } from "@/components/opentrace/query-provider";
+import { QueryProvider } from "@/components/spurtrace/query-provider";
 import { I18nProvider } from "@/lib/i18n/i18n-context";
 import { Toaster } from "sonner";
 import "./globals.css";
