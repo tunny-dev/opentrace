@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, useParams, useNavigate } from '@/features/system-logs/compat-router';
 import {
   Layers,
@@ -69,13 +70,27 @@ export function SystemLogsPage() {
   const [mounted, setMounted] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const authQuery = useQuery({
+    queryKey: ['system-logs', 'auth-session'],
+    queryFn: async () => {
+      const response = await fetch('/api/system-logs/auth', { cache: 'no-store' });
+      const result = await response.json();
+      if (!response.ok && response.status !== 401) {
+        throw new Error(result.error || 'Could not verify system logs session.');
+      }
+      return result.authenticated === true;
+    },
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
 
   useEffect(() => {
+    if (authQuery.isPending) return;
+    const authed = authQuery.data === true;
     setMounted(true);
-    const authed = !!systemLogsService.getStoredAuth();
     setIsAuthenticated(authed);
     setShowAuthModal(!authed);
-  }, []);
+  }, [authQuery.data, authQuery.isPending]);
 
   const [selectedDate, setSelectedDate] = useState('');
   const [timeRange, setTimeRange] = useState({
@@ -161,8 +176,9 @@ export function SystemLogsPage() {
       systemLogsService.clearAuth();
       setIsAuthenticated(false);
       setShowAuthModal(true);
+      authQuery.refetch();
     }
-  }, [datesError, tracesError]);
+  }, [datesError, tracesError, authQuery.refetch]);
 
   const traces = tracesData?.traces || [];
   const timeline = tracesData?.timeline || [];
@@ -178,6 +194,9 @@ export function SystemLogsPage() {
   const loading = isLoading || isFetching;
   const error = tracesError?.message || '';
   const displayedTraces = traces;
+  const allEvents = displayedTraces.flatMap((trace) =>
+    (trace.events || []).map((event) => ({ ...event, parentTrace: trace }))
+  );
 
   const handleTimeRangeChange = (newRange) => {
     setTimeRange(newRange);
@@ -204,6 +223,18 @@ export function SystemLogsPage() {
 
   // Auth Handlers
   const handleAuthSuccess = async (u, p) => {
+    const response = await fetch('/api/system-logs/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: u, password: p }),
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Authentication failed.');
+    const session = await authQuery.refetch();
+    if (session.error || session.data !== true) {
+      throw session.error || new Error('Could not verify the system logs session.');
+    }
+
     systemLogsService.setStoredAuth(u, p);
     setIsAuthenticated(true);
     setShowAuthModal(false);
@@ -211,7 +242,9 @@ export function SystemLogsPage() {
     refetchTraces();
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await fetch('/api/system-logs/auth', { method: 'DELETE' });
+    await authQuery.refetch();
     systemLogsService.clearAuth();
     setIsAuthenticated(false);
     setShowAuthModal(true);
@@ -221,10 +254,6 @@ export function SystemLogsPage() {
     setInspectTrace(trace);
     setIsSheetOpen(true);
   };
-
-  const allEvents = displayedTraces.flatMap((t) =>
-    (t.events || []).map((e) => ({ ...e, parentTrace: t }))
-  );
 
   if (!mounted) {
     return (
@@ -282,23 +311,27 @@ export function SystemLogsPage() {
           onAutoRefreshChange={setAutoRefreshInterval}
           resolvedTheme={resolvedTheme}
           toggleTheme={toggleTheme}
+          isSubPage={activeTab === 'raw'}
+          isLogMode={activeTab === 'raw'}
         />
 
         <div className="w-full px-4 py-4 sm:px-6 space-y-3.5">
-          <TraceSummaryCards summary={summary} />
+          {activeTab !== 'raw' && <TraceSummaryCards summary={summary} />}
 
-          <TraceTimelineChart
-            traces={traces}
-            timeline={timeline}
-            onSelectBucket={(bucket) => {
-              if (bucket?.time) {
-                setSearch(bucket.time);
-                setPage(1);
-              }
-            }}
-          />
+          {activeTab !== 'raw' && (
+            <TraceTimelineChart
+              traces={traces}
+              timeline={timeline}
+              onSelectBucket={(bucket) => {
+                if (bucket?.time) {
+                  setSearch(bucket.time);
+                  setPage(1);
+                }
+              }}
+            />
+          )}
 
-          {(search ||
+          {activeTab !== 'raw' && (search ||
             traceIdFilter ||
             onlyErrors ||
             onlySlow ||
@@ -460,7 +493,7 @@ export function SystemLogsPage() {
             </div>
           )}
 
-          {error && (
+          {activeTab !== 'raw' && error && (
             <div className="rounded border border-[#f2495c]/40 bg-[#f2495c]/10 p-3 text-xs text-[#f2495c] flex items-center justify-between">
               <span>{error}</span>
               <Button
@@ -489,7 +522,7 @@ export function SystemLogsPage() {
                   className="text-xs h-7 rounded data-[state=active]:bg-[#3274d9] data-[state=active]:text-white dark:data-[state=active]:bg-[#22252b] dark:data-[state=active]:text-[#5794f2] dark:data-[state=active]:border dark:data-[state=active]:border-[#3274d9] font-medium"
                 >
                   <Terminal className="h-3.5 w-3.5 mr-1.5" />
-                  Logs &amp; Table ({allEvents.length})
+                  Logs & Table ({allEvents.length})
                 </TabsTrigger>
                 <TabsTrigger
                   value="client"
@@ -507,46 +540,48 @@ export function SystemLogsPage() {
                 </TabsTrigger>
               </TabsList>
 
-              <div className="flex items-center gap-2 text-xs">
-                <span className="dark:text-[#8e94a0] text-slate-500 font-sans">
-                  Total:{' '}
-                  <strong className="dark:text-white text-slate-900">{totalTracesCount}</strong>{' '}
-                  traces (Page{' '}
-                  <strong className="text-[#3274d9] dark:text-[#5794f2]">{page}</strong>/
-                  {totalPages})
-                </span>
-                <div className="flex items-center gap-1">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={page <= 1 || loading}
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        className="h-7 px-2 dark:border-[#2c323f] border-slate-300 dark:bg-[#181b1f] bg-white dark:text-[#c7d0d9] text-slate-700 hover:dark:bg-[#22252b] hover:bg-slate-50 disabled:opacity-40 rounded"
-                      >
-                        <ChevronLeft className="h-3.5 w-3.5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Previous page</TooltipContent>
-                  </Tooltip>
+              {activeTab !== 'raw' && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="dark:text-[#8e94a0] text-slate-500 font-sans">
+                    Total:{' '}
+                    <strong className="dark:text-white text-slate-900">{totalTracesCount}</strong>{' '}
+                    traces (Page{' '}
+                    <strong className="text-[#3274d9] dark:text-[#5794f2]">{page}</strong>/
+                    {totalPages})
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={page <= 1 || loading}
+                          onClick={() => setPage((p) => Math.max(1, p - 1))}
+                          className="h-7 px-2 dark:border-[#2c323f] border-slate-300 dark:bg-[#181b1f] bg-white dark:text-[#c7d0d9] text-slate-700 hover:dark:bg-[#22252b] hover:bg-slate-50 disabled:opacity-40 rounded"
+                        >
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Previous page</TooltipContent>
+                    </Tooltip>
 
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={page >= totalPages || loading}
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                        className="h-7 px-2 dark:border-[#2c323f] border-slate-300 dark:bg-[#181b1f] bg-white dark:text-[#c7d0d9] text-slate-700 hover:dark:bg-[#22252b] hover:bg-slate-50 disabled:opacity-40 rounded"
-                      >
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Next page</TooltipContent>
-                  </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={page >= totalPages || loading}
+                          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                          className="h-7 px-2 dark:border-[#2c323f] border-slate-300 dark:bg-[#181b1f] bg-white dark:text-[#c7d0d9] text-slate-700 hover:dark:bg-[#22252b] hover:bg-slate-50 disabled:opacity-40 rounded"
+                        >
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Next page</TooltipContent>
+                    </Tooltip>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <TabsContent value="waterfall" className="m-0 space-y-2">

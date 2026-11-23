@@ -47,17 +47,12 @@ export function CimdevAuthModal({ isOpen, onSuccess }) {
     const u = values.username.trim();
     const p = values.password.trim();
 
-    if (u.toUpperCase() !== 'CIMDEV' || p !== 'cimdev') {
-      setServerError('Invalid administrator credentials.');
-      return;
-    }
-
     setLoading(true);
     try {
       await onSuccess(u, p);
       form.reset();
-    } catch {
-      setServerError('Authentication failed with backend server.');
+    } catch (error) {
+      setServerError(error instanceof Error ? error.message : 'Authentication failed.');
     } finally {
       setLoading(false);
     }
@@ -77,7 +72,7 @@ export function CimdevAuthModal({ isOpen, onSuccess }) {
             ADMINISTRATOR AUTHENTICATION
           </DialogTitle>
           <DialogDescription className="mt-1 text-xs dark:text-slate-400 text-slate-500">
-            APM tracing &amp; database query logs are restricted to authorized administrators.
+            System logs are restricted to authorized administrators.
           </DialogDescription>
         </DialogHeader>
 
