@@ -13,8 +13,18 @@ function DropdownMenuPortal({ ...props }: MenuPrimitive.Portal.Props) {
   return <MenuPrimitive.Portal data-slot="dropdown-menu-portal" {...props} />;
 }
 
-function DropdownMenuTrigger({ ...props }: MenuPrimitive.Trigger.Props) {
-  return <MenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props} />;
+function DropdownMenuTrigger({ asChild, children, render, ...props }: any) {
+  const renderProp = render || (asChild && React.isValidElement(children) ? children : undefined);
+  if (renderProp) {
+    return (
+      <MenuPrimitive.Trigger
+        data-slot="dropdown-menu-trigger"
+        render={renderProp}
+        {...props}
+      />
+    );
+  }
+  return <MenuPrimitive.Trigger data-slot="dropdown-menu-trigger" {...props}>{children}</MenuPrimitive.Trigger>;
 }
 
 function DropdownMenuContent({
