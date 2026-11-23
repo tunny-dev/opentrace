@@ -10,17 +10,24 @@ export function AlertDialog({ ...props }: AlertDialogPrimitive.Root.Props) {
 }
 
 export function AlertDialogTrigger({ asChild, children, render, ...props }: any) {
-  const renderProp = render || (asChild && React.isValidElement(children) ? children : undefined);
-  if (renderProp) {
+  if (asChild) {
     return (
       <AlertDialogPrimitive.Trigger
         data-slot="alert-dialog-trigger"
-        render={renderProp}
+        render={render || (React.isValidElement(children) ? children : undefined)}
         {...props}
       />
     );
   }
-  return <AlertDialogPrimitive.Trigger data-slot="alert-dialog-trigger" {...props}>{children}</AlertDialogPrimitive.Trigger>;
+  return (
+    <AlertDialogPrimitive.Trigger
+      data-slot="alert-dialog-trigger"
+      render={render}
+      {...props}
+    >
+      {children}
+    </AlertDialogPrimitive.Trigger>
+  );
 }
 
 export function AlertDialogPortal({ ...props }: AlertDialogPrimitive.Portal.Props) {
