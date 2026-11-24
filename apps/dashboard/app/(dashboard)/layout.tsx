@@ -25,6 +25,7 @@ import { useI18n } from "@/lib/i18n/i18n-context";
 
 function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const { dict } = useI18n();
 
   const {
@@ -40,6 +41,21 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     refreshDashboard,
     refreshing,
   } = useTelemetry();
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="h-svh w-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin" />
+          <span className="text-xs text-muted-foreground font-mono">SpurTrace Initializing...</span>
+        </div>
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return <LoginPage onLogin={login} />;

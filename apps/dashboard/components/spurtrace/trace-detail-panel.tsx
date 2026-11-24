@@ -53,10 +53,8 @@ function TraceSqlQueryCard({
   onOpenStudio: () => void;
 }) {
   const [loadingMode, setLoadingMode] = useState<"data" | "analyze" | null>(null);
-  // Pre-load execution result for query #1 to provide instantaneous visual feedback matching MESProductionReport
-  const [result, setResult] = useState<MockExecutionResult | null>(() => {
-    return executeMockQuery(queryItem.sql, queryItem.paramsJson);
-  });
+  // Do NOT execute mock query on mount - wait until user clicks [Run Query] or [Analyze Stats]
+  const [result, setResult] = useState<MockExecutionResult | null>(null);
   const [resultTab, setResultTab] = useState<"data" | "analyze" | "inlined">("data");
   const [isResultOpen, setIsResultOpen] = useState(true);
   const [filterText, setFilterText] = useState("");
@@ -69,17 +67,6 @@ function TraceSqlQueryCard({
     setTimeout(() => setCopiedKey(null), 1800);
   }
 
-  const handleExecute = (mode: "data" | "analyze") => {
-    setLoadingMode(mode);
-    setTimeout(() => {
-      const res = executeMockQuery(queryItem.sql, queryItem.paramsJson);
-      setResult(res);
-      setResultTab(mode);
-      setIsResultOpen(true);
-      setLoadingMode(null);
-    }, 320);
-  };
-
   const inlinedSql = useMemo(() => {
     return inlineSqlParameters(queryItem.sql, queryItem.paramsJson);
   }, [queryItem.sql, queryItem.paramsJson]);
@@ -87,6 +74,59 @@ function TraceSqlQueryCard({
   const statsExecutableSql = useMemo(() => {
     return wrapWithStatistics(inlinedSql);
   }, [inlinedSql]);
+
+  const handleExecute = async (mode: "data" | "analyze") => {
+    setLoadingMode(mode);
+    try {
+      const targetSql = mode === "analyze" ? statsExecutableSql : inlinedSql;
+      const res = await fetch("/api/telemetry/sql/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sql: targetSql || queryItem.sql,
+          maxRows: 100,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && !data.error) {
+        const rows = data.rows || [];
+        const columns = data.columns || (rows.length > 0 ? Object.keys(rows[0]) : []);
+        setResult({
+          rows,
+          rowCount: data.totalRows || rows.length,
+          elapsedMs: data.executionTimeMs || 0,
+          columns,
+          inlinedSql: targetSql || queryItem.sql,
+          stats: {
+            totalLogicalReads: data.totalRows || 0,
+            totalScanCount: 1,
+            cpuTimeMs: 1,
+            elapsedTimeMs: data.executionTimeMs || 0,
+            tables: [
+              {
+                tableName: "Application Database",
+                scanCount: 1,
+                logicalReads: data.totalRows || 0,
+                physicalReads: 0,
+              },
+            ],
+            rawMessages: [],
+          },
+        });
+      } else {
+        const fallback = executeMockQuery(queryItem.sql, queryItem.paramsJson);
+        setResult(fallback);
+      }
+    } catch {
+      const fallback = executeMockQuery(queryItem.sql, queryItem.paramsJson);
+      setResult(fallback);
+    } finally {
+      setResultTab(mode);
+      setIsResultOpen(true);
+      setLoadingMode(null);
+    }
+  };
 
   const paramsFormatted = useMemo(() => {
     if (!queryItem.paramsJson) return "";
@@ -257,6 +297,14 @@ function TraceSqlQueryCard({
           <pre className="p-2.5 rounded-md bg-slate-950 dark:bg-black/60 border border-slate-800 text-amber-400 text-xs overflow-x-auto font-sans leading-relaxed select-text">
             {paramsFormatted}
           </pre>
+        </div>
+      )}
+
+      {/* Loading state indicator */}
+      {loadingMode && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-muted/40 border-t border-border text-xs text-muted-foreground font-sans animate-pulse">
+          <RefreshCw className="h-3.5 w-3.5 animate-spin text-emerald-600 dark:text-emerald-400" />
+          <span>Executing query on target database sandbox...</span>
         </div>
       )}
 
@@ -549,6 +597,188 @@ function TraceSqlQueryCard({
   );
 }
 
+function RawStreamViewer({ trace }: { trace: DemoTrace }) {
+  const [filterMode, setFilterMode] = useState<"all" | "spans" | "queries" | "meta" | "exception">("all");
+  const [search, setSearch] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const displayData = useMemo(() => {
+    switch (filterMode) {
+      case "spans":
+        return trace.spans || [];
+      case "queries":
+        return trace.queries || [];
+      case "exception":
+        return (trace as any).exception || { message: "No unhandled exceptions in this trace." };
+      case "meta":
+        return {
+          id: trace.id,
+          timestamp: (trace as any).timestamp || (trace as any).createdAt,
+          method: trace.method,
+          route: trace.route,
+          status: trace.status,
+          duration: trace.duration,
+          clientIp: (trace as any).clientIp,
+          userAgent: (trace as any).userAgent,
+          environment: (trace as any).environment,
+          service: trace.service,
+          sampleReason: (trace as any).sampleReason,
+        };
+      default:
+        return trace;
+    }
+  }, [trace, filterMode]);
+
+  const jsonString = useMemo(() => {
+    return JSON.stringify(displayData, null, 2);
+  }, [displayData]);
+
+  const filteredLines = useMemo(() => {
+    const lines = jsonString.split("\n");
+    if (!search.trim()) return lines;
+    const lower = search.toLowerCase();
+    return lines.filter((l) => l.toLowerCase().includes(lower));
+  }, [jsonString, search]);
+
+  const handleCopy = () => {
+    navigator.clipboard?.writeText(jsonString);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="flex flex-col gap-3 font-sans">
+      {/* Overview Metadata Bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 bg-muted/40 border border-border rounded-lg text-xs font-sans">
+        <div>
+          <span className="text-muted-foreground block text-[10px] uppercase font-bold">Trace ID</span>
+          <span className="font-mono text-[11px] text-foreground truncate block">{trace.id}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground block text-[10px] uppercase font-bold">Endpoint</span>
+          <span className="font-mono text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold truncate block">
+            {trace.method} {trace.route}
+          </span>
+        </div>
+        <div>
+          <span className="text-muted-foreground block text-[10px] uppercase font-bold">Duration</span>
+          <span className="font-mono text-[11px] text-foreground">{trace.duration} ms</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground block text-[10px] uppercase font-bold">Spans / Queries</span>
+          <span className="font-mono text-[11px] text-foreground">
+            {trace.spans?.length || 0} spans · {trace.queries?.length || 0} sql
+          </span>
+        </div>
+      </div>
+
+      {/* Control Bar: Filters & Search */}
+      <div className="flex flex-wrap items-center justify-between gap-2 p-2 bg-card border border-border rounded-lg">
+        <div className="flex items-center gap-1 flex-wrap text-xs">
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            onClick={() => setFilterMode("all")}
+            className={cn(
+              "font-sans text-[11px] cursor-pointer",
+              filterMode === "all" ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-xs" : "text-muted-foreground hover:bg-muted"
+            )}
+          >
+            All JSON
+          </Button>
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            onClick={() => setFilterMode("spans")}
+            className={cn(
+              "font-sans text-[11px] cursor-pointer",
+              filterMode === "spans" ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-xs" : "text-muted-foreground hover:bg-muted"
+            )}
+          >
+            Spans ({trace.spans?.length || 0})
+          </Button>
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            onClick={() => setFilterMode("queries")}
+            className={cn(
+              "font-sans text-[11px] cursor-pointer",
+              filterMode === "queries" ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-xs" : "text-muted-foreground hover:bg-muted"
+            )}
+          >
+            Queries ({trace.queries?.length || 0})
+          </Button>
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            onClick={() => setFilterMode("meta")}
+            className={cn(
+              "font-sans text-[11px] cursor-pointer",
+              filterMode === "meta" ? "bg-emerald-600 text-white hover:bg-emerald-500 shadow-xs" : "text-muted-foreground hover:bg-muted"
+            )}
+          >
+            HTTP Metadata
+          </Button>
+          {(trace as any).exception && (
+            <Button
+              type="button"
+              size="xs"
+              variant="ghost"
+              onClick={() => setFilterMode("exception")}
+              className={cn(
+                "font-sans text-[11px] cursor-pointer",
+                filterMode === "exception" ? "bg-rose-600 text-white hover:bg-rose-500 shadow-xs" : "text-rose-500 hover:bg-rose-500/10"
+              )}
+            >
+              Exception
+            </Button>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Filter keys or values..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="h-7 pl-8 pr-2 text-xs w-48 font-sans bg-background"
+            />
+          </div>
+          <Button
+            type="button"
+            size="xs"
+            variant="outline"
+            onClick={handleCopy}
+            className="flex items-center gap-1 font-sans text-[11px] cursor-pointer"
+          >
+            {copied ? <Check className="h-3 w-3 text-emerald-500" /> : <Copy className="h-3 w-3" />}
+            <span>{copied ? "Copied" : "Copy"}</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Structured / Max-Height Scrollable JSON viewer */}
+      <div className="relative rounded-lg border border-border bg-slate-950 dark:bg-black/90 shadow-inner overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-1.5 bg-slate-900 border-b border-slate-800 text-[11px] font-mono text-muted-foreground">
+          <span>{search ? `Filtered: ${filteredLines.length} lines` : `${jsonString.split("\n").length} lines`}</span>
+          <span>application/json</span>
+        </div>
+        <div className="max-h-[460px] overflow-auto p-3 text-xs font-mono text-emerald-400 select-text leading-relaxed">
+          <pre className="whitespace-pre">
+            {filteredLines.join("\n")}
+          </pre>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose: () => void }) {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
@@ -587,26 +817,29 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
   const dbPercent = Math.round((dbDurationMs / trace.duration) * 100);
   const appPercent = Math.max(1, 100 - dbPercent);
 
-  // Map queries with realistic parameters
+  // Map queries with real parameters from telemetry or discovered SQL parameter names
   const sampleQueries: StudioQueryItem[] = useMemo(() => {
     if (trace.queries.length > 0) {
       return trace.queries.map((q, i) => {
-        let params: Record<string, any> = { id: i + 1, factory: "VN", status: "completed" };
-        const lower = q.query.toLowerCase();
-        if (lower.includes("@mo") || lower.includes("ssfmf")) {
-          params = { Mo: "VI2-26012115" };
-        } else if (lower.includes("@factory") || lower.includes("ssfdc")) {
-          params = { Factory: "VN" };
-        } else if (lower.includes("order_id = 842") || lower.includes("id = 842")) {
-          params = { id: 842, factory: "VN" };
-        } else if (lower.includes("customers")) {
-          params = { customer_id: 51 };
-        } else if (lower.includes("inventory")) {
-          params = { sku: "ECW219L-01" };
+        let params: Record<string, any> = {};
+        if ((q as any).parameters && typeof (q as any).parameters === "object" && Object.keys((q as any).parameters).length > 0) {
+          params = (q as any).parameters;
+        } else {
+          // Discover parameter tokens from query text (e.g., @__userId_0, @id, @Mo)
+          const rawSql = (q as any).sampleQuery || q.query || "";
+          const matches = rawSql.match(/@([a-zA-Z0-9_]+)/g);
+          if (matches) {
+            matches.forEach((m: string) => {
+              const pName = m.substring(1);
+              if (!(pName in params)) {
+                params[pName] = "";
+              }
+            });
+          }
         }
         return {
           id: `q_${i}`,
-          sql: q.query,
+          sql: (q as any).sampleQuery || q.query,
           paramsJson: params,
           durationMs: q.duration,
         };
@@ -615,9 +848,9 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
     return [
       {
         id: "q_0",
-        sql: `SELECT F.MF001 AS Mo,\n       F.MF002 AS PartNumber,\n       I.MB002 AS ModelName,\n       F.MF008 AS PlanQty,\n       F.MF012 AS Status\nFROM SSFMF F WITH (NOLOCK)\nLEFT JOIN INVMB I WITH (NOLOCK) ON I.MB001 = F.MF002\nWHERE F.MF001 = @Mo`,
-        paramsJson: { Mo: "VI2-26012115" },
-        durationMs: 5,
+        sql: "SELECT 1 AS Status;",
+        paramsJson: {},
+        durationMs: 1,
       },
     ];
   }, [trace]);
@@ -993,11 +1226,7 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
 
             {/* Raw Stream Tab View */}
             {activeTab === "raw" && (
-              <div className="flex flex-col gap-2">
-                <pre className="p-4 rounded-lg bg-background border border-border text-xs text-muted-foreground overflow-x-auto whitespace-pre leading-relaxed font-sans select-text">
-                  {JSON.stringify(trace, null, 2)}
-                </pre>
-              </div>
+              <RawStreamViewer trace={trace} />
             )}
           </div>
         </aside>

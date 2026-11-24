@@ -70,6 +70,14 @@ export function SettingsPage({ role }: { role: UserRole }) {
         if (data.slow_request_threshold_ms) setSlowTraceThreshold(data.slow_request_threshold_ms);
         if (data.sample_rate_success) setSampleRate(Math.round(parseFloat(data.sample_rate_success) * 100));
         if (data.retention_days) setRetentionDays(data.retention_days);
+        if (data.db_engine) {
+          setDbEngine(data.db_engine as SupportedDbEngine);
+          setDdlDialect(data.db_engine as SupportedDbEngine);
+        }
+        if (data.connection_string) setConnectionString(data.connection_string);
+        if (data.db_mode) setDbMode(data.db_mode as "dedicated" | "shared");
+        if (data.backup_path) setBackupPath(data.backup_path);
+        if (data.backup_schedule) setAutoBackupSchedule(data.backup_schedule);
       })
       .catch(() => {});
   }, []);
@@ -129,6 +137,7 @@ export function SettingsPage({ role }: { role: UserRole }) {
   // Backup & Storage states
   const [retentionDays, setRetentionDays] = useState("14");
   const [autoBackupSchedule, setAutoBackupSchedule] = useState("daily");
+  const [backupPath, setBackupPath] = useState("C:\\Backups\\SpurTrace");
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [backupMessage, setBackupMessage] = useState("");
   const [isOptimizing, setIsOptimizing] = useState(false);
@@ -213,6 +222,8 @@ export function SettingsPage({ role }: { role: UserRole }) {
     try {
       const res = await fetch("/api/telemetry/settings/backup-now", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customPath: backupPath }),
       });
       const data = await res.json().catch(() => ({}));
       if (data.success) {
@@ -271,6 +282,10 @@ export function SettingsPage({ role }: { role: UserRole }) {
           slow_request_threshold_ms: slowTraceThreshold,
           sample_rate_success: (sampleRate / 100).toFixed(2),
           retention_days: retentionDays,
+          db_engine: dbEngine,
+          db_mode: dbMode,
+          backup_path: backupPath,
+          backup_schedule: autoBackupSchedule,
         }),
       });
 
@@ -907,6 +922,31 @@ export function SettingsPage({ role }: { role: UserRole }) {
                       {optimizeMessage}
                     </span>
                   )}
+                </div>
+
+                {/* Custom Server Backup Directory */}
+                <div className="flex flex-col gap-2 p-3 bg-(--ot-panel) border border-(--ot-border) rounded-lg sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <strong className="text-xs text-(--ot-muted)">
+                      Custom Backup Destination Path (Server / Host Local Directory)
+                    </strong>
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">
+                      Auto-created on execution
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-(--ot-muted)">
+                    Physical directory path on target host where automated database snapshots (.bak / .json / .db) will be stored.
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Input
+                      type="text"
+                      value={backupPath}
+                      onChange={(e) => setBackupPath(e.target.value)}
+                      placeholder="e.g. C:\Backups\SpurTrace or /var/backups/spurtrace"
+                      disabled={!isAdmin}
+                      className="font-mono text-xs h-8 bg-(--ot-bg)"
+                    />
+                  </div>
                 </div>
               </div>
             </section>

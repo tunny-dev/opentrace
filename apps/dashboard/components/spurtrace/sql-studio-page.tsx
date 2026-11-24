@@ -90,12 +90,27 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
   );
   const studioQueries = useMemo<StudioQueryItem[]>(
     () =>
-      visibleQueries.slice(0, 5).map((q, i) => ({
-        id: `prof_${i}`,
-        sql: q.template,
-        paramsJson: { id: i + 1, factory: "VN", status: "completed" },
-        durationMs: Math.round(q.avgLatencyMs),
-      })),
+      visibleQueries.slice(0, 5).map((q, i) => {
+        const fullSql = q.sampleQuery || q.template;
+        let params: Record<string, any> = {};
+        if ((q as any).parameters && typeof (q as any).parameters === "object" && Object.keys((q as any).parameters).length > 0) {
+          params = (q as any).parameters;
+        } else {
+          const matches = fullSql.match(/@([a-zA-Z0-9_]+)/g);
+          if (matches) {
+            matches.forEach((m) => {
+              const pName = m.substring(1);
+              if (!(pName in params)) params[pName] = "";
+            });
+          }
+        }
+        return {
+          id: `prof_${i}`,
+          sql: fullSql,
+          paramsJson: params,
+          durationMs: Math.round(q.avgLatencyMs),
+        };
+      }),
     [visibleQueries]
   );
   const studioModalQueries = useMemo(
@@ -104,9 +119,17 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
   );
 
   function handleOpenStudioWithSql(sql: string) {
+    let params: Record<string, any> = {};
+    const matches = sql.match(/@([a-zA-Z0-9_]+)/g);
+    if (matches) {
+      matches.forEach((m) => {
+        const pName = m.substring(1);
+        if (!(pName in params)) params[pName] = "";
+      });
+    }
     setStudioInitialQuery({
       sql,
-      paramsJson: { id: 1, factory: "VN", status: "completed" },
+      paramsJson: params,
       durationMs: 45,
     });
     setStudioOpen(true);

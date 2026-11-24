@@ -126,7 +126,7 @@ export function SqlQueryDrawer({
                 type="button"
                 className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer font-sans"
                 size="sm"
-                onClick={() => onOpenStudio(query.template)}
+                onClick={() => onOpenStudio(query.sampleQuery || query.template)}
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 <span>Open in Studio</span>

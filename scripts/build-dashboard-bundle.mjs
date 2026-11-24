@@ -46,4 +46,19 @@ if (!existsSync(targetDir)) {
 
 cpSync(outDir, targetDir, { recursive: true })
 
+const opentraceTarget = resolve("packages/opentrace/dist/dashboard-ui")
+if (!existsSync(opentraceTarget)) {
+  mkdirSync(opentraceTarget, { recursive: true })
+}
+cpSync(outDir, opentraceTarget, { recursive: true })
+
+const emsWwwroot = resolve("D:/Senao/EMS/EMS/wwwroot/telemetry")
+if (existsSync("D:/Senao/EMS/EMS/wwwroot")) {
+  if (!existsSync(emsWwwroot)) {
+    mkdirSync(emsWwwroot, { recursive: true })
+  }
+  cpSync(outDir, emsWwwroot, { recursive: true })
+  console.log("✔ Copied bundle to Senao EMS wwwroot/telemetry!")
+}
+
 console.log("✔ Successfully packaged SpurTrace Dashboard UI into spurtrace SDK!")

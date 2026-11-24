@@ -29,12 +29,34 @@ const defaultUser: UserProfile = {
   lastLogin: new Date().toISOString(),
 };
 
+function getInitialAuth(): { isAuthenticated: boolean; user: UserProfile; token: string | null } {
+  if (typeof window === "undefined") {
+    return { isAuthenticated: false, user: defaultUser, token: null };
+  }
+  try {
+    const raw = localStorage.getItem("opentrace_auth_session");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.state?.isAuthenticated) {
+        return {
+          isAuthenticated: true,
+          user: parsed.state.user || defaultUser,
+          token: parsed.state.token || null,
+        };
+      }
+    }
+  } catch {}
+  return { isAuthenticated: false, user: defaultUser, token: null };
+}
+
+const initialAuth = getInitialAuth();
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      isAuthenticated: false,
-      user: defaultUser,
-      token: null,
+      isAuthenticated: initialAuth.isAuthenticated,
+      user: initialAuth.user,
+      token: initialAuth.token,
 
       login: (email: string, role: UserRole = "Admin") => {
         set({
