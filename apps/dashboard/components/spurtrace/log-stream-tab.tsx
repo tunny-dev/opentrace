@@ -265,13 +265,13 @@ export function LogStreamTab({
         {viewMode === "terminal" ? (
           <div className="rounded-lg border border-border overflow-x-auto bg-card text-card-foreground shadow-2xs">
             {/* Terminal Column Header for clean alignment at 100% zoom */}
-            <div className="flex items-center gap-3 border-b border-border bg-muted/60 dark:bg-zinc-900/90 px-3.5 py-2.5 font-mono text-[10px] uppercase font-bold text-muted-foreground tracking-wider select-none min-w-[1040px]">
+            <div className="flex items-center gap-3 border-b border-border bg-muted/60 dark:bg-zinc-900/90 px-3.5 py-2.5 font-mono text-[11px] uppercase font-bold text-muted-foreground tracking-wider select-none min-w-[1040px]">
               <span className="w-1 shrink-0" />
-              <span className="w-[160px] shrink-0">Timestamp (UTC)</span>
+              <span className="w-[160px] shrink-0 text-left">Timestamp (UTC)</span>
               <span className="w-[72px] shrink-0 text-center">Level</span>
-              <span className="w-[240px] shrink-0">Trace ID</span>
-              <span className="w-[150px] shrink-0">Source / Service</span>
-              <span className="flex-1 min-w-[320px]">Message / Raw Payload</span>
+              <span className="w-[240px] shrink-0 text-left">Trace ID</span>
+              <span className="w-[150px] shrink-0 text-left">Source / Service</span>
+              <span className="flex-1 min-w-[320px] text-left">Message / Raw Payload</span>
             </div>
 
             <div
@@ -283,14 +283,14 @@ export function LogStreamTab({
               {visibleLogs.map((log) => (
                 <div className="log-line" key={log.id}>
                   <span className="log-line-marker" aria-hidden="true" />
-                  <time className="log-timestamp" dateTime={log.timestamp}>
+                  <time className="log-timestamp text-left" dateTime={log.timestamp}>
                     {formatTimestamp(log.timestamp)}
                   </time>
                   <div className="flex justify-center items-center">
                     <LogLevelBadge level={log.level} />
                   </div>
                   <Button
-                    className="log-trace-id h-auto p-0 bg-transparent hover:bg-transparent font-mono"
+                    className="log-trace-id h-auto p-0 bg-transparent hover:bg-transparent font-mono justify-start text-left"
                     variant="ghost"
                     type="button"
                     onClick={() => onOpenTrace(log.traceId)}
@@ -298,8 +298,8 @@ export function LogStreamTab({
                   >
                     [{log.traceId}]
                   </Button>
-                  <span className="log-source">{log.source}</span>
-                  <pre className="log-payload">{renderPayload(log)}</pre>
+                  <span className="log-source text-left">{log.source}</span>
+                  <pre className="log-payload text-left">{renderPayload(log)}</pre>
                 </div>
               ))}
               {visibleLogs.length === 0 && (
@@ -310,24 +310,24 @@ export function LogStreamTab({
         ) : (
           <div className="logs-grid-scroll border border-border rounded-lg overflow-x-auto bg-card shadow-2xs">
             <table className="logs-data-table w-full border-collapse font-sans text-left text-xs min-w-[1040px]">
-              <thead className="bg-muted/50 border-b border-border text-[10px] uppercase font-bold tracking-wider text-muted-foreground select-none">
+              <thead className="bg-muted/50 border-b border-border text-xs uppercase font-semibold tracking-wider text-muted-foreground select-none">
                 <tr>
-                  <th scope="col" className="w-12 text-center p-2.5">
+                  <th scope="col" className="w-12 text-center p-2.5 font-sans">
                     STT
                   </th>
-                  <th scope="col" className="w-44 p-2.5 whitespace-nowrap">
+                  <th scope="col" className="w-44 p-2.5 whitespace-nowrap font-sans text-left">
                     TIMESTAMP (UTC)
                   </th>
-                  <th scope="col" className="w-24 text-center p-2.5">
+                  <th scope="col" className="w-20 text-center p-2.5 font-sans">
                     LEVEL
                   </th>
-                  <th scope="col" className="w-64 min-w-[240px] p-2.5">
+                  <th scope="col" className="w-64 min-w-[240px] p-2.5 font-sans text-left">
                     TRACE ID
                   </th>
-                  <th scope="col" className="w-40 min-w-[150px] p-2.5">
+                  <th scope="col" className="w-40 min-w-[150px] p-2.5 font-sans text-left">
                     SOURCE / LAYER
                   </th>
-                  <th scope="col" className="p-2.5 min-w-[320px]">
+                  <th scope="col" className="p-2.5 min-w-[320px] font-sans text-left">
                     MESSAGE / RAW PAYLOAD
                   </th>
                 </tr>
@@ -335,18 +335,18 @@ export function LogStreamTab({
               <tbody className="divide-y divide-border/60">
                 {visibleLogs.map((log, idx) => (
                   <tr key={log.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="text-[11px] tabular-nums text-muted-foreground text-center p-2.5">
+                    <td className="text-xs tabular-nums text-muted-foreground text-center p-2.5 font-mono">
                       {idx + 1}
                     </td>
-                    <td className="p-2.5 font-mono text-[11px] text-muted-foreground whitespace-nowrap">
+                    <td className="p-2.5 font-mono text-xs text-muted-foreground whitespace-nowrap">
                       <time dateTime={log.timestamp}>{formatTimestamp(log.timestamp)}</time>
                     </td>
                     <td className="p-2.5 text-center">
                       <LogLevelBadge level={log.level} />
                     </td>
-                    <td className="p-2.5 font-mono text-xs">
+                    <td className="p-2.5 font-mono text-xs text-left">
                       <Button
-                        className="log-trace-id h-auto p-0 bg-transparent hover:bg-transparent font-semibold text-emerald-600 dark:text-emerald-400 cursor-pointer text-left font-mono"
+                        className="log-trace-id h-auto px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 rounded font-mono text-xs text-emerald-600 dark:text-emerald-400 cursor-pointer text-left justify-start inline-flex max-w-[240px]"
                         variant="ghost"
                         type="button"
                         onClick={() => onOpenTrace(log.traceId)}
@@ -354,12 +354,12 @@ export function LogStreamTab({
                         [{log.traceId}]
                       </Button>
                     </td>
-                    <td className="p-2.5">
-                      <div className="font-semibold text-foreground text-xs">{log.source}</div>
-                      <small className="text-[10px] text-muted-foreground font-mono">{log.layer}</small>
+                    <td className="p-2.5 text-left">
+                      <div className="font-medium text-foreground text-xs font-sans">{log.source}</div>
+                      <small className="text-[11px] text-muted-foreground font-mono">{log.layer}</small>
                     </td>
                     <td
-                      className={`p-2.5 font-mono text-xs ${
+                      className={`p-2.5 font-mono text-xs text-left ${
                         wrapMode === "nowrap"
                           ? "whitespace-nowrap overflow-x-auto truncate max-w-xl"
                           : "whitespace-pre-wrap break-words max-w-3xl"

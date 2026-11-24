@@ -4279,6 +4279,10 @@ small {
 }
 
 .log-trace-id {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  text-align: left;
   width: 100%;
   max-width: 236px;
   overflow: hidden;
@@ -4472,17 +4476,18 @@ html.light .log-payload {
 
 .logs-data-table td {
   color: #bcc0c8;
-  font-size: 8px;
+  font-size: 12px;
 }
 
 .logs-data-table td:first-child time {
   color: #858a94;
-  font: 7px var(--font-manrope), sans-serif;
+  font: 11px var(--font-manrope), sans-serif;
   white-space: nowrap;
 }
 
 .logs-data-table .log-trace-id {
-  max-width: 118px;
+  max-width: 236px;
+  font-size: 11px;
 }
 
 .logs-data-table td:nth-child(4) {
@@ -4491,17 +4496,15 @@ html.light .log-payload {
 
 .log-layer {
   display: block;
-  margin-top: 3px;
+  margin-top: 2px;
   color: #70757e;
-  font: 7px var(--font-manrope), sans-serif;
+  font: 10px ui-monospace, monospace;
 }
 
 .log-table-message {
-  max-width: 410px;
   overflow: hidden;
   color: #c7cad1 !important;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 12px;
 }
 
 .logs-panel-footer {

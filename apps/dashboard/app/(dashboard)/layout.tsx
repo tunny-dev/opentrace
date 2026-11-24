@@ -70,7 +70,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       {/* Main Content Area via official Shadcn SidebarInset */}
       <SidebarInset className="min-w-0 bg-(--ot-bg) flex flex-col h-svh overflow-hidden">
         {/* Fixed Sticky Header (matching MESProductionReport Header) */}
-        <header className="sticky top-0 z-40 flex h-12 sm:h-14 shrink-0 items-center justify-between gap-3 overflow-hidden border-b border-(--ot-border) bg-(--ot-panel)/95 px-3 sm:px-5 backdrop-blur-md shadow-xs transition-colors">
+        <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-3 overflow-hidden border-b border-(--ot-border) bg-(--ot-panel)/95 px-3 sm:px-5 backdrop-blur-md shadow-xs transition-colors">
           <div className="flex h-full min-w-0 items-center gap-2.5 sm:gap-3">
             <SidebarTrigger
               variant="outline"

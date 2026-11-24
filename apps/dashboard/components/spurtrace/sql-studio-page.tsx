@@ -268,11 +268,11 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
                 <th scope="col" className="w-12 font-sans">
                   STT
                 </th>
-                <th scope="col" className="font-sans">
-                  QUERY TEMPLATE
+                <th scope="col" className="w-36 font-sans">
+                  TRACE ID
                 </th>
                 <th scope="col" className="font-sans">
-                  TRACE ID
+                  QUERY TEMPLATE
                 </th>
                 <th scope="col">
                   <Button
@@ -320,6 +320,22 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
                   <td className="text-[11px] tabular-nums text-(--ot-muted) font-sans">
                     {(currentPage - 1) * pageSize + idx + 1}
                   </td>
+                  <td onClick={(e) => e.stopPropagation()} className="w-36">
+                    {query.sampleTraceId ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => openTraceFromLog(query.sampleTraceId!)}
+                        className="h-6 px-1.5 font-mono text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 rounded cursor-pointer justify-start"
+                        title={`Trace ID: ${query.sampleTraceId} (Click để mở vết chi tiết)`}
+                      >
+                        #{query.sampleTraceId.slice(0, 10)}…
+                      </Button>
+                    ) : (
+                      <span className="text-muted-foreground font-mono text-[10px]">—</span>
+                    )}
+                  </td>
                   <td>
                     <div className="sql-template-cell">
                       <Badge
@@ -345,22 +361,6 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
                         {query.fingerprint.slice(0, 16)}
                       </small>
                     </div>
-                  </td>
-                  <td onClick={(e) => e.stopPropagation()}>
-                    {query.sampleTraceId ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        onClick={() => openTraceFromLog(query.sampleTraceId!)}
-                        className="h-6 px-1.5 font-mono text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 rounded cursor-pointer"
-                        title={`Trace ID: ${query.sampleTraceId} (Click để mở vết chi tiết)`}
-                      >
-                        #{query.sampleTraceId.slice(0, 8)}…
-                      </Button>
-                    ) : (
-                      <span className="text-muted-foreground font-mono text-[10px]">—</span>
-                    )}
                   </td>
                   <td>
                     <div className="impact-cell font-sans">

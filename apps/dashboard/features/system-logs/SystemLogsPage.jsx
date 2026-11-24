@@ -31,7 +31,6 @@ const SLUG_TAB_MAP = {
 };
 import { systemLogsService } from '@/services/system-logs.service';
 import { useSystemLogDates, useSystemLogTraces } from '@/hooks/useSystemLogs';
-import { CimdevAuthModal } from '@/features/system-logs/components/CimdevAuthModal';
 import { TraceFilterToolbar } from '@/features/system-logs/components/TraceFilterToolbar';
 import { TraceSummaryCards } from '@/features/system-logs/components/TraceSummaryCards';
 import { TraceTimelineChart } from '@/features/system-logs/components/TraceTimelineChart';
@@ -68,8 +67,6 @@ export function SystemLogsPage() {
   };
 
   const [mounted, setMounted] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState('');
   const [timeRange, setTimeRange] = useState({
@@ -115,7 +112,7 @@ export function SystemLogsPage() {
     refetch: refetchDates,
     error: datesError,
   } = useSystemLogDates({
-    enabled: isAuthenticated,
+    enabled: true,
   });
 
   // Set initial selected date once dates are loaded
@@ -146,18 +143,8 @@ export function SystemLogsPage() {
     page,
     pageSize,
     autoRefreshInterval,
-    enabled: isAuthenticated,
+    enabled: true,
   });
-
-  // Handle 401 unauthorized
-  useEffect(() => {
-    if (datesError?.message === 'UNAUTHORIZED' || tracesError?.message === 'UNAUTHORIZED') {
-      systemLogsService.clearAuth();
-      setIsAuthenticated(false);
-      setShowAuthModal(true);
-      authQuery.refetch();
-    }
-  }, [datesError, tracesError, authQuery.refetch]);
 
   const traces = tracesData?.traces || [];
   const timeline = tracesData?.timeline || [];
@@ -198,35 +185,6 @@ export function SystemLogsPage() {
   const handlePageSizeChange = (ps) => {
     setPageSize(ps);
     setPage(1);
-  };
-
-  // Auth Handlers
-  const handleAuthSuccess = async (u, p) => {
-    const response = await fetch('/api/system-logs/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: u, password: p }),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Authentication failed.');
-    const session = await authQuery.refetch();
-    if (session.error || session.data !== true) {
-      throw session.error || new Error('Could not verify the system logs session.');
-    }
-
-    systemLogsService.setStoredAuth(u, p);
-    setIsAuthenticated(true);
-    setShowAuthModal(false);
-    await refetchDates();
-    refetchTraces();
-  };
-
-  const handleLogout = async () => {
-    await fetch('/api/system-logs/auth', { method: 'DELETE' });
-    await authQuery.refetch();
-    systemLogsService.clearAuth();
-    setIsAuthenticated(false);
-    setShowAuthModal(true);
   };
 
   const handleOpenInspect = (trace) => {

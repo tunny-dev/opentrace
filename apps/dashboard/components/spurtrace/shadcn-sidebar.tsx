@@ -8,7 +8,6 @@ import {
   Bell,
   Boxes,
   ChevronsUpDown,
-  Code2,
   Database,
   FileText,
   Gauge,
@@ -16,11 +15,11 @@ import {
   Settings2,
   ShieldCheck,
   TerminalSquare,
-  UserRound,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/i18n-context";
 import { useAuthStore } from "@/lib/spurtrace/auth-store";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -87,7 +86,7 @@ export function SpurTraceShadcnSidebar({
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
-      <SidebarHeader className="h-14 w-full shrink-0 justify-center border-b border-(--ot-border) px-3 py-0 group-data-[collapsible=icon]:px-0 sm:h-16">
+      <SidebarHeader className="h-14 w-full shrink-0 justify-center border-b border-(--ot-border) px-3 py-0 group-data-[collapsible=icon]:px-0">
         <Link
           href="/"
           aria-label="Home"
@@ -229,60 +228,16 @@ export function SpurTraceShadcnSidebar({
           >
             <DropdownMenuGroup>
               <DropdownMenuLabel className="px-3 py-2 font-normal">
-                <span className="block text-sm font-medium text-popover-foreground">{userName}</span>
-                <span className="block truncate text-xs text-muted-foreground">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="block text-sm font-semibold text-popover-foreground">{userName}</span>
+                  <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    {role}
+                  </Badge>
+                </div>
+                <span className="block truncate text-xs text-muted-foreground mt-0.5">
                   {userEmail}
                 </span>
               </DropdownMenuLabel>
-            </DropdownMenuGroup>
-
-            <DropdownMenuSeparator />
-
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>{dict.sidebar.roleSwitching}</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={role}
-                onValueChange={(value) => {
-                  if (value === "Admin" || value === "Engineer" || value === "Viewer") onRoleChange(value as any);
-                }}
-              >
-                <DropdownMenuRadioItem
-                  value="Admin"
-                  className="min-h-12 cursor-pointer rounded-xl py-2 pl-3 pr-8"
-                >
-                  <ShieldCheck className="text-emerald-500" />
-                  <span className="flex flex-col gap-0.5">
-                    <span className="font-medium">{dict.common.admin}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {dict.sidebar.adminDesc || "Full SQL & settings access"}
-                    </span>
-                  </span>
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem
-                  value="Engineer"
-                  className="min-h-12 cursor-pointer rounded-xl py-2 pl-3 pr-8"
-                >
-                  <Code2 className="text-sky-500" />
-                  <span className="flex flex-col gap-0.5">
-                    <span className="font-medium">Kỹ sư (Engineer)</span>
-                    <span className="text-xs text-muted-foreground">
-                      Đọc traces & truy vấn SQL Studio
-                    </span>
-                  </span>
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem
-                  value="Viewer"
-                  className="min-h-12 cursor-pointer rounded-xl py-2 pl-3 pr-8"
-                >
-                  <UserRound className="text-slate-400" />
-                  <span className="flex flex-col gap-0.5">
-                    <span className="font-medium">{dict.common.viewer}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {dict.sidebar.viewerDesc || "Masked runtime values"}
-                    </span>
-                  </span>
-                </DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
             </DropdownMenuGroup>
 
             <DropdownMenuSeparator />
