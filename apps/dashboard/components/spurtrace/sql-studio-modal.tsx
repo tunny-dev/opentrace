@@ -225,7 +225,7 @@ export function SqlStudioModal({
             : "w-[97vw] max-w-[1600px] h-[92vh] max-h-[960px] rounded-lg"
         )}
       >
-        <DialogTitle className="sr-only">MES SQL Studio & Debugger</DialogTitle>
+        <DialogTitle className="sr-only">SpurTrace SQL Studio & Debugger</DialogTitle>
 
         {/* Top title bar */}
         <header className="flex items-center justify-between px-4 py-2.5 bg-muted/40 border-b border-border shrink-0 select-none">
@@ -234,7 +234,7 @@ export function SqlStudioModal({
               <Sparkles className="h-3.5 w-3.5" />
             </div>
             <strong className="text-sm font-semibold text-foreground font-sans">
-              MES SQL Studio & Debugger
+              SpurTrace SQL Studio & Debugger
             </strong>
             <span className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25 font-sans">
               <ShieldCheck className="h-3 w-3" />
