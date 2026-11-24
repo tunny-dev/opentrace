@@ -1,19 +1,14 @@
-"use client";
+import { TabClient } from "./tab-client";
 
-import dynamic from "next/dynamic";
-
-const SystemLogsPage = dynamic(
-  () => import("@/features/system-logs/SystemLogsPage").then((mod) => mod.SystemLogsPage),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex h-screen w-full items-center justify-center bg-[#111217] text-sm text-slate-400">
-        Loading APM Explorer...
-      </div>
-    ),
-  }
-);
+export function generateStaticParams() {
+  return [
+    { tab: "traces" },
+    { tab: "errors" },
+    { tab: "sql" },
+    { tab: "health" },
+  ];
+}
 
 export default function Page() {
-  return <SystemLogsPage />;
+  return <TabClient />;
 }
