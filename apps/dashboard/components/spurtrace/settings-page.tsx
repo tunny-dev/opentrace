@@ -52,6 +52,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
+import { CopyButton } from "@/components/ui/copy-button";
 import type { UserRole } from "./user-profile-menu";
 import {
   getEngineDdl,
@@ -941,9 +942,16 @@ export function SettingsPage({ role }: { role: UserRole }) {
                     </Select>
                   </div>
                   <div className="sm:col-span-2">
-                    <Label className="block text-[11px] font-medium text-(--ot-muted) mb-1">
-                      Connection String / Target Host
-                    </Label>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label className="block text-[11px] font-medium text-(--ot-muted)">
+                        Connection String / Target Host
+                      </Label>
+                      <CopyButton
+                        value={connectionString}
+                        label="Connection String"
+                        className="h-5 w-5"
+                      />
+                    </div>
                     <Input
                       type="text"
                       value={connectionString}

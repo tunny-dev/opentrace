@@ -39,6 +39,9 @@ import {
 import type { UserRole } from "./user-profile-menu";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/spurtrace/format-duration";
+import { CopyButton } from "@/components/ui/copy-button";
+import { copyToClipboard } from "@/components/ui/data-table-utils";
+import { toast } from "sonner";
 
 export interface StudioQueryItem {
   id?: string;
@@ -115,11 +118,14 @@ export function SqlStudioModal({
     setSearchFilter("");
   }, [safeIndex, queryList]);
 
-  function handleCopy(text: string, key: string) {
+  async function handleCopy(text: string, key: string, label: string = "Dữ liệu SQL") {
     if (!text) return;
-    navigator.clipboard?.writeText(text);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 1800);
+    const ok = await copyToClipboard(text);
+    if (ok) {
+      toast.success(`Đã sao chép ${label} vào clipboard`);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 1800);
+    }
   }
 
   function handleUppercase() {
@@ -267,6 +273,7 @@ export function SqlStudioModal({
             <code className="px-1.5 py-0.5 rounded bg-muted/60 text-foreground border border-border font-sans text-[11px]">
               {traceId}
             </code>
+            <CopyButton value={traceId} label="Trace ID" className="h-5 w-5 shrink-0" />
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-muted-foreground font-sans">Endpoint:</span>

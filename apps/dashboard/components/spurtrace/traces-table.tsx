@@ -13,6 +13,7 @@ import {
   type DataTableQuickFilter,
 } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
+import { CopyButton } from "@/components/ui/copy-button";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/spurtrace/format-duration";
 
@@ -227,9 +228,16 @@ export function TracesTable({
                 <span className="truncate text-xs font-medium text-foreground transition-colors group-hover/row:text-emerald-700 dark:group-hover/row:text-emerald-400">
                   {trace.route}
                 </span>
-                <span className="truncate font-mono text-[10px] text-muted-foreground">
-                  {trace.id}
-                </span>
+                <div className="flex items-center gap-1 min-w-0">
+                  <span className="truncate font-mono text-[10px] text-muted-foreground">
+                    {trace.id}
+                  </span>
+                  <CopyButton
+                    value={trace.id}
+                    label="Trace ID"
+                    className="h-3.5 w-3.5 opacity-0 group-hover/row:opacity-100 hover:opacity-100 focus:opacity-100 transition-opacity shrink-0"
+                  />
+                </div>
               </div>
             </div>
           );

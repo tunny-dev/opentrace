@@ -37,6 +37,9 @@ import {
 } from "@/lib/spurtrace/sql-helpers";
 import { cn } from "@/lib/utils";
 import { formatDuration, roundDuration } from "@/lib/spurtrace/format-duration";
+import { CopyButton } from "@/components/ui/copy-button";
+import { copyToClipboard } from "@/components/ui/data-table-utils";
+import { toast } from "sonner";
 
 function TraceSqlQueryCard({
   queryItem,
@@ -55,11 +58,14 @@ function TraceSqlQueryCard({
   const [filterText, setFilterText] = useState("");
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  function handleCopy(text: string, key: string) {
+  async function handleCopy(text: string, key: string, label: string = "Dữ liệu") {
     if (!text) return;
-    navigator.clipboard?.writeText(text);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 1800);
+    const ok = await copyToClipboard(text);
+    if (ok) {
+      toast.success(`Đã sao chép ${label} vào clipboard`);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 1800);
+    }
   }
 
   const inlinedSql = useMemo(() => {
@@ -816,11 +822,14 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isClosing]);
 
-  function handleCopy(text: string, key: string) {
+  async function handleCopy(text: string, key: string, label: string = "Dữ liệu") {
     if (!text) return;
-    navigator.clipboard?.writeText(text);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 1800);
+    const ok = await copyToClipboard(text);
+    if (ok) {
+      toast.success(`Đã sao chép ${label} vào clipboard`);
+      setCopiedKey(key);
+      setTimeout(() => setCopiedKey(null), 1800);
+    }
   }
 
   // Calculate durations
@@ -917,9 +926,10 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
               >
                 {trace.status}
               </span>
-              <strong className="text-sm font-semibold text-foreground font-sans">
+              <strong className="text-sm font-semibold text-foreground font-sans truncate">
                 {trace.route}
               </strong>
+              <CopyButton value={trace.route} label="Route URL" className="h-6 w-6 shrink-0" />
             </div>
 
             <div className="flex items-center gap-2">
@@ -970,16 +980,10 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
           <div className="flex items-center gap-4 px-5 py-2.5 bg-muted/20 border-b border-border text-xs text-muted-foreground shrink-0 flex-wrap">
             <div className="flex items-center gap-1.5">
               <span className="text-muted-foreground">Trace ID:</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                className="text-emerald-700 dark:text-emerald-400 font-semibold hover:underline font-sans cursor-pointer h-auto p-0"
-                onClick={() => handleCopy(trace.id, "trace_id")}
-                title="Click to copy Trace ID"
-              >
+              <span className="text-emerald-700 dark:text-emerald-400 font-semibold font-mono text-xs">
                 {trace.id}
-              </Button>
+              </span>
+              <CopyButton value={trace.id} label="Trace ID" className="h-5 w-5 shrink-0" />
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-muted-foreground">Timestamp:</span>
@@ -987,7 +991,8 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
             </div>
             <div className="flex items-center gap-1.5">
               <span className="text-muted-foreground">Client IP:</span>
-              <span className="text-foreground font-sans">10.1.60.56</span>
+              <span className="text-foreground font-mono">10.1.60.56</span>
+              <CopyButton value="10.1.60.56" label="Client IP" className="h-5 w-5 shrink-0" />
             </div>
             <div className="flex items-center gap-1.5 ml-auto">
               <span className="text-muted-foreground">Total Duration:</span>

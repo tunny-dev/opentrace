@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { CopyButton } from "@/components/ui/copy-button";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/spurtrace/format-duration";
 
@@ -322,44 +323,75 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
                   </td>
                   <td onClick={(e) => e.stopPropagation()} className="w-36">
                     {query.sampleTraceId ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="xs"
-                        onClick={() => openTraceFromLog(query.sampleTraceId!)}
-                        className="h-6 px-1.5 font-mono text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 rounded cursor-pointer justify-start"
-                        title={`Trace ID: ${query.sampleTraceId} (Click để mở vết chi tiết)`}
-                      >
-                        #{query.sampleTraceId.slice(0, 10)}…
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          onClick={() => openTraceFromLog(query.sampleTraceId!)}
+                          className="h-6 px-1.5 font-mono text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 rounded cursor-pointer justify-start"
+                          title={`Trace ID: ${query.sampleTraceId} (Click để mở vết chi tiết)`}
+                        >
+                          #{query.sampleTraceId.slice(0, 10)}…
+                        </Button>
+                        <CopyButton
+                          value={query.sampleTraceId}
+                          size="icon-xs"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 hover:bg-muted text-muted-foreground"
+                          title="Sao chép toàn bộ Trace ID"
+                          successMessage={`Đã sao chép Trace ID: ${query.sampleTraceId}`}
+                        />
+                      </div>
                     ) : (
                       <span className="text-muted-foreground font-mono text-[10px]">—</span>
                     )}
                   </td>
                   <td>
-                    <div className="sql-template-cell">
-                      <Badge
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                          "font-mono font-bold text-[10px] uppercase shrink-0",
-                          query.statementType === "SELECT"
-                            ? "border-sky-500/25 bg-sky-500/10 text-sky-600 dark:text-sky-400"
-                            : query.statementType === "UPDATE"
-                              ? "border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                              : query.statementType === "INSERT"
-                                ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                : "border-rose-500/25 bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                        )}
-                      >
-                        {query.statementType}
-                      </Badge>
+                    <div className="sql-template-cell group/query relative">
+                      <div className="flex items-center gap-1.5">
+                        <Badge
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "font-mono font-bold text-[10px] uppercase shrink-0",
+                            query.statementType === "SELECT"
+                              ? "border-sky-500/25 bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                              : query.statementType === "UPDATE"
+                                ? "border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                : query.statementType === "INSERT"
+                                  ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                  : "border-rose-500/25 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                          )}
+                        >
+                          {query.statementType}
+                        </Badge>
+                        <CopyButton
+                          value={query.template}
+                          size="icon-xs"
+                          variant="ghost"
+                          className="h-5 w-5 p-0 opacity-40 hover:opacity-100 transition-opacity"
+                          title="Sao chép câu lệnh SQL"
+                          successMessage="Đã sao chép câu lệnh SQL vào clipboard!"
+                        />
+                      </div>
                       <code className="font-sans font-medium text-xs text-foreground">
                         {query.template}
                       </code>
-                      <small className="font-sans font-mono text-[10px] text-muted-foreground">
-                        {query.fingerprint.slice(0, 16)}
-                      </small>
+                      <div className="flex items-center gap-2">
+                        <small className="font-sans font-mono text-[10px] text-muted-foreground">
+                          {query.fingerprint.slice(0, 16)}
+                        </small>
+                        <CopyButton
+                          value={query.fingerprint}
+                          label="FP"
+                          size="xs"
+                          variant="ghost"
+                          className="h-4 px-1 text-[9px] text-muted-foreground/60 hover:text-muted-foreground"
+                          title="Sao chép Fingerprint"
+                          successMessage={`Đã sao chép Fingerprint: ${query.fingerprint}`}
+                        />
+                      </div>
                     </div>
                   </td>
                   <td>

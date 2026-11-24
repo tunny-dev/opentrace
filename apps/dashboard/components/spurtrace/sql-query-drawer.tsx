@@ -19,6 +19,7 @@ import type { UserRole } from "./user-profile-menu";
 import { buildExplainPlan, formatSql } from "@/lib/spurtrace/sql-analytics";
 import { SqlSyntax } from "./sql-syntax";
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/spurtrace/format-duration";
 
@@ -112,6 +113,11 @@ export function SqlQueryDrawer({
               >
                 {query.fingerprint}
               </h2>
+              <CopyButton
+                value={query.fingerprint}
+                label="Fingerprint"
+                className="h-5 w-5 shrink-0"
+              />
             </div>
           </div>
 
