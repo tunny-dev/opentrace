@@ -322,40 +322,250 @@ export class AppModule implements NestModule {
     ),
   },
 
-  // 3. Architecture
+  // 3. Architecture Overview
   "getting-started/architecture": {
-    title: "Architecture Overview",
-    description: "Deep dive into SpurTrace's internal worker threads, batch writers, and storage engine.",
+    title: "Architecture & Plug-and-Play Design",
+    description: "How SpurTrace is designed to be plugged into any framework (.NET, Next.js, NestJS, Express) as a self-contained, in-app telemetry engine.",
     group: "Getting Started",
     lastUpdated: "November 2026",
     toc: [
-      { id: "execution-flow", title: "Execution Flow", level: 2 },
-      { id: "async-context", title: "Context Propagation", level: 2 },
-      { id: "batch-writer", title: "Non-Blocking Batch Writer", level: 2 },
+      { id: "plug-and-play-philosophy", title: "Plug-and-Play Philosophy (Like Telescope for Any Framework)", level: 2 },
+      { id: "three-tier-design", title: "The 3 Core Architectural Tiers", level: 2 },
+      { id: "four-framework-blueprints", title: "Integration Blueprints for 4 Project Types", level: 2 },
+      { id: "dotnet-mvc-blueprint", title: "Scenario 1: .NET MVC (Self-Hosted UI)", level: 3 },
+      { id: "dotnet-api-react-blueprint", title: "Scenario 2: .NET Web API + React UI", level: 3 },
+      { id: "nextjs-blueprint", title: "Scenario 3: Next.js (App Router)", level: 3 },
+      { id: "nestjs-express-blueprint", title: "Scenario 4: NestJS & Express", level: 3 },
+      { id: "execution-flow", title: "Execution Flow & Context Propagation", level: 2 },
+      { id: "batch-writer", title: "Non-Blocking Asynchronous Batch Writer", level: 2 },
     ],
     content: (
       <div className="space-y-6">
-        <h2 id="execution-flow" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-          Execution Flow
+        <h2 id="plug-and-play-philosophy" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+          Plug-and-Play Philosophy (Like Telescope for Any Framework)
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          In Laravel, developers love <strong>Laravel Telescope</strong> because it is <strong>completely self-contained</strong>: you install the package into your Laravel app, it creates its tables in your database, and it serves the dashboard right inside your web application without needing external servers, third-party clouds, or Docker containers.
+        </p>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          <strong>SpurTrace takes this exact philosophy and makes it universal across every major web framework:</strong>
+        </p>
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-900/40 text-xs space-y-2">
+          <p className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">
+            Not a Centralized Trap · Self-Contained by Default
+          </p>
+          <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed">
+            SpurTrace does <strong>not</strong> force all your company&apos;s applications to send logs to one centralized server. Instead, SpurTrace is an <strong>embeddable SDK and library</strong> that you plug directly into any individual project. Each project runs its own telemetry, writes to its own database or local SQLite file, and serves its own UI according to that project&apos;s frontend architecture!
+          </p>
+        </div>
+
+        <h2 id="three-tier-design" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          The 3 Core Architectural Tiers
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          The diagram below illustrates how a single HTTP request travels through your application and how SpurTrace captures telemetry without introducing latency:
+          To achieve seamless &ldquo;cài cắm&rdquo; (plug-and-play) capability across any framework, SpurTrace is decoupled into 3 modular tiers:
+        </p>
+
+        <Cards cols={3}>
+          <Card
+            title="1. Lifecycle Collector"
+            description="Framework-specific middleware and ORM interceptors (ASP.NET Core Middleware, EF Core DbInterceptor, NestJS Interceptor, Express middleware)."
+            href="#four-framework-blueprints"
+            iconName="zap"
+          />
+          <Card
+            title="2. Auto-Migrating Storage"
+            description="Zero-configuration auto-migration on boot. Can use a standalone local SQLite WAL file (no DB server needed) or the project's existing SQL Server / Postgres."
+            href="/docs/storage/database-setup"
+            iconName="database"
+          />
+          <Card
+            title="3. Adaptable UI Delivery"
+            description="Serve static dashboard assets directly from .NET MVC / Express, OR import <SpurTraceDashboard /> as a native React component in separate SPAs."
+            href="/docs/frontend/overview"
+            iconName="laptop"
+          />
+        </Cards>
+
+        <h2 id="four-framework-blueprints" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          Integration Blueprints for 4 Project Types
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300">
+          Depending on your application&apos;s stack, SpurTrace plugs in naturally:
+        </p>
+
+        {/* Blueprint 1: .NET MVC */}
+        <div id="dotnet-mvc-blueprint" className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-3 bg-zinc-50 dark:bg-zinc-900/30">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+              Scenario 1
+            </span>
+            <strong className="text-sm text-zinc-900 dark:text-zinc-100">
+              .NET MVC / Razor Pages (Monolith Server-Rendered)
+            </strong>
+          </div>
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+            <strong>Requirement:</strong> You have an existing .NET MVC app. You want to monitor requests, EF Core SQL queries, and view the APM dashboard directly inside the .NET MVC app at <code className="font-mono">/telemetry</code> without installing Node.js on your IIS/production server.
+          </p>
+          <CodeBlock
+            filename="Program.cs (.NET MVC)"
+            code={`// 1. Register SpurTrace with Auto-Migration
+builder.Services.AddSpurTrace(options =>
+{
+    options.AppName = "MyMvcApp";
+    options.StorageType = SpurTraceStorageType.SqlServer; // or SQLite
+    options.ConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+    options.AutoCreateTables = true; // Auto-creates sys_traces in your DB on boot!
+});
+
+var app = builder.Build();
+
+// 2. HTTP Request & Exception Tracking
+app.UseSpurTrace();
+
+// 3. Serve Static Dashboard UI from wwwroot/telemetry & Expose /api/traces
+app.UseStaticFiles();
+app.MapFallbackToFile("/telemetry/{*path}", "/telemetry/index.html");
+app.MapSpurTraceEndpoints();
+
+app.MapDefaultControllerRoute();
+app.Run();`}
+          />
+          <p className="text-xs text-emerald-600 dark:text-emerald-400">
+            ✓ Done! Open <code className="font-mono">https://your-mvc-app.com/telemetry</code>. The complete React APM dashboard is served directly by ASP.NET Core!
+          </p>
+        </div>
+
+        {/* Blueprint 2: .NET Web API + React */}
+        <div id="dotnet-api-react-blueprint" className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-3 bg-zinc-50 dark:bg-zinc-900/30">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+              Scenario 2
+            </span>
+            <strong className="text-sm text-zinc-900 dark:text-zinc-100">
+              .NET Web API (Backend) + React SPA (Frontend)
+            </strong>
+          </div>
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+            <strong>Requirement:</strong> Your backend is an ASP.NET Core Web API, and your frontend is a separate React/Vite/Next.js single-page application. You want to view the APM dashboard as a tab inside your React Admin Portal.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Backend: Program.cs (.NET API)</span>
+              <CodeBlock
+                filename="Program.cs"
+                code={`builder.Services.AddSpurTrace(options =>
+{
+    options.AppName = "BackendAPI";
+    options.StoragePath = "./spurtrace.sqlite";
+    options.AutoCreateTables = true;
+});
+
+var app = builder.Build();
+app.UseSpurTrace();
+
+// Exposes GET /api/traces endpoint
+app.MapSpurTraceEndpoints();
+
+app.MapControllers();
+app.Run();`}
+              />
+            </div>
+            <div>
+              <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 block mb-1">Frontend: TelemetryPage.tsx (React)</span>
+              <CodeBlock
+                filename="TelemetryPage.tsx"
+                code={`import { SpurTraceDashboard } from "@spurtrace/react";
+
+export function AdminTelemetry() {
+  return (
+    <div className="h-[90vh] w-full">
+      <SpurTraceDashboard
+        apiEndpoint="https://api.yourcompany.com/api/traces"
+      />
+    </div>
+  );
+}`}
+              />
+            </div>
+          </div>
+          <p className="text-xs text-emerald-600 dark:text-emerald-400">
+            ✓ Done! The React frontend renders the native dashboard component, calling the .NET backend API directly. No iframe needed!
+          </p>
+        </div>
+
+        {/* Blueprint 3: Next.js */}
+        <div id="nextjs-blueprint" className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-3 bg-zinc-50 dark:bg-zinc-900/30">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-zinc-500/10 text-zinc-600 dark:text-zinc-400 border border-zinc-500/20">
+              Scenario 3
+            </span>
+            <strong className="text-sm text-zinc-900 dark:text-zinc-100">
+              Next.js (App Router / Full-Stack)
+            </strong>
+          </div>
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+            <strong>Requirement:</strong> You have an independent Next.js application. You want APM tracking on server actions, route handlers, and SSR page loads.
+          </p>
+          <CodeBlock
+            filename="instrumentation.ts"
+            code={`export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { initSpurTrace } = await import("@spurtrace/next");
+    initSpurTrace({
+      appName: "Storefront-NextJS",
+      storagePath: "./spurtrace.sqlite", // Self-contained local DB
+    });
+  }
+}`}
+          />
+        </div>
+
+        {/* Blueprint 4: NestJS & Express */}
+        <div id="nestjs-express-blueprint" className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-4 space-y-3 bg-zinc-50 dark:bg-zinc-900/30">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+              Scenario 4
+            </span>
+            <strong className="text-sm text-zinc-900 dark:text-zinc-100">
+              NestJS &amp; Express (Node.js Microservices)
+            </strong>
+          </div>
+          <p className="text-xs text-zinc-600 dark:text-zinc-400">
+            <strong>Requirement:</strong> A standalone Node.js service using Express or NestJS with its own SQLite or PostgreSQL.
+          </p>
+          <CodeBlock
+            filename="app.ts"
+            code={`import { createSpurTrace, SqliteStorageAdapter } from "spurtrace"
+
+const trace = createSpurTrace({
+  appName: "InventoryService",
+  storage: new SqliteStorageAdapter({ path: "./spurtrace.sqlite" }),
+})
+
+app.use(trace.httpMiddleware())
+app.use("/telemetry", trace.dashboardMiddleware()) // Serves dashboard directly!`}
+          />
+        </div>
+
+        <h2 id="execution-flow" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          Execution Flow &amp; Context Propagation
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300">
+          The diagram below illustrates how an HTTP request travels through your application pipeline and how SpurTrace captures telemetry without introducing blocking latency:
         </p>
 
         <ArchitectureDiagram />
 
-        <h2 id="async-context" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
-          Context Propagation
-        </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          In Node.js, SpurTrace uses Node&apos;s native <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">AsyncLocalStorage</code> API. In .NET, it utilizes <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">AsyncLocal&lt;TraceContext&gt;</code>. This allows nested database queries, service calls, and helper functions to automatically inherit the current request&apos;s trace ID and execution waterfall without passing a trace context parameter through every function.
+          In Node.js, SpurTrace uses Node&apos;s native <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">AsyncLocalStorage</code>. In .NET, it utilizes <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">AsyncLocal&lt;TraceContext&gt;</code>. This allows nested database queries, service calls, and helper functions to automatically inherit the current request&apos;s trace ID and execution waterfall without passing a trace context parameter through every function.
         </p>
 
         <h2 id="batch-writer" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
-          Non-Blocking Batch Writer
+          Non-Blocking Asynchronous Batch Writer
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          Writing to disk on every request would degrade throughput under load. SpurTrace uses an in-memory ring buffer with a worker thread that flushes every 1,500ms or when 500 records accumulate. If the storage adapter experiences transient delays, backpressure safeguards prevent memory exhaustion.
+          Writing to disk on every request would degrade throughput under load. SpurTrace buffers completed traces in memory (<code className="font-mono">System.Threading.Channels</code> in .NET, <code className="font-mono">RingBuffer</code> in Node.js) and flushes in batches every 1,500ms or when 200 records accumulate. If storage experiences transient delays, priority backpressure safeguards protect server memory.
         </p>
       </div>
     ),
