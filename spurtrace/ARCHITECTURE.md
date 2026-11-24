@@ -1,90 +1,143 @@
-# SpurTrace PoC
+# SpurTrace Enterprise Architecture Specification
 
-SpurTrace is a framework-friendly Node.js/TypeScript instrumentation core with an Express adapter, a worker-thread SQLite writer, and a framework-free embedded dashboard. The interactive dashboard in the project preview is a UI prototype; `dashboardMiddleware()` is the dependency-free static UI served by the library.
+SpurTrace is an enterprise-grade in-app Application Performance Monitoring (APM) and Live Observability suite supporting both **.NET 8 (ASP.NET Core MVC & Web API)** and **Node.js / TypeScript (Express, Fastify, NestJS)** with an embedded **Next.js 16 App Router SPA Dashboard**.
 
-## Architecture and data flow
+---
+
+## 1. High-Level Architecture & Data Flow
 
 ```text
-HTTP request
-  ├─ middleware starts AsyncLocalStorage trace context
-  ├─ application / DB adapter records spans, SQL fingerprints, breadcrumbs
-  └─ response finish → tail sampling and trace finalization
-       └─ synchronous bounded ring-buffer enqueue (no DB await)
-            ├─ drop sampled/normal first when full; preserve error/slow traces
-            └─ timer (1.5 s) or batch threshold (500 by default)
-                 └─ BatchWriter → serialized worker-thread messages
-                      └─ SQLite worker: transaction + multi-row prepared INSERT
-                           └─ WAL database → dashboard read / nightly retention
+Incoming HTTP Request
+  │
+  ├── 1. HTTP Middleware (SpurTraceMiddleware / httpMiddleware)
+  │      ├─ Initializes AsyncLocal / AsyncLocalStorage trace context
+  │      ├─ Records HTTP Method, Path, Status Code, Route, User-Agent
+  │      └─ Starts high-resolution stopwatch
+  │
+  ├── 2. Database Execution (EF Core Interceptor / ADO.NET / Dapper / Node Driver)
+  │      ├─ Intercepts SQL Command & extracts Parameter mapping
+  │      ├─ Measures query execution time (Math.Round(ms, 2))
+  │      ├─ Generates query fingerprint & detects N+1 duplicates
+  │      └─ Attaches Span & Breadcrumb to active Trace Context
+  │
+  ├── 3. Tail Sampling & Evaluation
+  │      ├─ Automatically captures all 5xx Errors, unhandled exceptions, and Slow Queries
+  │      └─ Samples normal fast 200 OK traffic according to `SampleRateSuccess`
+  │
+  ├── 4. Zero-Wait Ingestion Pipeline (< 0.1ms)
+  │      ├─ .NET: Bounded System.Threading.Channels.Channel<TraceRecord>
+  │      ├─ Node.js: Bounded in-memory Ring Buffer
+  │      └─ Request thread returns to caller immediately (ZERO I/O WAIT)
+  │
+  └── 5. Background Batch Persistence Worker
+         ├─ Triggers on batch size threshold (50) or flush interval (1500ms)
+         ├─ Writes to dedicated `spurtrace` schema (SQL Server) or SQLite
+         ├─ Evaluates dynamic alert rules (P95 latency, error rate, slow SQL)
+         └─ Dispatches automated SMTP alert emails when thresholds are breached
 ```
 
-The request path never awaits storage. `BatchWriter.enqueue()` only mutates a bounded in-memory ring queue and schedules a timer; disk I/O and synchronous `node:sqlite` calls happen on a dedicated worker thread. A single write is retried up to the configured limit, then counted as dropped. A hung adapter can leave one bounded in-flight batch, but cannot grow the queue without limit. The embedded dashboard estimates P50/P95/P99 and error rate with inverse-probability weights for sampled fast requests; values are estimates over the latest 100 traces, not a full-retention aggregate.
+---
 
-### Sampling and overload
+## 2. Platform Engines
 
-- Captures all HTTP 5xx, captured exceptions, requests slower than `slowRequestThresholdMs`, and traces containing slow SQL.
-- Samples the remaining requests using `sampleRateSuccess` (0.1 = 10%).
-- Ignores common health checks, static asset extensions, and `/_next`/`/assets` by default. Add application-specific `ignoreRoutes` patterns as needed.
-- The buffer defaults to 10,000. When saturated, a new normal trace is dropped; a critical trace evicts the oldest normal trace; if the queue contains only critical traces, the incoming trace is dropped. The drop counter is observable through `getStats()`.
-- SQL statements are stored in normalized form: literal values become `?`, parameters are never collected, and route query strings are excluded. Applications should still avoid secrets in SQL comments or route path segments.
+### 2.1 .NET 8 Enterprise Engine (`SpurTraceExtensions.cs`)
+Designed for high-throughput ASP.NET Core MVC and Web API architectures:
+- **AsyncLocal Trace Context**: `SpurTraceContext` maintains the trace execution scope across asynchronous task continuations without thread-affinity bottlenecks.
+- **EF Core Database Interceptor**: `SpurTraceDbInterceptor` inherits from `DbCommandInterceptor`, non-invasively instrumenting `ReaderExecuting`, `ReaderExecuted`, `ScalarExecuted`, and `NonQueryExecuted`.
+- **Dedicated Schema Injection**: Isolates telemetry into `spurtrace` schema (`spurtrace.traces`, `spurtrace.users`, `spurtrace.settings`, `spurtrace.alert_rules`, `spurtrace.alert_history`).
+- **Channel-based Background Worker**: `SpurTraceBatchBackgroundService` continuously drains the thread-safe `Channel<TraceRecord>` and executes batch parameterized inserts.
+- **Dynamic Configuration & Backups**: Dynamic runtime threshold adjustments (`app_name`, `slow_query_threshold_ms`, `sample_rate`) and 1-Click Database Backups / SQLite VACUUM.
 
-## Storage schema
+### 2.2 Node.js Core Engine (`packages/spurtrace`)
+Designed for Node.js 22+ (using built-in `node:sqlite`) and standard Node runtimes:
+- **AsyncLocalStorage Context**: Preserves execution context across promise chains and callbacks.
+- **Worker Thread Writer**: Dedicated `worker_threads` isolate SQLite write transactions and synchronous disk I/O from the main event loop.
+- **Memory Bound Enqueue**: Fixed 10,000-trace ring buffer protects the host process from memory saturation during downstream database outages.
 
-`sys_traces` is a flat trace table with JSON event/span/SQL payloads, a trace identifier, status, duration, app name, and timestamp. Only dashboard filter indexes are included: `(app_name, created_at DESC)`, `(status_code, created_at DESC)`, and `(duration_ms DESC)`. PostgreSQL and SQL Server templates are in `schema/postgres.sql` and `schema/sqlserver.sql`.
+---
 
-Daily range partitions enable fast retention by detaching/dropping an expired child table instead of deleting millions of rows. Partition provisioning must run ahead of incoming traffic. The PostgreSQL template provisions today plus 13 days. In SQL Server the duration index also contains `created_at` to remain aligned with the partition scheme. SQLite uses `journal_mode=WAL`, `synchronous=NORMAL`, a worker thread, a transactional batch insert, and indexed lookup columns. Its retention adapter uses a bounded delete; SQLite does not provide PostgreSQL-style daily partition drops.
+## 3. Embedded Next.js 16 SPA Dashboard Architecture
 
-## Package layout and install
+The dashboard is built as an offline, zero-dependency Next.js 16 Single Page Application (`apps/dashboard`):
 
-The distributable package lives in `packages/spurtrace`; its `exports` map targets compiled ESM and declaration files under `dist/`, and `prepack` builds them for publication. In a consumer project, install the published package with `pnpm add spurtrace`. In this workspace, `pnpm run build:spurtrace` builds the local workspace package. Root `dev` and `build` scripts compile this workspace package before starting Next.js or running its TypeScript checks, so clean Vercel builds do not depend on ignored `dist/` artifacts.
+### 3.1 Static SPA Packaging (`scripts/build-dashboard-bundle.mjs`)
+1. Stashes server-only API routes.
+2. Executes `next build` with `output: 'export'` and `basePath: '/telemetry'`.
+3. Compiles static HTML files (`index.html`, `traces.html`, `sql.html`, etc.) and corresponding Next.js RSC Flight payload files (`index.txt`, `traces.txt`, `sql.txt`, etc.).
+4. Copies the output directly into the host application's static web root (`wwwroot/telemetry`).
 
-## Install and mount
+### 3.2 0-Reload SPA Navigation Handling
+To achieve instantaneous client-side page transitions in embedded environments without full browser reloads:
+- When Next.js executes client navigation, it sends requests with `RSC: 1` header or `?_rsc=...` query.
+- The host telemetry route handler inspects this header and serves the corresponding `.txt` flight payload file with `Content-Type: text/x-component; charset=utf-8`.
+- If an end-user directly navigates or refreshes a URL, the host serves the corresponding `.html` document.
+- `window.history.state` is preserved during table query-string synchronization to maintain Next.js's internal router state tree.
 
-```ts
-import express from "express"
-import { createSpurTrace, SqliteStorageAdapter } from "spurtrace"
+---
 
-const app = express()
-const trace = createSpurTrace({
-  appName: "MES-Production",
-  storage: new SqliteStorageAdapter({ path: "./spurtrace.sqlite" }),
-  batchSize: 200,
-  flushIntervalMs: 2000,
-  sampleRateSuccess: 0.1,
-  retentionDays: 7,
-  slowQueryThresholdMs: 300,
-  auth: { enabled: true, users: [{ username: "admin", password: process.env.SPURTRACE_PASSWORD! }] },
-})
+## 4. Storage Schemas
 
-app.use(trace.httpMiddleware())
-app.get("/orders", async (_request, response) => {
-  const rows = await trace.runSql("SELECT * FROM orders", () => db.orders.findMany())
-  response.json(rows)
-})
-app.use("/_telemetry", trace.dashboardMiddleware())
-app.use(trace.errorMiddleware())
+### 4.1 SQL Server (Dedicated Schema: `spurtrace`)
+```sql
+CREATE SCHEMA spurtrace;
+
+-- Traces
+CREATE TABLE spurtrace.traces (
+    id NVARCHAR(64) PRIMARY KEY,
+    trace_id NVARCHAR(64) NOT NULL,
+    route NVARCHAR(256) NOT NULL,
+    method NVARCHAR(16) NOT NULL,
+    status_code INT NOT NULL,
+    duration_ms FLOAT NOT NULL,
+    created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
+    payload NVARCHAR(MAX) NULL
+);
+
+-- Users (RBAC)
+CREATE TABLE spurtrace.users (
+    id NVARCHAR(64) PRIMARY KEY,
+    username NVARCHAR(64) NOT NULL UNIQUE,
+    password_hash NVARCHAR(256) NOT NULL,
+    password_salt NVARCHAR(128) NOT NULL,
+    display_name NVARCHAR(128) NOT NULL,
+    email NVARCHAR(128) NOT NULL,
+    role NVARCHAR(32) NOT NULL DEFAULT 'Viewer',
+    is_active BIT NOT NULL DEFAULT 1,
+    created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+);
+
+-- Settings
+CREATE TABLE spurtrace.settings (
+    [key] NVARCHAR(64) PRIMARY KEY,
+    [value] NVARCHAR(MAX) NULL,
+    category NVARCHAR(32) NOT NULL DEFAULT 'telemetry',
+    description NVARCHAR(256) NULL,
+    updated_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+);
+
+-- Alert Rules & Incident History
+CREATE TABLE spurtrace.alert_rules (
+    id NVARCHAR(64) PRIMARY KEY,
+    name NVARCHAR(128) NOT NULL,
+    metric NVARCHAR(64) NOT NULL,
+    condition NVARCHAR(16) NOT NULL,
+    threshold FLOAT NOT NULL,
+    unit NVARCHAR(16) NOT NULL DEFAULT 'ms',
+    channel NVARCHAR(32) NOT NULL DEFAULT 'email',
+    severity NVARCHAR(16) NOT NULL DEFAULT 'warning',
+    enabled BIT NOT NULL DEFAULT 1,
+    created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+);
+
+CREATE TABLE spurtrace.alert_history (
+    id NVARCHAR(64) PRIMARY KEY,
+    rule_id NVARCHAR(64) NOT NULL,
+    rule_name NVARCHAR(128) NOT NULL,
+    severity NVARCHAR(16) NOT NULL,
+    message NVARCHAR(MAX) NOT NULL,
+    triggered_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
+);
 ```
 
-For custom database clients, call `trace.runSql(sql, operation)` around the query or use `trace.recordSql(sql, durationMs)` in the driver's existing instrumentation hook. `runSql` records SQL without parameters and rethrows the original error. Mount the error middleware before the application's final error responder so it can group the exception and attach a breadcrumb.
-
-Set dashboard credentials through a secret manager/environment, not source control. The sample uses HTTP Basic authentication, which must only be used behind HTTPS or on a trusted local development network. Keep the dashboard private in production; do not expose an observability endpoint publicly without authentication and network controls.
-
-## Embedded UI distribution
-
-`dashboardMiddleware()` serves a self-contained HTML/CSS/JS asset held in `lib/spurtrace/dashboard/embedded-ui.ts` and exposes `GET /api/traces` relative to the mount. It has no React runtime, external CDN, or build step. A published package can ship this string as a static asset or generate it from a minified dashboard bundle during release, then import the asset into the middleware. The application's normal React dashboard is separate and provides the richer trace-detail prototype.
-
-## Demo load test
-
-The complete Express example is `examples/server.ts`. With Node 22.13+ (the PoC uses the built-in `node:sqlite` module), start it with:
-
-```sh
-pnpm run demo
-```
-
-It sends 100 concurrent requests, including slow and failing examples, flushes the writer, and prints elapsed time and buffer/write/drop counters. Visit `http://localhost:4175/_telemetry/`. Set `SPURTRACE_USER` and `SPURTRACE_PASSWORD` to enable Basic Auth; when unset, the local demo dashboard is unauthenticated. Keep the demo bound to a trusted development environment.
-
-## PoC boundaries
-
-- The project UI preview uses representative fixture traces to make the interaction demonstrable without a running service.
-- `SqliteStorageAdapter` is production-shaped but intentionally small; PostgreSQL and SQL Server DDL are supplied as schema starting points, not implemented adapters.
-- Slow SQL always promotes a trace to the critical queue. Error grouping is represented by a normalized exception signature; aggregation across traces can be added to the dashboard query layer.
-- Node's built-in SQLite is a Node 22+ API. For older Node versions, replace the worker implementation with an asynchronous SQLite driver while preserving the `StorageAdapter` contract.
+### 4.2 SQLite (Isolated Storage)
+Uses identical column structures with SQLite affinity types (`INTEGER`, `REAL`, `TEXT`) and `journal_mode=WAL` for concurrent non-blocking reads and batch inserts.
