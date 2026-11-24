@@ -44,9 +44,9 @@ export const DB_ENGINE_PRIORITIES: DbEngineMeta[] = [
     convention: "snake_case columns, lowercase table names, JSONB for metadata",
     explainCommand: "EXPLAIN (ANALYZE, BUFFERS, COSTS)",
     schemaStrategy:
-      "Dedicated 'opentrace' schema namespace (CREATE SCHEMA IF NOT EXISTS opentrace)",
+      "Dedicated 'spurtrace' schema namespace (CREATE SCHEMA IF NOT EXISTS spurtrace)",
     sampleConnStr:
-      "postgresql://opentrace_user:••••••••@10.1.60.15:5432/mes_production?sslmode=prefer&schema=opentrace",
+      "postgresql://spurtrace_user:••••••••@10.1.60.15:5432/mes_production?sslmode=prefer&schema=spurtrace",
   },
   {
     id: "mssql",
@@ -61,7 +61,7 @@ export const DB_ENGINE_PRIORITIES: DbEngineMeta[] = [
     paramStyle: "@paramName",
     convention: "PascalCase or standard MES uppercase, square brackets, WITH (NOLOCK) hints",
     explainCommand: "SET STATISTICS IO, TIME ON",
-    schemaStrategy: "Dedicated '[opentrace]' schema namespace (CREATE SCHEMA [opentrace])",
+    schemaStrategy: "Dedicated '[spurtrace]' schema namespace (CREATE SCHEMA [spurtrace])",
     sampleConnStr:
       "Server=10.1.60.12,1433;Database=MES_Production;User Id=sa;Password=••••••••;Encrypt=True;TrustServerCertificate=True;",
   },
@@ -78,9 +78,9 @@ export const DB_ENGINE_PRIORITIES: DbEngineMeta[] = [
     paramStyle: "? or :param",
     convention: "snake_case, backtick escaping, InnoDB engine with utf8mb4",
     explainCommand: "EXPLAIN ANALYZE",
-    schemaStrategy: "Dedicated 'opentrace_db' database or 'opentrace_' table prefix",
+    schemaStrategy: "Dedicated 'spurtrace_db' database or 'spurtrace_' table prefix",
     sampleConnStr:
-      "mysql://opentrace:••••••••@10.1.60.18:3306/mes_production?charset=utf8mb4&ssl-mode=PREFERRED",
+      "mysql://spurtrace:••••••••@10.1.60.18:3306/mes_production?charset=utf8mb4&ssl-mode=PREFERRED",
   },
   {
     id: "sqlite",
@@ -95,8 +95,8 @@ export const DB_ENGINE_PRIORITIES: DbEngineMeta[] = [
     paramStyle: "? or :param",
     convention: "snake_case, lightweight schema, WAL journal mode enabled",
     explainCommand: "EXPLAIN QUERY PLAN",
-    schemaStrategy: "Self-contained single file with WAL mode (opentrace.sqlite3)",
-    sampleConnStr: "file:data/opentrace.db?mode=rwc&_journal_mode=WAL",
+    schemaStrategy: "Self-contained single file with WAL mode (spurtrace.sqlite3)",
+    sampleConnStr: "file:data/spurtrace.db?mode=rwc&_journal_mode=WAL",
   },
 ];
 
@@ -132,10 +132,13 @@ export function getEngineDdl(engine: SupportedDbEngine): string {
   switch (engine) {
     case "postgres":
       return `-- ===================================================================
--- SpurTrace Unified APM Schema for PostgreSQL (Priority #1)
--- Daily Range-Partitioned · JSONB Payloads · Zero Write Amplification
+-- SpurTrace Enterprise APM Schema for PostgreSQL (Priority #1)
+-- Schema: spurtrace · Partitioned · JSONB · Users & Settings RBAC
 -- ===================================================================
-CREATE TABLE IF NOT EXISTS sys_traces (
+CREATE SCHEMA IF NOT EXISTS spurtrace;
+
+-- 1. Main Telemetry Traces Table (Range-Partitioned by day)
+CREATE TABLE IF NOT EXISTS spurtrace.sys_traces (
   trace_id VARCHAR(64) NOT NULL,
   app_name TEXT NOT NULL,
   method VARCHAR(12) NOT NULL,
@@ -151,13 +154,33 @@ CREATE TABLE IF NOT EXISTS sys_traces (
   PRIMARY KEY (trace_id, created_at)
 ) PARTITION BY RANGE (created_at);
 
--- Core APM indexes inherited by daily partitions
 CREATE INDEX IF NOT EXISTS idx_sys_traces_app_created
-  ON sys_traces (app_name, created_at DESC);
+  ON spurtrace.sys_traces (app_name, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sys_traces_status_created
-  ON sys_traces (status_code, created_at DESC);
+  ON spurtrace.sys_traces (status_code, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_sys_traces_duration
-  ON sys_traces (duration_ms DESC);
+  ON spurtrace.sys_traces (duration_ms DESC);
+
+-- 2. User Accounts & RBAC Permissions Table
+CREATE TABLE IF NOT EXISTS spurtrace.users (
+  id VARCHAR(64) PRIMARY KEY,
+  username VARCHAR(64) NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL,
+  display_name VARCHAR(128) NOT NULL,
+  email VARCHAR(128),
+  role VARCHAR(32) NOT NULL DEFAULT 'Admin',
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. Telemetry Runtime Settings & Alerts Configuration Table
+CREATE TABLE IF NOT EXISTS spurtrace.settings (
+  config_key VARCHAR(64) PRIMARY KEY,
+  config_value TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
 -- Automatic 14-day rolling partition provisioner (Run via scheduled cron/pg_cron)
 DO $$
@@ -172,7 +195,7 @@ BEGIN
     partition_end := partition_start + INTERVAL '1 day';
     partition_name := 'sys_traces_' || to_char(partition_start, 'YYYYMMDD');
     EXECUTE format(
-      'CREATE TABLE IF NOT EXISTS %I PARTITION OF sys_traces FOR VALUES FROM (%L) TO (%L)',
+      'CREATE TABLE IF NOT EXISTS spurtrace.%I PARTITION OF spurtrace.sys_traces FOR VALUES FROM (%L) TO (%L)',
       partition_name, partition_start, partition_end
     );
   END LOOP;
@@ -180,28 +203,16 @@ END $$;`;
 
     case "mssql":
       return `-- ===================================================================
--- SpurTrace Unified APM Schema for Microsoft SQL Server (Priority #2)
--- Partition Scheme · ISJSON Constraints · Zero Write Amplification
+-- SpurTrace Enterprise APM Schema for Microsoft SQL Server (Priority #2)
+-- Schema: [spurtrace] · Partition Scheme · ISJSON · Users & Settings
 -- ===================================================================
-DECLARE @today DATE = CONVERT(date, SYSUTCDATETIME());
-DECLARE @boundaries NVARCHAR(MAX) = N'';
-DECLARE @offset INT = -14;
-WHILE @offset <= 30
+IF NOT EXISTS (SELECT 1 FROM sys.schemas WHERE name = N'spurtrace')
+  EXEC(N'CREATE SCHEMA [spurtrace]');
+
+-- 1. Main Telemetry Traces Table
+IF OBJECT_ID(N'spurtrace.sys_traces', N'U') IS NULL
 BEGIN
-  SET @boundaries += CASE WHEN @boundaries = N'' THEN N'' ELSE N',' END
-    + N'''' + CONVERT(nvarchar(10), DATEADD(day, @offset, @today), 23) + N'T00:00:00''';
-  SET @offset += 1;
-END;
-
-IF NOT EXISTS (SELECT 1 FROM sys.partition_functions WHERE name = N'pf_sys_traces_created_at')
-  EXEC(N'CREATE PARTITION FUNCTION pf_sys_traces_created_at (datetime2(3)) AS RANGE RIGHT FOR VALUES (' + @boundaries + N')');
-
-IF NOT EXISTS (SELECT 1 FROM sys.partition_schemes WHERE name = N'ps_sys_traces_created_at')
-  EXEC(N'CREATE PARTITION SCHEME ps_sys_traces_created_at AS PARTITION pf_sys_traces_created_at ALL TO ([PRIMARY])');
-
-IF OBJECT_ID(N'dbo.sys_traces', N'U') IS NULL
-BEGIN
-  CREATE TABLE dbo.sys_traces (
+  CREATE TABLE spurtrace.sys_traces (
     created_at datetime2(3) NOT NULL,
     trace_id nvarchar(64) NOT NULL,
     app_name nvarchar(160) NOT NULL,
@@ -214,26 +225,53 @@ BEGIN
     spans_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_spans DEFAULT N'[]',
     sql_calls_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_sql DEFAULT N'[]',
     breadcrumbs_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_breadcrumbs DEFAULT N'[]',
-    CONSTRAINT pk_sys_traces PRIMARY KEY CLUSTERED (created_at, trace_id),
-    CONSTRAINT ck_sys_traces_spans_json CHECK (ISJSON(spans_json) = 1),
-    CONSTRAINT ck_sys_traces_sql_json CHECK (ISJSON(sql_calls_json) = 1),
-    CONSTRAINT ck_sys_traces_breadcrumbs_json CHECK (ISJSON(breadcrumbs_json) = 1)
-  ) ON ps_sys_traces_created_at(created_at);
+    CONSTRAINT pk_spurtrace_sys_traces PRIMARY KEY CLUSTERED (created_at, trace_id),
+    CONSTRAINT ck_spurtrace_spans_json CHECK (ISJSON(spans_json) = 1),
+    CONSTRAINT ck_spurtrace_sql_json CHECK (ISJSON(sql_calls_json) = 1),
+    CONSTRAINT ck_spurtrace_breadcrumbs_json CHECK (ISJSON(breadcrumbs_json) = 1)
+  );
 
   CREATE INDEX idx_sys_traces_app_created
-    ON dbo.sys_traces (app_name, created_at DESC) ON ps_sys_traces_created_at(created_at);
+    ON spurtrace.sys_traces (app_name, created_at DESC);
   CREATE INDEX idx_sys_traces_status_created
-    ON dbo.sys_traces (status_code, created_at DESC) ON ps_sys_traces_created_at(created_at);
+    ON spurtrace.sys_traces (status_code, created_at DESC);
   CREATE INDEX idx_sys_traces_duration
-    ON dbo.sys_traces (duration_ms DESC, created_at) ON ps_sys_traces_created_at(created_at);
+    ON spurtrace.sys_traces (duration_ms DESC, created_at);
+END;
+
+-- 2. User Accounts & RBAC Permissions Table
+IF OBJECT_ID(N'spurtrace.users', N'U') IS NULL
+BEGIN
+  CREATE TABLE spurtrace.users (
+    id NVARCHAR(64) PRIMARY KEY,
+    username NVARCHAR(64) NOT NULL UNIQUE,
+    password_hash NVARCHAR(256) NOT NULL,
+    password_salt NVARCHAR(128) NOT NULL,
+    display_name NVARCHAR(128) NOT NULL,
+    email NVARCHAR(128) NULL,
+    role NVARCHAR(32) NOT NULL DEFAULT N'Admin',
+    is_active BIT NOT NULL DEFAULT 1,
+    created_at DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME(),
+    updated_at DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME()
+  );
+END;
+
+-- 3. Telemetry Runtime Settings Table
+IF OBJECT_ID(N'spurtrace.settings', N'U') IS NULL
+BEGIN
+  CREATE TABLE spurtrace.settings (
+    config_key NVARCHAR(64) PRIMARY KEY,
+    config_value NVARCHAR(MAX) NOT NULL,
+    updated_at DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME()
+  );
 END;`;
 
     case "mysql":
       return `-- ===================================================================
--- SpurTrace Unified APM Schema for MySQL 8.0+ (Priority #3)
--- Native JSON Types · Composite Primary Key · Zero Write Amplification
+-- SpurTrace Enterprise APM Schema for MySQL 8.0+ (Priority #3)
+-- Prefix: spurtrace_ · Native JSON · Zero Write Amplification
 -- ===================================================================
-CREATE TABLE IF NOT EXISTS sys_traces (
+CREATE TABLE IF NOT EXISTS spurtrace_sys_traces (
   trace_id VARCHAR(64) NOT NULL,
   app_name VARCHAR(160) NOT NULL,
   method VARCHAR(12) NOT NULL,
@@ -250,18 +288,37 @@ CREATE TABLE IF NOT EXISTS sys_traces (
   INDEX idx_sys_traces_app_created (app_name, created_at DESC),
   INDEX idx_sys_traces_status_created (status_code, created_at DESC),
   INDEX idx_sys_traces_duration (duration_ms DESC)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS spurtrace_users (
+  id VARCHAR(64) PRIMARY KEY,
+  username VARCHAR(64) NOT NULL UNIQUE,
+  password_hash VARCHAR(256) NOT NULL,
+  password_salt VARCHAR(128) NOT NULL,
+  display_name VARCHAR(128) NOT NULL,
+  email VARCHAR(128) NULL,
+  role VARCHAR(32) NOT NULL DEFAULT 'Admin',
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS spurtrace_settings (
+  config_key VARCHAR(64) PRIMARY KEY,
+  config_value TEXT NOT NULL,
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`;
 
     case "sqlite":
       return `-- ===================================================================
--- SpurTrace Unified APM Schema for SQLite (Priority #4)
--- Write-Ahead Logging (WAL) · Non-Blocking Background Worker
+-- SpurTrace Enterprise APM Schema for SQLite (Priority #4)
+-- Write-Ahead Logging (WAL) · Non-Blocking Single-File APM Storage
 -- ===================================================================
 PRAGMA journal_mode = WAL;
 PRAGMA synchronous = NORMAL;
 PRAGMA busy_timeout = 5000;
 
-CREATE TABLE IF NOT EXISTS sys_traces (
+CREATE TABLE IF NOT EXISTS spurtrace_sys_traces (
   trace_id TEXT NOT NULL,
   app_name TEXT NOT NULL,
   method TEXT NOT NULL,
@@ -277,9 +334,28 @@ CREATE TABLE IF NOT EXISTS sys_traces (
   PRIMARY KEY (trace_id, created_at)
 );
 
-CREATE INDEX IF NOT EXISTS idx_sys_traces_app_created ON sys_traces (app_name, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_sys_traces_status_created ON sys_traces (status_code, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_sys_traces_duration ON sys_traces (duration_ms DESC);`;
+CREATE INDEX IF NOT EXISTS idx_sys_traces_app_created ON spurtrace_sys_traces (app_name, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sys_traces_status_created ON spurtrace_sys_traces (status_code, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sys_traces_duration ON spurtrace_sys_traces (duration_ms DESC);
+
+CREATE TABLE IF NOT EXISTS spurtrace_users (
+  id TEXT PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  email TEXT,
+  role TEXT NOT NULL DEFAULT 'Admin',
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS spurtrace_settings (
+  config_key TEXT PRIMARY KEY,
+  config_value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);`;
   }
 }
 

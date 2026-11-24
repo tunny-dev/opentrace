@@ -5,13 +5,17 @@ import {
   Activity,
   ArrowDown,
   ArrowUp,
+  ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Database,
   Search,
   Sparkles,
   Zap,
 } from "lucide-react";
 import type { DemoTrace } from "@/lib/spurtrace/demo-data";
+import { useTelemetry } from "@/lib/spurtrace/telemetry-context";
 import {
   aggregateQueries,
   type AggregatedQuery,
@@ -49,12 +53,17 @@ function formatDuration(value: number) {
 }
 
 export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: UserRole }) {
+  const { openTraceFromLog } = useTelemetry();
   const [search, setSearch] = useState("");
   const [statementFilter, setStatementFilter] = useState<StatementType | "ALL">("ALL");
   const [sortByImpact, setSortByImpact] = useState(true);
   const [selectedQuery, setSelectedQuery] = useState<AggregatedQuery | null>(null);
   const [studioOpen, setStudioOpen] = useState(false);
   const [studioInitialQuery, setStudioInitialQuery] = useState<StudioQueryItem | null>(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const closeStudio = () => {
     setStudioOpen(false);
@@ -66,7 +75,7 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
       queries
         .filter((query) => statementFilter === "ALL" || query.statementType === statementFilter)
         .filter((query) =>
-          `${query.template} ${query.routes.join(" ")} ${query.callSite}`
+          `${query.template} ${query.routes.join(" ")} ${query.callSite} ${query.sampleTraceId || ""}`
             .toLowerCase()
             .includes(search.trim().toLowerCase())
         )
@@ -75,6 +84,17 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
         ),
     [queries, statementFilter, search, sortByImpact]
   );
+
+  const totalPages = Math.max(1, Math.ceil(visibleQueries.length / pageSize));
+  const paginatedQueries = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return visibleQueries.slice(start, start + pageSize);
+  }, [visibleQueries, currentPage, pageSize]);
+
+  // Reset to page 1 on search or filter change
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [search, statementFilter]);
 
   const totalCalls = useMemo(
     () => queries.reduce((total, query) => total + query.totalCalls, 0),
@@ -256,6 +276,9 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
                 <th scope="col" className="font-sans">
                   QUERY TEMPLATE
                 </th>
+                <th scope="col" className="font-sans">
+                  TRACE ID
+                </th>
                 <th scope="col">
                   <Button
                     variant="ghost"
@@ -290,7 +313,7 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
               </tr>
             </thead>
             <tbody>
-              {visibleQueries.map((query, idx) => (
+              {paginatedQueries.map((query, idx) => (
                 <tr
                   key={query.fingerprint}
                   tabIndex={0}
@@ -300,7 +323,7 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
                   className="cursor-pointer"
                 >
                   <td className="text-[11px] tabular-nums text-(--ot-muted) font-sans">
-                    {idx + 1}
+                    {(currentPage - 1) * pageSize + idx + 1}
                   </td>
                   <td>
                     <div className="sql-template-cell">
@@ -327,6 +350,22 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
                         {query.fingerprint.slice(0, 16)}
                       </small>
                     </div>
+                  </td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    {query.sampleTraceId ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => openTraceFromLog(query.sampleTraceId!)}
+                        className="h-6 px-1.5 font-mono text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 rounded cursor-pointer"
+                        title={`Trace ID: ${query.sampleTraceId} (Click để mở vết chi tiết)`}
+                      >
+                        #{query.sampleTraceId.slice(0, 8)}…
+                      </Button>
+                    ) : (
+                      <span className="text-muted-foreground font-mono text-[10px]">—</span>
+                    )}
                   </td>
                   <td>
                     <div className="impact-cell font-sans">
@@ -382,13 +421,103 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
               ))}
               {visibleQueries.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="no-sql-results font-sans">
+                  <td colSpan={9} className="no-sql-results font-sans">
                     No query fingerprints match these filters.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination Controls */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-2.5 border-t border-(--ot-border) bg-(--ot-panel)/50 text-xs">
+          <div className="flex items-center gap-2 text-(--ot-muted)">
+            <span>
+              Hiển thị{" "}
+              <strong className="text-(--ot-text)">
+                {visibleQueries.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
+              </strong>
+              {" - "}
+              <strong className="text-(--ot-text)">
+                {Math.min(visibleQueries.length, currentPage * pageSize)}
+              </strong>{" "}
+              / <strong className="text-(--ot-text)">{visibleQueries.length}</strong> câu truy vấn
+            </span>
+
+            <div className="flex items-center gap-1.5 ml-4">
+              <span className="text-[11px]">Dòng:</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => {
+                  setPageSize(Number(v));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger size="sm" className="h-6 text-xs px-2 w-[65px] bg-(--ot-panel)">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-(--ot-panel) text-xs border-(--ot-border)">
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage <= 1}
+              className="h-7 w-7 p-0 cursor-pointer border-(--ot-border)"
+              title="Trang đầu"
+            >
+              <ChevronsLeft className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="h-7 w-7 p-0 cursor-pointer border-(--ot-border)"
+              title="Trang trước"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+
+            <span className="px-2 text-xs font-medium text-(--ot-muted)">
+              Trang <strong className="text-(--ot-text)">{currentPage}</strong> / {totalPages}
+            </span>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+              className="h-7 w-7 p-0 cursor-pointer border-(--ot-border)"
+              title="Trang kế"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage >= totalPages}
+              className="h-7 w-7 p-0 cursor-pointer border-(--ot-border)"
+              title="Trang cuối"
+            >
+              <ChevronsRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
 
         <footer className="sql-table-footer font-sans">

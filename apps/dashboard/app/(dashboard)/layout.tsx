@@ -40,6 +40,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
     toggleLiveStream,
     refreshDashboard,
     refreshing,
+    appName,
   } = useTelemetry();
 
   React.useEffect(() => {
@@ -78,8 +79,8 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
             <div className="flex h-6 shrink-0">
               <Separator orientation="vertical" />
             </div>
-            <span className="truncate text-xs font-medium text-muted-foreground sm:text-sm">
-              MES Production
+            <span className="truncate text-xs font-semibold text-(--ot-text) sm:text-sm">
+              {appName || "SpurTrace"}
             </span>
           </div>
 

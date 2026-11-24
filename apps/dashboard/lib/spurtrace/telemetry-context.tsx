@@ -22,6 +22,7 @@ interface TelemetryContextType {
   service: DemoService | string | "all";
   setService: (srv: DemoService | string | "all") => void;
   availableServices: string[];
+  appName: string;
   liveStream: boolean;
   toggleLiveStream: () => void;
   userRole: UserRole;
@@ -48,6 +49,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
   const [selectedTrace, setSelectedTrace] = useState<DemoTrace | null>(null);
   const [environment, setEnvironment] = useState<DemoEnvironment>("production");
   const [service, setService] = useState<DemoService | string | "all">("all");
+  const [appName, setAppName] = useState<string>("Senao EMS");
   const [liveStream, setLiveStream] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [initialLoaded, setInitialLoaded] = useState(false);
@@ -87,6 +89,12 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
   // Initial load
   useEffect(() => {
     fetchRealTraces();
+    fetch("/api/telemetry/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.app_name) setAppName(d.app_name);
+      })
+      .catch(() => {});
   }, [fetchRealTraces]);
 
   // Live polling for real new traces when liveStream is enabled
@@ -161,6 +169,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
         service,
         setService,
         availableServices,
+        appName,
         liveStream,
         toggleLiveStream,
         userRole,

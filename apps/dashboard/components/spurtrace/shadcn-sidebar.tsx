@@ -18,6 +18,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/i18n-context";
+import { useAuthStore } from "@/lib/spurtrace/auth-store";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -57,6 +58,18 @@ export function SpurTraceShadcnSidebar({
 }) {
   const pathname = usePathname();
   const { dict, locale, setLocale } = useI18n();
+  const { user: authUser } = useAuthStore();
+  const userName = authUser?.name || "Administrator";
+  const userEmail = authUser?.email || "admin@senao.com";
+  const userInitials = (
+    userName
+      .trim()
+      .split(" ")
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join("")
+      .slice(0, 2) || "AD"
+  ).toUpperCase();
   const observabilityItems = [
     { href: "/", label: dict.common.overview, icon: Gauge },
     { href: "/traces", label: dict.common.traces, icon: Activity },
@@ -174,17 +187,6 @@ export function SpurTraceShadcnSidebar({
       </SidebarContent>
 
       <SidebarFooter className="w-full p-2 gap-1.5 border-t border-sidebar-border group-data-[collapsible=icon]:p-1.5">
-        <div className="rounded-lg border border-(--ot-border) bg-(--ot-panel-raised) p-2.5 group-data-[collapsible=icon]:hidden mb-1">
-          <div className="flex justify-between text-[9px] text-(--ot-muted) font-semibold mb-1">
-            <span>{dict.sidebar.ingestionLabel || "INGESTION"}</span>
-            <span className="text-emerald-700 dark:text-emerald-400 font-bold">72%</span>
-          </div>
-          <div className="h-1.5 w-full bg-slate-200 dark:bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 rounded-full" style={{ width: "72%" }} />
-          </div>
-          <p className="text-[9px] text-(--ot-muted) mt-1">72k of 100k events</p>
-        </div>
-
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -192,15 +194,15 @@ export function SpurTraceShadcnSidebar({
                 type="button"
                 variant="ghost"
                 className="flex h-10 w-full cursor-pointer items-center justify-start gap-2.5 rounded-xl px-1 font-normal text-sidebar-foreground transition-colors hover:bg-sidebar-accent group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
-                aria-label={`${dict.sidebar.signedInAs} Alex Kim, ${role}`}
+                aria-label={`${dict.sidebar.signedInAs} ${userName}, ${role}`}
               >
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
-                  AK
+                  {userInitials}
                 </div>
                 <div className="grid min-w-0 flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                  <span className="truncate font-medium text-sidebar-foreground">Alex Kim</span>
+                  <span className="truncate font-medium text-sidebar-foreground">{userName}</span>
                   <span className="truncate text-xs text-muted-foreground">
-                    alex.kim@spurtrace.dev
+                    {userEmail}
                   </span>
                 </div>
                 <span
@@ -224,9 +226,9 @@ export function SpurTraceShadcnSidebar({
           >
             <DropdownMenuGroup>
               <DropdownMenuLabel className="px-3 py-2 font-normal">
-                <span className="block text-sm font-medium text-popover-foreground">Alex Kim</span>
+                <span className="block text-sm font-medium text-popover-foreground">{userName}</span>
                 <span className="block truncate text-xs text-muted-foreground">
-                  alex.kim@spurtrace.dev
+                  {userEmail}
                 </span>
               </DropdownMenuLabel>
             </DropdownMenuGroup>

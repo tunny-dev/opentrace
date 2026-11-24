@@ -21,10 +21,10 @@ interface AuthState {
 }
 
 const defaultUser: UserProfile = {
-  id: "usr_alex_kim",
-  name: "Alex Kim",
-  email: "alex.kim@spurtrace.dev",
-  avatar: "AK",
+  id: "usr_admin",
+  name: "Administrator",
+  email: "admin@senao.com",
+  avatar: "AD",
   role: "Admin",
   lastLogin: new Date().toISOString(),
 };

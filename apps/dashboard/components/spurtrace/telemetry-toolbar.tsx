@@ -14,7 +14,7 @@ export function TelemetryToolbar({
   className?: string;
 }) {
   const { dict } = useI18n();
-  const { liveStream, toggleLiveStream, refreshDashboard, refreshing } = useTelemetry();
+  const { liveStream, toggleLiveStream, refreshDashboard, refreshing, appName } = useTelemetry();
 
   return (
     <div
@@ -22,11 +22,11 @@ export function TelemetryToolbar({
     >
       <div
         className="flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-md border border-(--ot-border) bg-(--ot-panel-raised) px-2 text-xs text-(--ot-text) sm:flex-none sm:gap-2 sm:px-2.5"
-        title="MES-Production · Production"
+        title={`${appName || "SpurTrace"} · Production`}
       >
         <div className="flex min-w-0 flex-1 items-center gap-1.5 font-semibold sm:flex-none">
           <span className="size-2 shrink-0 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="truncate">MES-Production</span>
+          <span className="truncate">{appName || "SpurTrace"}</span>
         </div>
         <span className="shrink-0 select-none text-(--ot-border)">|</span>
         <span className="shrink-0 text-[10px] font-medium text-emerald-600 dark:text-emerald-400 sm:text-[11px]">

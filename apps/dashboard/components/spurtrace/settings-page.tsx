@@ -28,6 +28,13 @@ import {
   Sun,
   Laptop,
   Loader2,
+  Users,
+  Plus,
+  Trash2,
+  Edit3,
+  UserCheck,
+  UserX,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "next-themes";
@@ -87,9 +94,9 @@ export function SettingsPage({ role }: { role: UserRole }) {
   const isSystem = mounted ? theme === "system" : false;
 
   // Active Tab: General is default in Settings
-  const [activeTab, setActiveTab] = useState<"general" | "email" | "db" | "ingestion" | "security">(
-    "general"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "general" | "email" | "db" | "ingestion" | "users" | "security"
+  >("general");
 
   // Email & Outlook Gateway states
   const [emailProvider, setEmailProvider] = useState<"outlook" | "smtp" | "sendgrid">("outlook");
@@ -107,19 +114,42 @@ export function SettingsPage({ role }: { role: UserRole }) {
   const [dbMode, setDbMode] = useState<"dedicated" | "shared">("shared");
   const [dbEngine, setDbEngine] = useState<SupportedDbEngine>("postgres");
   const [connectionString, setConnectionString] = useState(
-    "postgresql://opentrace_user:••••••••@10.1.60.12:5432/mes_production?sslmode=prefer"
+    "postgresql://spurtrace_user:••••••••@10.1.60.12:5432/mes_production?sslmode=prefer&schema=spurtrace"
   );
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionResult, setConnectionResult] = useState<string | null>(null);
   const [ddlDialect, setDdlDialect] = useState<SupportedDbEngine>("postgres");
   const [copiedDdl, setCopiedDdl] = useState(false);
+  const [showDdl, setShowDdl] = useState(false);
+
+  // Telemetry Users & RBAC states
+  interface TelemetryUser {
+    id: string;
+    username: string;
+    displayName: string;
+    email?: string;
+    role: string;
+    isActive: boolean;
+    createdAt?: string;
+  }
+  const [telemetryUsers, setTelemetryUsers] = useState<TelemetryUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userModalOpen, setUserModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<TelemetryUser | null>(null);
+  const [userFormUsername, setUserFormUsername] = useState("");
+  const [userFormDisplayName, setUserFormDisplayName] = useState("");
+  const [userFormEmail, setUserFormEmail] = useState("");
+  const [userFormPassword, setUserFormPassword] = useState("");
+  const [userFormRole, setUserFormRole] = useState("Admin");
+  const [userFormActive, setUserFormActive] = useState(true);
+  const [userSaving, setUserSaving] = useState(false);
 
   function handleEngineSelect(engine: SupportedDbEngine) {
     setDbEngine(engine);
     setDdlDialect(engine);
     if (engine === "postgres") {
       setConnectionString(
-        "postgresql://opentrace_user:••••••••@10.1.60.12:5432/mes_production?sslmode=prefer"
+        "postgresql://spurtrace_user:••••••••@10.1.60.12:5432/mes_production?sslmode=prefer&schema=spurtrace"
       );
     } else if (engine === "mssql") {
       setConnectionString(
@@ -127,10 +157,10 @@ export function SettingsPage({ role }: { role: UserRole }) {
       );
     } else if (engine === "mysql") {
       setConnectionString(
-        "mysql://opentrace_user:••••••••@10.1.60.12:3306/mes_production?charset=utf8mb4"
+        "mysql://spurtrace_user:••••••••@10.1.60.12:3306/mes_production?charset=utf8mb4"
       );
     } else if (engine === "sqlite") {
-      setConnectionString("file:./data/opentrace.db?mode=rwc&_journal_mode=WAL");
+      setConnectionString("file:./data/spurtrace.db?mode=rwc&_journal_mode=WAL");
     }
   }
 
@@ -303,6 +333,108 @@ export function SettingsPage({ role }: { role: UserRole }) {
     }
   }
 
+  // User Management Handlers
+  async function fetchUsers() {
+    setLoadingUsers(true);
+    try {
+      const res = await fetch("/api/telemetry/users");
+      if (res.ok) {
+        const data = await res.json();
+        setTelemetryUsers(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingUsers(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "users") {
+      fetchUsers();
+    }
+  }, [activeTab]);
+
+  function handleOpenCreateUser() {
+    setEditingUser(null);
+    setUserFormUsername("");
+    setUserFormDisplayName("");
+    setUserFormEmail("");
+    setUserFormPassword("");
+    setUserFormRole("Admin");
+    setUserFormActive(true);
+    setUserModalOpen(true);
+  }
+
+  function handleOpenEditUser(u: TelemetryUser) {
+    setEditingUser(u);
+    setUserFormUsername(u.username);
+    setUserFormDisplayName(u.displayName);
+    setUserFormEmail(u.email || "");
+    setUserFormPassword("");
+    setUserFormRole(u.role || "Admin");
+    setUserFormActive(u.isActive);
+    setUserModalOpen(true);
+  }
+
+  async function handleSaveUser(e: React.FormEvent) {
+    e.preventDefault();
+    if (!userFormUsername.trim()) {
+      toast.error("Vui lòng nhập tên đăng nhập");
+      return;
+    }
+    if (!editingUser && !userFormPassword.trim()) {
+      toast.error("Vui lòng nhập mật khẩu cho tài khoản mới");
+      return;
+    }
+    setUserSaving(true);
+    try {
+      const payload = {
+        id: editingUser?.id,
+        username: userFormUsername.trim(),
+        displayName: userFormDisplayName.trim() || userFormUsername.trim(),
+        email: userFormEmail.trim() || undefined,
+        password: userFormPassword.trim() || undefined,
+        role: userFormRole,
+        isActive: userFormActive,
+      };
+      const res = await fetch("/api/telemetry/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        toast.success(editingUser ? "Cập nhật tài khoản thành công" : "Tạo tài khoản mới thành công");
+        setUserModalOpen(false);
+        setEditingUser(null);
+        fetchUsers();
+      } else {
+        const err = await res.json();
+        toast.error(err?.error || "Lỗi lưu tài khoản");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Không thể kết nối đến máy chủ");
+    } finally {
+      setUserSaving(false);
+    }
+  }
+
+  async function handleDeleteUser(id: string, username: string) {
+    if (!confirm(`Bạn có chắc muốn xóa tài khoản "${username}" không?`)) return;
+    try {
+      const res = await fetch(`/api/telemetry/users/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success(`Đã xóa tài khoản ${username}`);
+        fetchUsers();
+      } else {
+        const err = await res.json();
+        toast.error(err?.error || "Lỗi khi xóa tài khoản");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Không thể kết nối đến máy chủ");
+    }
+  }
+
   // Production-grade DDL scripts generated with UUID PK and dialect conventions
   const ddlScripts: Record<SupportedDbEngine, string> = {
     postgres: getEngineDdl("postgres"),
@@ -398,6 +530,21 @@ export function SettingsPage({ role }: { role: UserRole }) {
         >
           <Sliders className="h-3.5 w-3.5" />
           <span>{dict.settings.tabIngestion}</span>
+        </Button>
+
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+            activeTab === "users"
+              ? "bg-(--ot-panel) text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 shadow-xs"
+              : "text-(--ot-muted) hover:text-(--ot-text) hover:bg-(--ot-panel-raised)"
+          }`}
+          onClick={() => setActiveTab("users")}
+        >
+          <Users className="h-3.5 w-3.5" />
+          <span>Tài khoản & Phân quyền</span>
         </Button>
 
         <Button
@@ -1022,20 +1169,33 @@ export function SettingsPage({ role }: { role: UserRole }) {
                     </Button>
                   </div>
 
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="flex items-center gap-1 bg-(--ot-panel) hover:bg-(--ot-panel-raised) text-xs text-(--ot-muted) border-(--ot-border) cursor-pointer"
-                    onClick={handleCopyDdl}
-                  >
-                    {copiedDdl ? (
-                      <Check className="h-3.5 w-3.5 text-emerald-500" />
-                    ) : (
-                      <Copy className="h-3.5 w-3.5" />
-                    )}
-                    <span>{copiedDdl ? "Copied!" : "Copy DDL"}</span>
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1.5 bg-(--ot-panel) hover:bg-(--ot-panel-raised) text-xs text-emerald-600 dark:text-emerald-400 border-emerald-500/30 cursor-pointer"
+                      onClick={() => setShowDdl(!showDdl)}
+                    >
+                      {showDdl ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      <span>{showDdl ? "Thu gọn mã SQL" : "Xem mã SQL DDL"}</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center gap-1.5 bg-(--ot-panel) hover:bg-(--ot-panel-raised) text-xs text-(--ot-muted) border-(--ot-border) cursor-pointer"
+                      onClick={handleCopyDdl}
+                    >
+                      {copiedDdl ? (
+                        <Check className="h-3.5 w-3.5 text-emerald-500" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
+                      <span>{copiedDdl ? "Đã sao chép!" : "Sao chép toàn bộ DDL"}</span>
+                    </Button>
+                  </div>
                 </div>
               </header>
 
@@ -1043,15 +1203,15 @@ export function SettingsPage({ role }: { role: UserRole }) {
               <div className="p-3.5 rounded-lg bg-(--ot-panel) border border-(--ot-border) flex flex-col gap-2 text-xs">
                 <div className="flex items-center gap-2 font-semibold text-emerald-600 dark:text-emerald-400">
                   <Database className="h-4 w-4" />
-                  <span>Enterprise Observability Architecture & Schema Strategy</span>
+                  <span>Enterprise Observability Architecture & Schema Strategy (spurtrace)</span>
                 </div>
                 <p className="text-[11px] text-(--ot-muted) leading-relaxed">
                   <strong>PostgreSQL & MSSQL (Recommended Priority):</strong> Dedicated{" "}
                   <code className="text-emerald-600 dark:text-emerald-400 font-mono">
-                    opentrace
+                    spurtrace
                   </code>{" "}
                   schema namespace isolation. Telemetry tables are created under{" "}
-                  <code className="font-mono text-[10px]">opentrace.*</code> (not mixed into{" "}
+                  <code className="font-mono text-[10px]">spurtrace.*</code> (not mixed into{" "}
                   <code className="font-mono text-[10px]">public</code> or{" "}
                   <code className="font-mono text-[10px]">dbo</code>), eliminating table-level
                   locking with transactional MES business tables (
@@ -1069,7 +1229,7 @@ export function SettingsPage({ role }: { role: UserRole }) {
                     </div>
                     <div className="text-[10px] text-(--ot-muted) mt-1">
                       Schema:{" "}
-                      <code className="text-emerald-600 dark:text-emerald-400">opentrace.*</code>
+                      <code className="text-emerald-600 dark:text-emerald-400">spurtrace.*</code>
                     </div>
                     <div className="text-[10px] text-(--ot-muted)">
                       PK:{" "}
@@ -1085,7 +1245,7 @@ export function SettingsPage({ role }: { role: UserRole }) {
                     </div>
                     <div className="text-[10px] text-(--ot-muted) mt-1">
                       Schema:{" "}
-                      <code className="text-emerald-600 dark:text-emerald-400">[opentrace].*</code>
+                      <code className="text-emerald-600 dark:text-emerald-400">[spurtrace].*</code>
                     </div>
                     <div className="text-[10px] text-(--ot-muted)">
                       PK:{" "}
@@ -1102,7 +1262,7 @@ export function SettingsPage({ role }: { role: UserRole }) {
                       </span>
                     </div>
                     <div className="text-[10px] text-(--ot-muted) mt-1">
-                      DB: <code className="text-emerald-600 dark:text-emerald-400">opentrace</code>
+                      Prefix: <code className="text-emerald-600 dark:text-emerald-400">spurtrace_*</code>
                     </div>
                     <div className="text-[10px] text-(--ot-muted)">
                       PK:{" "}
@@ -1117,8 +1277,8 @@ export function SettingsPage({ role }: { role: UserRole }) {
                       </span>
                     </div>
                     <div className="text-[10px] text-(--ot-muted) mt-1">
-                      Storage:{" "}
-                      <code className="text-emerald-600 dark:text-emerald-400">WAL Mode</code>
+                      File:{" "}
+                      <code className="text-emerald-600 dark:text-emerald-400">spurtrace.sqlite3</code>
                     </div>
                     <div className="text-[10px] text-(--ot-muted)">
                       PK: <code className="text-emerald-600 dark:text-emerald-400">TEXT UUID</code>
@@ -1127,9 +1287,27 @@ export function SettingsPage({ role }: { role: UserRole }) {
                 </div>
               </div>
 
-              <pre className="p-3.5 rounded-lg bg-(--ot-panel) border border-(--ot-border) text-xs text-emerald-600 dark:text-emerald-400 overflow-x-auto whitespace-pre leading-relaxed">
-                {ddlScripts[ddlDialect]}
-              </pre>
+              {!showDdl ? (
+                <div className="p-3.5 rounded-lg border border-dashed border-(--ot-border) text-center text-xs text-(--ot-muted) bg-(--ot-panel)/60 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-left">
+                    <FileCode className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <span>Mã script DDL SQL đang được thu gọn để tối ưu diện tích. Bấm <strong>"Xem mã SQL DDL"</strong> để hiển thị hoặc <strong>"Sao chép toàn bộ DDL"</strong> để copy trực tiếp.</span>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="xs"
+                    onClick={() => setShowDdl(true)}
+                    className="text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 cursor-pointer shrink-0 font-semibold"
+                  >
+                    <Eye className="h-3.5 w-3.5 mr-1" /> Mở xem script
+                  </Button>
+                </div>
+              ) : (
+                <pre className="p-3.5 rounded-lg bg-(--ot-panel) border border-(--ot-border) text-xs text-emerald-600 dark:text-emerald-400 overflow-x-auto whitespace-pre leading-relaxed max-h-[420px]">
+                  {ddlScripts[ddlDialect]}
+                </pre>
+              )}
             </section>
           </div>
         )}
@@ -1226,7 +1404,276 @@ export function SettingsPage({ role }: { role: UserRole }) {
           </section>
         )}
 
-        {/* TAB 4: SECURITY & API KEYS */}
+        {/* TAB 4: USERS & RBAC MANAGEMENT */}
+        {activeTab === "users" && (
+          <div className="flex flex-col gap-4">
+            <section className="panel-card settings-section-card">
+              <header className="settings-section-header flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="settings-header-icon bg-indigo-500/10 text-indigo-600 border border-indigo-500/25">
+                    <Users className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-(--ot-text)">
+                      Quản lý Tài khoản & Phân quyền (RBAC)
+                    </h3>
+                    <p className="text-xs text-(--ot-muted)">
+                      Quản lý tài khoản truy cập hệ thống SpurTrace. Thông tin được lưu mã hóa PBKDF2 trong bảng{" "}
+                      <code className="text-emerald-600 dark:text-emerald-400 font-mono text-[11px]">spurtrace.users</code>.
+                    </p>
+                  </div>
+                </div>
+
+                {isAdmin && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleOpenCreateUser}
+                    className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs cursor-pointer shadow-xs"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Thêm tài khoản</span>
+                  </Button>
+                )}
+              </header>
+
+              {loadingUsers ? (
+                <div className="p-8 text-center text-xs text-(--ot-muted) flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin text-emerald-500" />
+                  <span>Đang tải danh sách tài khoản từ database...</span>
+                </div>
+              ) : telemetryUsers.length === 0 ? (
+                <div className="p-8 text-center text-xs text-(--ot-muted) border border-dashed border-(--ot-border) rounded-lg bg-(--ot-panel)/50">
+                  <p>Chưa có tài khoản phụ nào. Tài khoản mặc định hệ thống: <strong>admin</strong> / <strong>admin@123</strong>.</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    onClick={handleOpenCreateUser}
+                    className="mt-3 text-emerald-600 border-emerald-500/30"
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" /> Tạo tài khoản đầu tiên
+                  </Button>
+                </div>
+              ) : (
+                <div className="border border-(--ot-border) rounded-lg overflow-x-auto bg-(--ot-panel)">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="border-b border-(--ot-border) bg-(--ot-panel-raised) text-[11px] font-semibold text-(--ot-muted) uppercase tracking-wider">
+                        <th className="py-2.5 px-3">Tài khoản</th>
+                        <th className="py-2.5 px-3">Tên hiển thị</th>
+                        <th className="py-2.5 px-3">Email</th>
+                        <th className="py-2.5 px-3">Vai trò</th>
+                        <th className="py-2.5 px-3">Trạng thái</th>
+                        <th className="py-2.5 px-3 text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-(--ot-border)">
+                      {telemetryUsers.map((u) => (
+                        <tr key={u.id} className="hover:bg-(--ot-panel-raised)/60 transition-colors">
+                          <td className="py-2.5 px-3 font-medium text-(--ot-text)">
+                            <div className="flex items-center gap-2">
+                              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 font-bold text-[10px] border border-emerald-500/20">
+                                {u.username.substring(0, 2).toUpperCase()}
+                              </span>
+                              <span className="font-mono">{u.username}</span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 text-(--ot-muted)">{u.displayName || "—"}</td>
+                          <td className="py-2.5 px-3 text-(--ot-muted) font-mono text-[11px]">{u.email || "—"}</td>
+                          <td className="py-2.5 px-3">
+                            <span
+                              className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${
+                                u.role?.toLowerCase() === "admin"
+                                  ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/25"
+                                  : u.role?.toLowerCase() === "engineer"
+                                  ? "bg-blue-500/10 text-blue-600 border border-blue-500/25"
+                                  : "bg-amber-500/10 text-amber-600 border border-amber-500/25"
+                              }`}
+                            >
+                              {u.role || "Admin"}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3">
+                            {u.isActive ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
+                                <span className="size-1.5 rounded-full bg-emerald-500 inline-block" />
+                                Hoạt động
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-rose-500 font-medium">
+                                <span className="size-1.5 rounded-full bg-rose-500 inline-block" />
+                                Đã khóa
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            {isAdmin && (
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="xs"
+                                  onClick={() => handleOpenEditUser(u)}
+                                  className="h-7 w-7 p-0 text-(--ot-muted) hover:text-(--ot-text)"
+                                  title="Chỉnh sửa"
+                                >
+                                  <Edit3 className="h-3.5 w-3.5" />
+                                </Button>
+                                {u.username.toLowerCase() !== "admin" && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="xs"
+                                    onClick={() => handleDeleteUser(u.id, u.username)}
+                                    className="h-7 w-7 p-0 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                                    title="Xóa tài khoản"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </section>
+
+            {/* User Edit / Create Modal Dialog */}
+            {userModalOpen && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+                <div className="bg-(--ot-panel) border border-(--ot-border) rounded-xl shadow-2xl w-full max-w-md p-5 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150">
+                  <div className="flex items-center justify-between border-b border-(--ot-border) pb-3">
+                    <h4 className="text-sm font-semibold text-(--ot-text) flex items-center gap-2">
+                      <Users className="h-4 w-4 text-emerald-500" />
+                      <span>{editingUser ? "Chỉnh sửa tài khoản" : "Thêm tài khoản người dùng"}</span>
+                    </h4>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => setUserModalOpen(false)}
+                      className="h-6 w-6 p-0 text-(--ot-muted)"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  <form onSubmit={handleSaveUser} className="flex flex-col gap-3.5">
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-[11px] font-medium text-(--ot-muted)">Tên đăng nhập (Username) *</Label>
+                      <Input
+                        type="text"
+                        value={userFormUsername}
+                        onChange={(e) => setUserFormUsername(e.target.value)}
+                        placeholder="VD: nguyenvana"
+                        required
+                        disabled={!!editingUser}
+                        className="h-8 bg-(--ot-panel-raised) border border-(--ot-border) text-xs"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-[11px] font-medium text-(--ot-muted)">Họ và tên hiển thị</Label>
+                      <Input
+                        type="text"
+                        value={userFormDisplayName}
+                        onChange={(e) => setUserFormDisplayName(e.target.value)}
+                        placeholder="VD: Nguyễn Văn A"
+                        className="h-8 bg-(--ot-panel-raised) border border-(--ot-border) text-xs"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-[11px] font-medium text-(--ot-muted)">Email nhận cảnh báo</Label>
+                      <Input
+                        type="email"
+                        value={userFormEmail}
+                        onChange={(e) => setUserFormEmail(e.target.value)}
+                        placeholder="a.nguyen@senao.com"
+                        className="h-8 bg-(--ot-panel-raised) border border-(--ot-border) text-xs"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-[11px] font-medium text-(--ot-muted)">
+                        {editingUser ? "Mật khẩu mới (Để trống nếu giữ nguyên)" : "Mật khẩu khởi tạo *"}
+                      </Label>
+                      <Input
+                        type="password"
+                        value={userFormPassword}
+                        onChange={(e) => setUserFormPassword(e.target.value)}
+                        placeholder="••••••••"
+                        required={!editingUser}
+                        className="h-8 bg-(--ot-panel-raised) border border-(--ot-border) text-xs"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-[11px] font-medium text-(--ot-muted)">Phân quyền (Role)</Label>
+                        <Select
+                          value={userFormRole}
+                          onValueChange={(val) => {
+                            if (val) setUserFormRole(val);
+                          }}
+                        >
+                          <SelectTrigger className="h-8 bg-(--ot-panel-raised) border border-(--ot-border) text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-(--ot-panel) border border-(--ot-border)">
+                            <SelectItem value="Admin">Admin (Toàn quyền)</SelectItem>
+                            <SelectItem value="Engineer">Engineer (Đọc + Truy vấn SQL)</SelectItem>
+                            <SelectItem value="Viewer">Viewer (Chỉ xem Traces)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex flex-col gap-1 justify-center pt-4">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs text-(--ot-text)">
+                          <input
+                            type="checkbox"
+                            checked={userFormActive}
+                            onChange={(e) => setUserFormActive(e.target.checked)}
+                            className="rounded accent-emerald-500 cursor-pointer"
+                          />
+                          <span>Đang hoạt động</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-3 border-t border-(--ot-border)">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setUserModalOpen(false)}
+                        className="text-xs"
+                      >
+                        Hủy
+                      </Button>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={userSaving}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs flex items-center gap-1.5 cursor-pointer"
+                      >
+                        {userSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                        <span>{editingUser ? "Lưu thay đổi" : "Tạo tài khoản"}</span>
+                      </Button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 5: SECURITY & API KEYS */}
         {activeTab === "security" && (
           <div className="flex flex-col gap-4">
             <section className="panel-card settings-section-card">
