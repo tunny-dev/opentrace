@@ -35,8 +35,8 @@ export default function NotFound() {
 
   const quickLinks = [
     { href: "/", label: "Tổng quan APM", desc: "Chỉ số latency P50/P95/P99 & lưu lượng", icon: Gauge },
-    { href: "/traces", label: "Dấu vết Traces", desc: "Waterfall spans & chẩn đoán chi tiết", icon: Activity },
-    { href: "/sql", label: "SQL Studio", desc: "Phân tích query & phát hiện vòng lặp N+1", icon: Database },
+    { href: "/traces", label: "Theo dõi Yêu cầu (Traces)", desc: "Waterfall spans & chẩn đoán chi tiết", icon: Activity },
+    { href: "/errors", label: "Lỗi Ngoại lệ", desc: "Theo dõi lỗi 5xx và Exception stack traces", icon: AlertTriangle },
     { href: "/logs", label: "Nhật ký Luồng", desc: "Log stream terminal thời gian thực", icon: FileText },
     { href: "/settings", label: "Cài đặt Cấu hình", desc: "Ngưỡng cảnh báo, kết nối DB & sao lưu", icon: Settings2 },
   ];

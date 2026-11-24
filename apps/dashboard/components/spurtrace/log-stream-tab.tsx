@@ -1,12 +1,28 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ArrowDownUp, ChevronDown, FileText, Search, Terminal, X } from "lucide-react";
+import { useMemo, useState, useRef, useEffect } from "react";
+import {
+  Activity,
+  ArrowDownUp,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Check,
+  ExternalLink,
+  FileText,
+  Search,
+  Terminal,
+  X,
+  Radio,
+  Clock,
+  Database,
+  AlertTriangle,
+  Info,
+  Flame,
+} from "lucide-react";
 import type { DemoLog } from "@/lib/spurtrace/demo-logs";
 import { Button } from "@/components/ui/button";
-import { CopyButton } from "@/components/ui/copy-button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -16,26 +32,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { copyToClipboard } from "@/components/ui/data-table-utils";
+import { toast } from "sonner";
 
 export type LogViewMode = "terminal" | "table";
 type QuickFilter = "all" | "sql" | "slow" | "error" | "warn" | "info" | "debug";
 type WrapMode = "nowrap" | "wrap" | "pretty";
 
-const quickFilters: Array<{ id: QuickFilter; label: string }> = [
-  { id: "all", label: "All Logs" },
-  { id: "sql", label: '[layer="SQL"]' },
-  { id: "slow", label: "[duration >= 1s]" },
-  { id: "error", label: '[level="error"]' },
-  { id: "warn", label: '[level="warn"]' },
-  { id: "info", label: '[level="info"]' },
-  { id: "debug", label: '[level="debug"]' },
-];
-
 const JSON_TOKENS =
   /"(?:\\.|[^"\\])*"(?=\s*:)|"(?:\\.|[^"\\])*"|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?|[{}[\],:]/g;
 
 function formatTimestamp(timestamp: string) {
-  return new Date(timestamp).toISOString().replace("T", " ").replace("Z", "");
+  try {
+    return new Date(timestamp).toISOString().replace("T", " ").replace("Z", "");
+  } catch {
+    return timestamp;
+  }
 }
 
 function JsonPayload({ value }: { value: string }) {
@@ -54,14 +66,14 @@ function JsonPayload({ value }: { value: string }) {
     if (index > cursor) fragments.push({ value: prettyJson.slice(cursor, index) });
     const isKey = token.startsWith('"') && /^\s*:/.test(prettyJson.slice(index + token.length));
     const className = isKey
-      ? "json-key"
+      ? "json-key text-sky-400 font-semibold"
       : token.startsWith('"')
-        ? "json-string"
+        ? "json-string text-emerald-400"
         : /^-?\d/.test(token)
-          ? "json-number"
+          ? "json-number text-amber-400"
           : /^[{}[\],:]$/.test(token)
-            ? "json-punctuation"
-            : "json-literal";
+            ? "json-punctuation text-muted-foreground"
+            : "json-literal text-purple-400";
     fragments.push({ value: token, className });
     cursor = index + token.length;
   }
@@ -88,18 +100,18 @@ function LogLevelBadge({ level }: { level: DemoLog["level"] }) {
   const isInfo = level === "info";
   const variant = isErr ? "destructive" : isWarn ? "warning" : isInfo ? "info" : "secondary";
   const dotColor = isErr
-    ? "bg-rose-500"
+    ? "bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.6)]"
     : isWarn
-      ? "bg-amber-500"
+      ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)]"
       : isInfo
-        ? "bg-sky-500"
+        ? "bg-sky-500 shadow-[0_0_8px_rgba(14,165,233,0.6)]"
         : "bg-neutral-400";
 
   return (
     <Badge
       variant={variant}
       size="sm"
-      className="gap-1 font-mono font-bold tracking-wider text-[10px]"
+      className="gap-1 font-mono font-bold tracking-wider text-[10px] shrink-0"
     >
       <span className={cn("size-1.5 rounded-full shrink-0", dotColor)} />
       {level.toUpperCase()}
@@ -119,6 +131,42 @@ export function LogStreamTab({
   const [search, setSearch] = useState("");
   const [newestFirst, setNewestFirst] = useState(true);
   const [wrapMode, setWrapMode] = useState<WrapMode>("nowrap");
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [liveTail, setLiveTail] = useState(false);
+  const streamEndRef = useRef<HTMLDivElement>(null);
+
+  // Compute live level statistics
+  const stats = useMemo(() => {
+    let info = 0;
+    let warn = 0;
+    let error = 0;
+    let debug = 0;
+    let sql = 0;
+    let slow = 0;
+
+    for (const log of logs) {
+      if (log.level === "info") info++;
+      else if (log.level === "warn") warn++;
+      else if (log.level === "error") error++;
+      else if (log.level === "debug") debug++;
+
+      if (log.layer === "SQL") sql++;
+      if ((log.durationMs ?? 0) >= 1000) slow++;
+    }
+    const total = logs.length;
+    return { total, info, warn, error, debug, sql, slow };
+  }, [logs]);
+
+  const quickFilters: Array<{ id: QuickFilter; label: string; count: number; color?: string }> = [
+    { id: "all", label: "Tất cả logs", count: stats.total },
+    { id: "sql", label: "SQL Queries", count: stats.sql, color: "text-emerald-500" },
+    { id: "slow", label: "Slow (≥1s)", count: stats.slow, color: "text-amber-500" },
+    { id: "error", label: "Errors", count: stats.error, color: "text-rose-500" },
+    { id: "warn", label: "Warnings", count: stats.warn, color: "text-amber-400" },
+    { id: "info", label: "Info", count: stats.info, color: "text-sky-400" },
+    { id: "debug", label: "Debug", count: stats.debug, color: "text-slate-400" },
+  ];
 
   const visibleLogs = useMemo(
     () =>
@@ -141,6 +189,23 @@ export function LogStreamTab({
     [logs, quickFilter, search, newestFirst]
   );
 
+  useEffect(() => {
+    if (liveTail && streamEndRef.current) {
+      streamEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [visibleLogs.length, liveTail]);
+
+  async function handleCopyLog(log: DemoLog, e: React.MouseEvent) {
+    e.stopPropagation();
+    const payload = log.rawPayload ?? log.message;
+    const ok = await copyToClipboard(payload);
+    if (ok) {
+      setCopiedId(log.id);
+      toast.success("Đã sao chép nội dung log vào clipboard");
+      setTimeout(() => setCopiedId(null), 1500);
+    }
+  }
+
   function renderPayload(log: DemoLog) {
     const raw = log.rawPayload ?? log.message;
     if (wrapMode === "pretty") {
@@ -150,68 +215,189 @@ export function LogStreamTab({
   }
 
   return (
-    <section className="logs-explorer" aria-labelledby="logs-heading">
-      <div className="logs-heading">
+    <section className="logs-explorer flex flex-col gap-3 font-sans" aria-labelledby="logs-heading">
+      {/* Top Header & Mode Switch */}
+      <div className="logs-heading flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <div className="section-kicker">SYSTEM EVENTS / RAW EXPLORER</div>
-          <div className="logs-title-row">
-            <h2 id="logs-heading">Log Stream</h2>
-            <span className="logs-sample-pill">LIVE TELEMETRY</span>
+          <div className="section-kicker text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 tracking-wider">
+            SYSTEM EVENTS / RAW EXPLORER
           </div>
-          <p>Correlate application, SQL, and exception logs with request traces.</p>
+          <div className="logs-title-row flex items-center gap-2 mt-0.5">
+            <h2 id="logs-heading" className="text-lg font-bold text-foreground">
+              Nhật ký Luồng (Log Stream)
+            </h2>
+            <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+              LIVE TELEMETRY
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Đồng bộ hóa sự kiện ứng dụng, truy vấn SQL và exception stack traces với request traces.
+          </p>
         </div>
-        <div className="log-view-switch" role="group" aria-label="Log view mode">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={`h-auto p-0 ${viewMode === "terminal" ? "is-active" : ""}`}
-            aria-pressed={viewMode === "terminal"}
-            onClick={() => setViewMode("terminal")}
-          >
-            <Terminal aria-hidden="true" />
-            Logs
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className={`h-auto p-0 ${viewMode === "table" ? "is-active" : ""}`}
-            aria-pressed={viewMode === "table"}
-            onClick={() => setViewMode("table")}
-          >
-            <FileText aria-hidden="true" />
-            Table
-          </Button>
-        </div>
-      </div>
 
-      <section className="panel-card logs-panel">
-        <div className="logs-filter-bar" role="group" aria-label="Quick log filters">
-          {quickFilters.map((filter) => (
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {/* Live Tail Toggle */}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setLiveTail((v) => !v)}
+            className={cn(
+              "h-8 px-2.5 text-xs font-sans gap-1.5 border transition-all cursor-pointer shadow-2xs",
+              liveTail
+                ? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-semibold"
+                : "border-border bg-background text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Radio
+              className={cn("size-3.5", liveTail ? "animate-pulse text-emerald-500" : "text-muted-foreground")}
+            />
+            <span>{liveTail ? "Live Tail: ON" : "Live Tail: OFF"}</span>
+          </Button>
+
+          {/* View Mode Switch */}
+          <div className="log-view-switch flex rounded-lg border border-border bg-muted/40 p-0.5" role="group" aria-label="Log view mode">
             <Button
-              key={filter.id}
               type="button"
               variant="ghost"
               size="sm"
-              className={`h-auto p-0 ${quickFilter === filter.id ? "is-active" : ""}`}
-              aria-pressed={quickFilter === filter.id}
-              onClick={() => setQuickFilter(filter.id)}
+              className={cn(
+                "h-7 px-3 text-xs gap-1.5 font-sans rounded-md transition-all cursor-pointer",
+                viewMode === "terminal"
+                  ? "bg-background text-foreground shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              aria-pressed={viewMode === "terminal"}
+              onClick={() => setViewMode("terminal")}
             >
-              {filter.label}
+              <Terminal className="size-3.5 text-emerald-500" aria-hidden="true" />
+              Logs Stream
             </Button>
-          ))}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className={cn(
+                "h-7 px-3 text-xs gap-1.5 font-sans rounded-md transition-all cursor-pointer",
+                viewMode === "table"
+                  ? "bg-background text-foreground shadow-xs font-semibold"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+              aria-pressed={viewMode === "table"}
+              onClick={() => setViewMode("table")}
+            >
+              <FileText className="size-3.5 text-sky-500" aria-hidden="true" />
+              Bảng Chi tiết
+            </Button>
+          </div>
         </div>
-        <div className="logs-toolbar">
-          <div className="logs-search flex items-center gap-1.5 relative">
-            <Search aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+      </div>
+
+      {/* Loki / Grafana Style Distribution Metric Banner */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 p-2.5 rounded-lg border border-border bg-card/80 shadow-2xs select-none">
+        <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-muted/40 border border-border/50">
+          <Activity className="size-4 text-emerald-500 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase font-semibold text-muted-foreground">Tổng số Logs</div>
+            <div className="text-sm font-bold text-foreground font-mono">{stats.total}</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-muted/40 border border-border/50">
+          <Info className="size-4 text-sky-500 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase font-semibold text-muted-foreground">Thông tin (Info)</div>
+            <div className="text-sm font-bold text-sky-600 dark:text-sky-400 font-mono">
+              {stats.info} <span className="text-[10px] text-muted-foreground font-sans font-normal">({stats.total ? Math.round((stats.info / stats.total) * 100) : 0}%)</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-muted/40 border border-border/50">
+          <AlertTriangle className="size-4 text-amber-500 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase font-semibold text-muted-foreground">Cảnh báo (Warn)</div>
+            <div className="text-sm font-bold text-amber-600 dark:text-amber-400 font-mono">
+              {stats.warn} <span className="text-[10px] text-muted-foreground font-sans font-normal">({stats.total ? Math.round((stats.warn / stats.total) * 100) : 0}%)</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-muted/40 border border-border/50">
+          <Flame className="size-4 text-rose-500 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase font-semibold text-muted-foreground">Lỗi (Errors)</div>
+            <div className="text-sm font-bold text-rose-600 dark:text-rose-400 font-mono">
+              {stats.error} <span className="text-[10px] text-muted-foreground font-sans font-normal">({stats.total ? Math.round((stats.error / stats.total) * 100) : 0}%)</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-muted/40 border border-border/50">
+          <Database className="size-4 text-emerald-500 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase font-semibold text-muted-foreground">Truy vấn SQL</div>
+            <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 font-mono">{stats.sql}</div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-muted/40 border border-border/50">
+          <Clock className="size-4 text-amber-500 shrink-0" />
+          <div className="min-w-0">
+            <div className="text-[10px] uppercase font-semibold text-muted-foreground">Chậm (Slow ≥1s)</div>
+            <div className="text-sm font-bold text-amber-600 dark:text-amber-400 font-mono">{stats.slow}</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Stream Container */}
+      <section className="panel-card logs-panel rounded-lg border border-border bg-card p-3 shadow-2xs flex flex-col gap-3">
+        {/* Quick Filter Pill Buttons with Live Counters */}
+        <div className="logs-filter-bar flex items-center gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Quick log filters">
+          {quickFilters.map((filter) => {
+            const isActive = quickFilter === filter.id;
+            return (
+              <Button
+                key={filter.id}
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "h-7 px-2.5 text-xs font-sans rounded-md border transition-all cursor-pointer whitespace-nowrap shrink-0",
+                  isActive
+                    ? "border-emerald-500 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 font-semibold shadow-2xs"
+                    : "border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground"
+                )}
+                aria-pressed={isActive}
+                onClick={() => setQuickFilter(filter.id)}
+              >
+                <span>{filter.label}</span>
+                <span
+                  className={cn(
+                    "ml-1 text-[10px] px-1.5 py-0.2 rounded-full font-mono",
+                    isActive
+                      ? "bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold"
+                      : "bg-muted text-muted-foreground"
+                  )}
+                >
+                  {filter.count}
+                </span>
+              </Button>
+            );
+          })}
+        </div>
+
+        {/* Toolbar: Search input, Sort order, Line wrapping dropdown */}
+        <div className="logs-toolbar flex flex-col md:flex-row md:items-center justify-between gap-2.5 pt-1 border-t border-border/50">
+          <div className="logs-search flex items-center gap-1.5 relative flex-1 max-w-md">
+            <Search aria-hidden="true" className="size-4 shrink-0 text-muted-foreground absolute left-2.5 pointer-events-none" />
             <Input
-              type="search"
+              type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search in log lines…"
+              placeholder="Tìm kiếm nội dung log, trace ID, endpoint, SQL query..."
               aria-label="Search in log lines"
-              className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 focus-visible:border-0 shadow-none px-1 pr-6"
+              className="h-8 pl-8 pr-7 text-xs border border-border bg-background/80 focus-visible:ring-1 focus-visible:ring-emerald-500 shadow-2xs rounded-md w-full font-sans"
             />
             {search && (
               <button
@@ -227,23 +413,25 @@ export function LogStreamTab({
                   setSearch("");
                 }}
                 aria-label="Clear search"
-                className="absolute right-1 top-1/2 -translate-y-1/2 flex size-4 cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground"
+                className="absolute right-2 top-1/2 -translate-y-1/2 flex size-4 cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground"
               >
                 <X className="size-3" />
               </button>
             )}
           </div>
-          <div className="logs-toolbar-actions">
+
+          <div className="logs-toolbar-actions flex items-center gap-2 flex-wrap">
             <Button
-              className="h-7 px-2.5 text-xs font-sans gap-1.5 border border-border bg-background hover:bg-muted text-foreground cursor-pointer shadow-2xs"
+              className="h-8 px-2.5 text-xs font-sans gap-1.5 border border-border bg-background hover:bg-muted text-foreground cursor-pointer shadow-2xs"
               type="button"
               variant="outline"
               size="sm"
               onClick={() => setNewestFirst((value) => !value)}
             >
               <ArrowDownUp aria-hidden="true" className="size-3.5 text-muted-foreground" />
-              <span>{newestFirst ? "Newest logs first" : "Oldest logs first"}</span>
+              <span>{newestFirst ? "Mới nhất trước" : "Cũ nhất trước"}</span>
             </Button>
+
             <div className="flex items-center">
               <Select
                 value={wrapMode}
@@ -253,102 +441,210 @@ export function LogStreamTab({
               >
                 <SelectTrigger
                   size="sm"
-                  className="h-7 text-xs bg-background border-border text-foreground shadow-xs font-sans gap-2 w-auto min-w-[185px] cursor-pointer"
+                  className="h-8 text-xs bg-background border-border text-foreground shadow-2xs font-sans gap-2 w-auto min-w-[195px] cursor-pointer"
                 >
-                  <span className="truncate">
-                    {wrapMode === "wrap"
-                      ? "Enable line wrapping"
-                      : wrapMode === "pretty"
-                        ? "Prettify JSON (Làm đẹp)"
-                        : "Disable line wrapping"}
-                  </span>
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border text-popover-foreground text-xs shadow-md font-sans">
                   <SelectItem value="nowrap" className="text-xs cursor-pointer">
-                    Disable line wrapping
+                    Không ngắt dòng (Single line)
                   </SelectItem>
                   <SelectItem value="wrap" className="text-xs cursor-pointer">
-                    Enable line wrapping
+                    Ngắt dòng tự động (Line wrap)
                   </SelectItem>
                   {viewMode === "terminal" && (
-                    <SelectItem value="pretty" className="text-xs cursor-pointer font-medium text-emerald-500">
+                    <SelectItem value="pretty" className="text-xs cursor-pointer font-medium text-emerald-600 dark:text-emerald-400">
                       Prettify JSON (Làm đẹp)
                     </SelectItem>
                   )}
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="px-2.5 py-1 rounded bg-muted/50 border border-border text-[11px] font-mono font-semibold text-muted-foreground select-none">
+              {visibleLogs.length} DÒNG LOGS
+            </div>
           </div>
-          <span className="logs-result-count">{visibleLogs.length} LINES</span>
         </div>
 
+        {/* View Mode 1: Terminal Log Stream */}
         {viewMode === "terminal" ? (
-          <div className="rounded-lg border border-border overflow-x-auto bg-card text-card-foreground shadow-2xs">
-            {/* Terminal Column Header for clean alignment at 100% zoom */}
-            <div className="flex items-center gap-3 border-b border-border bg-muted/60 dark:bg-zinc-900/90 px-3.5 py-2.5 font-mono text-[11px] uppercase font-bold text-muted-foreground tracking-wider select-none min-w-[1040px]">
-              <span className="w-1 shrink-0" />
-              <span className="w-[160px] shrink-0 text-left">Timestamp (UTC)</span>
-              <span className="w-[72px] shrink-0 text-center">Level</span>
-              <span className="w-[240px] shrink-0 text-left">Trace ID</span>
-              <span className="w-[150px] shrink-0 text-left">Source / Service</span>
-              <span className="flex-1 min-w-[320px] text-left">Message / Raw Payload</span>
+          <div className="rounded-lg border border-border overflow-x-auto bg-[#0d1117] text-[#c9d1d9] shadow-inner font-mono text-xs">
+            {/* Terminal Header */}
+            <div className="flex items-center gap-3 border-b border-[#30363d] bg-[#161b22] px-3.5 py-2 font-mono text-[11px] uppercase font-bold text-[#8b949e] tracking-wider select-none min-w-[1080px]">
+              <span className="w-5 shrink-0 text-center">#</span>
+              <span className="w-[170px] shrink-0 text-left">Thời gian (UTC)</span>
+              <span className="w-[76px] shrink-0 text-center">Cấp độ</span>
+              <span className="w-[250px] shrink-0 text-left">Trace ID (Click mở Waterfall)</span>
+              <span className="w-[150px] shrink-0 text-left">Service / Nguồn</span>
+              <span className="flex-1 min-w-[320px] text-left">Nội dung / Raw Payload</span>
+              <span className="w-16 shrink-0 text-right pr-2">Thao tác</span>
             </div>
 
+            {/* Terminal Lines */}
             <div
-              className={`logs-terminal logs-wrap-${wrapMode}`}
+              className={`logs-terminal logs-wrap-${wrapMode} max-h-[620px] overflow-y-auto divide-y divide-[#21262d]`}
               role="log"
               aria-label="Raw log stream"
-              aria-live="polite"
             >
-              {visibleLogs.map((log) => (
-                <div className="log-line" key={log.id}>
-                  <span className="log-line-marker" aria-hidden="true" />
-                  <time className="log-timestamp text-left" dateTime={log.timestamp}>
-                    {formatTimestamp(log.timestamp)}
-                  </time>
-                  <div className="flex justify-center items-center">
-                    <LogLevelBadge level={log.level} />
+              {visibleLogs.map((log, idx) => {
+                const isExpanded = expandedLogId === log.id;
+                return (
+                  <div key={log.id} className="flex flex-col group hover:bg-[#161b22]/70 transition-colors">
+                    <div
+                      className="flex items-center gap-3 px-3.5 py-2 min-w-[1080px] cursor-pointer"
+                      onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
+                    >
+                      <button
+                        type="button"
+                        className="w-5 shrink-0 flex items-center justify-center text-[#8b949e] hover:text-[#f0f6fc] cursor-pointer"
+                        aria-label="Toggle details"
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="size-3.5 text-emerald-400" />
+                        ) : (
+                          <ChevronRight className="size-3.5" />
+                        )}
+                      </button>
+
+                      <time className="w-[170px] shrink-0 text-left text-[#8b949e] select-all tabular-nums text-[11px]" dateTime={log.timestamp}>
+                        {formatTimestamp(log.timestamp)}
+                      </time>
+
+                      <div className="w-[76px] shrink-0 flex justify-center items-center">
+                        <LogLevelBadge level={log.level} />
+                      </div>
+
+                      <div className="w-[250px] shrink-0 text-left truncate">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onOpenTrace(log.traceId);
+                          }}
+                          className="px-1.5 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-400 font-mono text-[11px] truncate inline-flex items-center gap-1 cursor-pointer transition-colors"
+                          title={`Click mở Trace Waterfall: ${log.traceId}`}
+                        >
+                          <Activity className="size-3 shrink-0 text-emerald-400" />
+                          <span className="truncate">[{log.traceId}]</span>
+                        </button>
+                      </div>
+
+                      <span className="w-[150px] shrink-0 text-left text-[#8b949e] truncate text-[11px]">
+                        {log.source}
+                      </span>
+
+                      <div
+                        className={cn(
+                          "flex-1 min-w-[320px] text-left font-mono text-[11px]",
+                          wrapMode === "nowrap"
+                            ? "truncate whitespace-nowrap"
+                            : "whitespace-pre-wrap break-words"
+                        )}
+                      >
+                        {renderPayload(log)}
+                      </div>
+
+                      <div className="w-16 shrink-0 flex items-center justify-end gap-1 pr-2">
+                        <button
+                          type="button"
+                          onClick={(e) => handleCopyLog(log, e)}
+                          className="p-1 rounded text-[#8b949e] hover:text-[#f0f6fc] hover:bg-[#30363d] cursor-pointer transition-colors"
+                          title="Sao chép nội dung log"
+                        >
+                          {copiedId === log.id ? (
+                            <Check className="size-3.5 text-emerald-400" />
+                          ) : (
+                            <Copy className="size-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Expandable Log Detail Drawer Accordion */}
+                    {isExpanded && (
+                      <div className="bg-[#161b22] border-t border-[#30363d] p-3 px-5 min-w-[1080px] flex flex-col gap-2.5">
+                        <div className="flex items-center justify-between gap-3 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] uppercase font-bold text-emerald-400 font-mono">
+                              LOG DETAIL INSPECTOR
+                            </span>
+                            <span className="text-[11px] text-[#8b949e]">· Layer: {log.layer}</span>
+                            {log.durationMs !== undefined && (
+                              <span className="text-[11px] text-amber-400">
+                                · Duration: {log.durationMs}ms
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 font-sans">
+                            <Button
+                              type="button"
+                              size="xs"
+                              variant="outline"
+                              onClick={(e) => handleCopyLog(log, e)}
+                              className="h-6 text-xs gap-1 border-[#30363d] bg-[#21262d] text-[#c9d1d9] hover:bg-[#30363d] cursor-pointer"
+                            >
+                              <Copy className="size-3 text-emerald-400" />
+                              <span>Sao chép Payload</span>
+                            </Button>
+
+                            <Button
+                              type="button"
+                              size="xs"
+                              onClick={() => onOpenTrace(log.traceId)}
+                              className="h-6 text-xs gap-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium cursor-pointer shadow-sm"
+                            >
+                              <Activity className="size-3" />
+                              <span>Xem Request Waterfall</span>
+                              <ExternalLink className="size-3 opacity-70" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        <div className="p-3 rounded-md bg-[#0d1117] border border-[#30363d] overflow-x-auto text-[11px] font-mono leading-relaxed text-[#e6edf3]">
+                          <JsonPayload value={log.rawPayload ?? log.message} />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <Button
-                    className="log-trace-id h-auto p-0 bg-transparent hover:bg-transparent font-mono justify-start text-left"
-                    variant="ghost"
-                    type="button"
-                    onClick={() => onOpenTrace(log.traceId)}
-                    aria-label={`Open trace ${log.traceId}`}
-                  >
-                    [{log.traceId}]
-                  </Button>
-                  <span className="log-source text-left">{log.source}</span>
-                  <pre className="log-payload text-left">{renderPayload(log)}</pre>
-                </div>
-              ))}
+                );
+              })}
+
               {visibleLogs.length === 0 && (
-                <div className="logs-empty">No log lines match these filters.</div>
+                <div className="p-12 text-center text-[#8b949e] font-sans text-xs">
+                  Không tìm thấy dòng log nào khớp với bộ lọc hiện tại.
+                </div>
               )}
+              <div ref={streamEndRef} />
             </div>
           </div>
         ) : (
+          /* View Mode 2: Enterprise Table View */
           <div className="logs-grid-scroll border border-border rounded-lg overflow-x-auto bg-card shadow-2xs">
-            <table className="logs-data-table w-full border-collapse font-sans text-left text-xs min-w-[1040px]">
+            <table className="logs-data-table w-full border-collapse font-sans text-left text-xs min-w-[1080px]">
               <thead className="bg-muted/50 border-b border-border text-xs uppercase font-semibold tracking-wider text-muted-foreground select-none">
                 <tr>
                   <th scope="col" className="w-12 text-center p-2.5 font-sans">
                     STT
                   </th>
                   <th scope="col" className="w-44 p-2.5 whitespace-nowrap font-sans text-left">
-                    TIMESTAMP (UTC)
+                    THỜI GIAN (UTC)
                   </th>
-                  <th scope="col" className="w-20 text-center p-2.5 font-sans">
-                    LEVEL
+                  <th scope="col" className="w-24 text-center p-2.5 font-sans">
+                    CẤP ĐỘ
                   </th>
                   <th scope="col" className="w-64 min-w-[240px] p-2.5 font-sans text-left">
                     TRACE ID
                   </th>
-                  <th scope="col" className="w-40 min-w-[150px] p-2.5 font-sans text-left">
-                    SOURCE / LAYER
+                  <th scope="col" className="w-44 min-w-[160px] p-2.5 font-sans text-left">
+                    NGUỒN / LAYER
                   </th>
                   <th scope="col" className="p-2.5 min-w-[320px] font-sans text-left">
-                    MESSAGE / RAW PAYLOAD
+                    NỘI DUNG / RAW PAYLOAD
+                  </th>
+                  <th scope="col" className="w-20 text-center p-2.5 font-sans">
+                    THAO TÁC
                   </th>
                 </tr>
               </thead>
@@ -365,34 +661,50 @@ export function LogStreamTab({
                       <LogLevelBadge level={log.level} />
                     </td>
                     <td className="p-2.5 font-mono text-xs text-left">
-                      <Button
-                        className="log-trace-id h-auto px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 rounded font-mono text-xs text-emerald-600 dark:text-emerald-400 cursor-pointer text-left justify-start inline-flex max-w-[240px] truncate"
-                        variant="ghost"
+                      <button
                         type="button"
                         onClick={() => onOpenTrace(log.traceId)}
+                        className="px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-600 dark:text-emerald-400 font-mono text-xs inline-flex items-center gap-1.5 cursor-pointer max-w-[240px] truncate transition-colors"
+                        title={`Mở Trace Waterfall: ${log.traceId}`}
                       >
-                        [{log.traceId}]
-                      </Button>
+                        <Activity className="size-3.5 text-emerald-500 shrink-0" />
+                        <span className="truncate">[{log.traceId}]</span>
+                      </button>
                     </td>
                     <td className="p-2.5 text-left">
-                      <div className="font-medium text-foreground text-xs font-sans">{log.source}</div>
-                      <small className="text-[11px] text-muted-foreground font-mono">{log.layer}</small>
+                      <div className="font-semibold text-foreground text-xs font-sans">{log.source}</div>
+                      <small className="text-[10px] text-muted-foreground font-mono">{log.layer}</small>
                     </td>
                     <td
-                      className={`p-2.5 font-mono text-xs text-left ${
+                      className={cn(
+                        "p-2.5 font-mono text-xs text-left",
                         wrapMode === "nowrap"
                           ? "whitespace-nowrap overflow-x-auto truncate max-w-xl"
                           : "whitespace-pre-wrap break-words max-w-3xl"
-                      }`}
+                      )}
                     >
                       <span>{log.rawPayload ?? log.message}</span>
+                    </td>
+                    <td className="p-2.5 text-center">
+                      <button
+                        type="button"
+                        onClick={(e) => handleCopyLog(log, e)}
+                        className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer transition-colors"
+                        title="Sao chép nội dung log"
+                      >
+                        {copiedId === log.id ? (
+                          <Check className="size-3.5 text-emerald-500" />
+                        ) : (
+                          <Copy className="size-3.5" />
+                        )}
+                      </button>
                     </td>
                   </tr>
                 ))}
                 {visibleLogs.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="logs-empty text-center p-8 text-muted-foreground">
-                      No log lines match these filters.
+                    <td colSpan={7} className="logs-empty text-center p-8 text-muted-foreground font-sans text-xs">
+                      Không tìm thấy dòng log nào khớp với bộ lọc hiện tại.
                     </td>
                   </tr>
                 )}
@@ -400,12 +712,15 @@ export function LogStreamTab({
             </table>
           </div>
         )}
-        <footer className="logs-panel-footer">
-          <span>
-            <i className="collector-dot" />
-            Raw log explorer · trace IDs open the request waterfall
+
+        <footer className="logs-panel-footer flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/50">
+          <span className="flex items-center gap-2">
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+            Trình khám phá Log luồng thời gian thực · Click Trace ID để mở sơ đồ Waterfall tương ứng
           </span>
-          <span>LIVE TRACE LOGS</span>
+          <span className="font-mono font-semibold text-emerald-600 dark:text-emerald-400">
+            SPURTRACE APM ENGINE
+          </span>
         </footer>
       </section>
     </section>

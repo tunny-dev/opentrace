@@ -187,6 +187,13 @@ export function SystemLogsPage() {
     setPage(1);
   };
 
+  const handleLogout = () => {
+    systemLogsService.clearAuth();
+    if (typeof window !== 'undefined') {
+      window.location.href = '/telemetry/login';
+    }
+  };
+
   const handleOpenInspect = (trace) => {
     setInspectTrace(trace);
     setIsSheetOpen(true);

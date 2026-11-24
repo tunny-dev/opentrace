@@ -75,7 +75,6 @@ export function SpurTraceShadcnSidebar({
     { href: "/", label: dict.common.overview, icon: Gauge },
     { href: "/traces", label: dict.common.traces, icon: Activity },
     { href: "/errors", label: dict.common.errors, icon: AlertTriangle },
-    { href: "/sql", label: dict.common.sql, icon: Database },
     { href: "/alerts", label: dict.common.alerts, icon: Bell },
     { href: "/logs", label: dict.common.logs, icon: FileText },
   ];

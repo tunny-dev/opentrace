@@ -3,7 +3,7 @@
     "appName": "SpurTrace",
     "fleetName": "Ứng dụng MES-Production",
     "overview": "Tổng quan",
-    "traces": "Dấu vết Traces",
+    "traces": "Theo dõi Yêu cầu (Traces)",
     "errors": "Lỗi Ngoại lệ",
     "sql": "Truy vấn SQL",
     "alerts": "Cảnh báo & Sự cố",
@@ -112,7 +112,7 @@
     "ofTotalTime": "trên tổng thời gian"
   },
   "traces": {
-    "title": "Quản lý Dấu vết Yêu cầu (Traces)",
+    "title": "Theo dõi Yêu cầu (Traces)",
     "subtitle": "Phân tích chi tiết đường đi yêu cầu, span con và phân bổ thời gian phản hồi",
     "badge": "SƠ ĐỒ PHÂN TÁN",
     "searchPlaceholder": "Lọc theo Trace ID, Route hoặc Trạng thái HTTP...",

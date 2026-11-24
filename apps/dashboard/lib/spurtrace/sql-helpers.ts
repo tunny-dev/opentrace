@@ -424,17 +424,26 @@ export function inlineSqlParameters(
 }
 
 /**
+ * Auto-detects database engine dialect from query syntax
+ */
+export function autoDetectEngine(sql: string): SupportedDbEngine {
+  if (!sql) return "mssql";
+  if (sql.includes("[") && sql.includes("]")) return "mssql";
+  if (/@\w+/.test(sql) || /\bTOP\s*\(/i.test(sql) || /\bSET\s+STATISTICS\b/i.test(sql)) return "mssql";
+  if (/\bILIKE\b|::|\bgen_random_uuid\b/i.test(sql)) return "postgres";
+  if (sql.includes("`")) return "mysql";
+  return "mssql";
+}
+
+/**
  * Wraps SQL with dialect-appropriate performance diagnostics / execution plan
  */
-export function wrapWithStatistics(sql: string, engine: SupportedDbEngine = "postgres"): string {
+export function wrapWithStatistics(sql: string, engine?: SupportedDbEngine): string {
   if (!sql) return "";
+  const resolvedEngine = engine || autoDetectEngine(sql);
   const trimmed = sql.trim();
 
-  switch (engine) {
-    case "postgres":
-      return `EXPLAIN (ANALYZE, BUFFERS, COSTS, VERBOSE, FORMAT TEXT)
-${trimmed};`;
-
+  switch (resolvedEngine) {
     case "mssql":
       return `SET STATISTICS IO ON;
 SET STATISTICS TIME ON;
@@ -443,6 +452,10 @@ ${trimmed}
 
 SET STATISTICS IO OFF;
 SET STATISTICS TIME OFF;`;
+
+    case "postgres":
+      return `EXPLAIN (ANALYZE, BUFFERS, COSTS, VERBOSE, FORMAT TEXT)
+${trimmed};`;
 
     case "mysql":
       return `EXPLAIN ANALYZE

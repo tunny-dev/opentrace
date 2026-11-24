@@ -203,8 +203,9 @@ export function SystemLogsPage() {
 
   const handleLogout = () => {
     systemLogsService.clearAuth();
-    setIsAuthenticated(false);
-    setShowAuthModal(true);
+    if (typeof window !== 'undefined') {
+      window.location.href = '/telemetry/login';
+    }
   };
 
   const handleOpenInspect = (trace) => {

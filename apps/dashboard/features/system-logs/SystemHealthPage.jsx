@@ -68,8 +68,9 @@ export function SystemHealthPage() {
 
   const handleLogout = () => {
     systemLogsService.clearAuth();
-    setIsAuthenticated(false);
-    setShowAuthModal(true);
+    if (typeof window !== 'undefined') {
+      window.location.href = '/telemetry/login';
+    }
   };
 
   if (!mounted) {

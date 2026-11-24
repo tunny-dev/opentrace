@@ -79,12 +79,12 @@ function TraceSqlQueryCard({
   const handleExecute = async (mode: "data" | "analyze") => {
     setLoadingMode(mode);
     try {
-      const targetSql = mode === "analyze" ? statsExecutableSql : inlinedSql;
+      const targetSql = inlinedSql || queryItem.sql;
       const res = await fetch("/api/telemetry/sql/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sql: targetSql || queryItem.sql,
+          sql: targetSql,
           maxRows: 100,
         }),
       });
