@@ -12,6 +12,7 @@ import {
   Database,
   Search,
   Sparkles,
+  X,
   Zap,
 } from "lucide-react";
 import type { DemoTrace } from "@/lib/spurtrace/demo-data";
@@ -248,7 +249,7 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
               </SelectContent>
             </Select>
 
-            <Label className="sql-search flex items-center cursor-pointer">
+            <div className="sql-search flex items-center relative">
               <Search aria-hidden="true" />
               <Input
                 aria-label="Search query fingerprints"
@@ -256,9 +257,28 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search SQL or route…"
-                className="font-sans border-0 bg-transparent focus-visible:ring-0 shadow-none h-7"
+                className="font-sans border-0 bg-transparent focus-visible:ring-0 shadow-none h-7 pr-6"
               />
-            </Label>
+              {search && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSearch("");
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSearch("");
+                  }}
+                  aria-label="Clear search"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 flex size-4 cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-3" />
+                </button>
+              )}
+            </div>
           </div>
         </header>
 
@@ -323,26 +343,16 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
                   </td>
                   <td onClick={(e) => e.stopPropagation()} className="w-36">
                     {query.sampleTraceId ? (
-                      <div className="flex items-center gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="xs"
-                          onClick={() => openTraceFromLog(query.sampleTraceId!)}
-                          className="h-6 px-1.5 font-mono text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 rounded cursor-pointer justify-start"
-                          title={`Trace ID: ${query.sampleTraceId} (Click để mở vết chi tiết)`}
-                        >
-                          #{query.sampleTraceId.slice(0, 10)}…
-                        </Button>
-                        <CopyButton
-                          value={query.sampleTraceId}
-                          size="icon-xs"
-                          variant="ghost"
-                          className="h-6 w-6 p-0 hover:bg-muted text-muted-foreground"
-                          title="Sao chép toàn bộ Trace ID"
-                          successMessage={`Đã sao chép Trace ID: ${query.sampleTraceId}`}
-                        />
-                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => openTraceFromLog(query.sampleTraceId!)}
+                        className="h-6 px-2 font-mono text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 rounded cursor-pointer justify-start"
+                        title={`Trace ID: ${query.sampleTraceId} (Click để mở vết chi tiết)`}
+                      >
+                        #{query.sampleTraceId.slice(0, 10)}…
+                      </Button>
                     ) : (
                       <span className="text-muted-foreground font-mono text-[10px]">—</span>
                     )}
@@ -366,14 +376,6 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
                         >
                           {query.statementType}
                         </Badge>
-                        <CopyButton
-                          value={query.template}
-                          size="icon-xs"
-                          variant="ghost"
-                          className="h-5 w-5 p-0 opacity-40 hover:opacity-100 transition-opacity"
-                          title="Sao chép câu lệnh SQL"
-                          successMessage="Đã sao chép câu lệnh SQL vào clipboard!"
-                        />
                       </div>
                       <code className="font-sans font-medium text-xs text-foreground">
                         {query.template}
@@ -382,15 +384,6 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
                         <small className="font-sans font-mono text-[10px] text-muted-foreground">
                           {query.fingerprint.slice(0, 16)}
                         </small>
-                        <CopyButton
-                          value={query.fingerprint}
-                          label="FP"
-                          size="xs"
-                          variant="ghost"
-                          className="h-4 px-1 text-[9px] text-muted-foreground/60 hover:text-muted-foreground"
-                          title="Sao chép Fingerprint"
-                          successMessage={`Đã sao chép Fingerprint: ${query.fingerprint}`}
-                        />
                       </div>
                     </div>
                   </td>

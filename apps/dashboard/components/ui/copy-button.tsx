@@ -14,6 +14,7 @@ export interface CopyButtonProps extends React.ComponentProps<typeof Button> {
   label?: string;
   successMessage?: string;
   showToast?: boolean;
+  showLabel?: boolean;
 }
 
 export function CopyButton({
@@ -21,6 +22,7 @@ export function CopyButton({
   label,
   successMessage,
   showToast = true,
+  showLabel = false,
   className,
   variant = "ghost",
   size = "xs",
@@ -74,7 +76,7 @@ export function CopyButton({
       ) : (
         <Copy className="size-3.5 shrink-0 transition-transform group-hover:scale-105" />
       )}
-      {children || (label ? <span>{copied ? "Đã sao chép!" : label}</span> : null)}
+      {children || (showLabel && label ? <span>{copied ? "Đã sao chép!" : label}</span> : null)}
     </Button>
   );
 }

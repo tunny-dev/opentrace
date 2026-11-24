@@ -722,19 +722,25 @@ export function DataTable<TData>({
             className="h-7 w-full rounded-md border border-(--ot-border) bg-background pr-8 pl-8 text-xs text-foreground shadow-2xs outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-emerald-500/60 focus-visible:ring-2 focus-visible:ring-emerald-500/20 [&::-webkit-search-cancel-button]:hidden"
           />
           {search ? (
-            <Button
-              variant="ghost"
-              size="icon-xs"
+            <button
               type="button"
-              onClick={() => {
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                updateSearch("");
+                searchRef.current?.focus();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 updateSearch("");
                 searchRef.current?.focus();
               }}
               aria-label={t("table.clearSearch")}
-              className="absolute top-1/2 right-1.5 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground p-0"
+              className="absolute top-1/2 right-1.5 z-10 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground p-0 border-0 bg-transparent outline-none"
             >
               <X className="size-3" />
-            </Button>
+            </button>
           ) : (
             <kbd className="pointer-events-none absolute top-1/2 right-2 hidden h-4 -translate-y-1/2 items-center rounded border border-(--ot-border) bg-muted/50 px-1 font-mono text-[10px] text-muted-foreground sm:flex">
               /

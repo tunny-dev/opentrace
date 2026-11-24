@@ -929,7 +929,6 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
               <strong className="text-sm font-semibold text-foreground font-sans truncate">
                 {trace.route}
               </strong>
-              <CopyButton value={trace.route} label="Route URL" className="h-6 w-6 shrink-0" />
             </div>
 
             <div className="flex items-center gap-2">
@@ -992,7 +991,6 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
             <div className="flex items-center gap-1.5">
               <span className="text-muted-foreground">Client IP:</span>
               <span className="text-foreground font-mono">10.1.60.56</span>
-              <CopyButton value="10.1.60.56" label="Client IP" className="h-5 w-5 shrink-0" />
             </div>
             <div className="flex items-center gap-1.5 ml-auto">
               <span className="text-muted-foreground">Total Duration:</span>

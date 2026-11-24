@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
   AlertTriangle,
@@ -57,6 +57,7 @@ export function SpurTraceShadcnSidebar({
   onSignOut?: () => void;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { dict, locale, setLocale } = useI18n();
   const { user: authUser } = useAuthStore();
   const userName = authUser?.name || "Administrator";
@@ -90,6 +91,12 @@ export function SpurTraceShadcnSidebar({
         <Link
           href="/"
           aria-label="Home"
+          onClick={(e) => {
+            e.preventDefault();
+            if (pathname !== "/") {
+              router.push("/");
+            }
+          }}
           className="flex h-full w-full min-w-0 items-center gap-2.5 rounded-md outline-none group-data-[collapsible=icon]:justify-center"
         >
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
@@ -129,7 +136,10 @@ export function SpurTraceShadcnSidebar({
                       isActive={isActive}
                       tooltip={item.label}
                       onClick={(e) => {
-                        if (isActive) e.preventDefault();
+                        e.preventDefault();
+                        if (!isActive) {
+                          router.push(item.href);
+                        }
                       }}
                       className={`h-10 rounded-xl text-sm font-medium transition-colors group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center ${
                         isActive
@@ -165,7 +175,10 @@ export function SpurTraceShadcnSidebar({
                       isActive={isActive}
                       tooltip={item.label}
                       onClick={(e) => {
-                        if (isActive) e.preventDefault();
+                        e.preventDefault();
+                        if (!isActive) {
+                          router.push(item.href);
+                        }
                       }}
                       className={`h-10 rounded-xl text-sm font-medium transition-colors group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center ${
                         isActive

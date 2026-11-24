@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ArrowDownUp, ChevronDown, FileText, Search, Terminal } from "lucide-react";
+import { ArrowDownUp, ChevronDown, FileText, Search, Terminal, X } from "lucide-react";
 import type { DemoLog } from "@/lib/spurtrace/demo-logs";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -203,17 +203,36 @@ export function LogStreamTab({
           ))}
         </div>
         <div className="logs-toolbar">
-          <Label className="logs-search flex items-center gap-1.5 cursor-pointer">
-            <Search aria-hidden="true" className="size-4 shrink-0" />
+          <div className="logs-search flex items-center gap-1.5 relative">
+            <Search aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
             <Input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search in log lines…"
               aria-label="Search in log lines"
-              className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 focus-visible:border-0 shadow-none px-1"
+              className="h-7 text-xs border-0 bg-transparent focus-visible:ring-0 focus-visible:border-0 shadow-none px-1 pr-6"
             />
-          </Label>
+            {search && (
+              <button
+                type="button"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSearch("");
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSearch("");
+                }}
+                aria-label="Clear search"
+                className="absolute right-1 top-1/2 -translate-y-1/2 flex size-4 cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground"
+              >
+                <X className="size-3" />
+              </button>
+            )}
+          </div>
           <div className="logs-toolbar-actions">
             <Button
               className="h-7 px-2.5 text-xs font-sans gap-1.5 border border-border bg-background hover:bg-muted text-foreground cursor-pointer shadow-2xs"
@@ -282,7 +301,7 @@ export function LogStreamTab({
               aria-live="polite"
             >
               {visibleLogs.map((log) => (
-                <div className="log-line group" key={log.id}>
+                <div className="log-line" key={log.id}>
                   <span className="log-line-marker" aria-hidden="true" />
                   <time className="log-timestamp text-left" dateTime={log.timestamp}>
                     {formatTimestamp(log.timestamp)}
@@ -290,31 +309,17 @@ export function LogStreamTab({
                   <div className="flex justify-center items-center">
                     <LogLevelBadge level={log.level} />
                   </div>
-                  <div className="inline-flex items-center gap-1">
-                    <Button
-                      className="log-trace-id h-auto p-0 bg-transparent hover:bg-transparent font-mono justify-start text-left"
-                      variant="ghost"
-                      type="button"
-                      onClick={() => onOpenTrace(log.traceId)}
-                      aria-label={`Open trace ${log.traceId}`}
-                    >
-                      [{log.traceId}]
-                    </Button>
-                    <CopyButton
-                      value={log.traceId}
-                      label="Trace ID"
-                      className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
-                    />
-                  </div>
+                  <Button
+                    className="log-trace-id h-auto p-0 bg-transparent hover:bg-transparent font-mono justify-start text-left"
+                    variant="ghost"
+                    type="button"
+                    onClick={() => onOpenTrace(log.traceId)}
+                    aria-label={`Open trace ${log.traceId}`}
+                  >
+                    [{log.traceId}]
+                  </Button>
                   <span className="log-source text-left">{log.source}</span>
-                  <div className="flex items-start justify-between gap-2 overflow-hidden flex-1">
-                    <pre className="log-payload text-left flex-1">{renderPayload(log)}</pre>
-                    <CopyButton
-                      value={log.rawPayload ?? log.message}
-                      label="Log Message"
-                      className="h-5 w-5 shrink-0 opacity-0 group-hover:opacity-80 hover:opacity-100 transition-opacity"
-                    />
-                  </div>
+                  <pre className="log-payload text-left">{renderPayload(log)}</pre>
                 </div>
               ))}
               {visibleLogs.length === 0 && (
@@ -360,17 +365,14 @@ export function LogStreamTab({
                       <LogLevelBadge level={log.level} />
                     </td>
                     <td className="p-2.5 font-mono text-xs text-left">
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          className="log-trace-id h-auto px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 rounded font-mono text-xs text-emerald-600 dark:text-emerald-400 cursor-pointer text-left justify-start inline-flex max-w-[200px] truncate"
-                          variant="ghost"
-                          type="button"
-                          onClick={() => onOpenTrace(log.traceId)}
-                        >
-                          [{log.traceId}]
-                        </Button>
-                        <CopyButton value={log.traceId} label="Trace ID" className="h-6 w-6 shrink-0" />
-                      </div>
+                      <Button
+                        className="log-trace-id h-auto px-2 py-1 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 rounded font-mono text-xs text-emerald-600 dark:text-emerald-400 cursor-pointer text-left justify-start inline-flex max-w-[240px] truncate"
+                        variant="ghost"
+                        type="button"
+                        onClick={() => onOpenTrace(log.traceId)}
+                      >
+                        [{log.traceId}]
+                      </Button>
                     </td>
                     <td className="p-2.5 text-left">
                       <div className="font-medium text-foreground text-xs font-sans">{log.source}</div>
@@ -383,14 +385,7 @@ export function LogStreamTab({
                           : "whitespace-pre-wrap break-words max-w-3xl"
                       }`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="flex-1">{log.rawPayload ?? log.message}</span>
-                        <CopyButton
-                          value={log.rawPayload ?? log.message}
-                          label="Log Message"
-                          className="h-6 w-6 shrink-0 opacity-40 hover:opacity-100 transition-opacity"
-                        />
-                      </div>
+                      <span>{log.rawPayload ?? log.message}</span>
                     </td>
                   </tr>
                 ))}
