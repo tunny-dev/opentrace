@@ -157,9 +157,9 @@ export function TraceSummaryCards({ summary = {} }) {
               </Tooltip>
             </div>
             <div className="flex items-center gap-2 text-[10px] font-sans shrink-0">
-              <span className="text-[#73bf69]">? 200 OK ({normalPercent.toFixed(0)}%)</span>
-              <span className="text-[#faad14]">? Slow ({slowPercent.toFixed(0)}%)</span>
-              <span className="text-[#f2495c]">? Error ({errorPercent.toFixed(0)}%)</span>
+              <span className="text-[#73bf69]">● 200 OK ({normalPercent.toFixed(0)}%)</span>
+              <span className="text-[#faad14]">● Slow ({slowPercent.toFixed(0)}%)</span>
+              <span className="text-[#f2495c]">● Error ({errorPercent.toFixed(0)}%)</span>
             </div>
           </div>
         )}

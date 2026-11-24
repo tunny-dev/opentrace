@@ -90,13 +90,28 @@ export function toDemoTrace(raw: any): DemoTrace {
 
     let params: Record<string, any> = {};
     if (q.parameters && typeof q.parameters === "object") {
-      params = q.parameters;
-    } else if (typeof q.parameters === "string") {
+      params = { ...q.parameters };
+    } else if (typeof q.parameters === "string" && q.parameters.trim()) {
       try {
-        params = JSON.parse(q.parameters);
+        const parsed = JSON.parse(q.parameters);
+        if (parsed && typeof parsed === "object") params = parsed;
       } catch {
-        params = { raw: q.parameters };
+        // ignore
       }
+    }
+
+    if ("raw" in params && (params.raw === "" || params.raw == null)) {
+      delete params.raw;
+    }
+
+    const matches = rawSql.match(/@([a-zA-Z0-9_]+)/g);
+    if (matches) {
+      matches.forEach((m: string) => {
+        const pName = m.substring(1);
+        if (!(pName in params) && !(`@${pName}` in params)) {
+          params[pName] = pName.toLowerCase().includes("lang") ? "zh-TW" : "";
+        }
+      });
     }
 
     return {

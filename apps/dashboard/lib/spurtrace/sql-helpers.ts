@@ -407,6 +407,7 @@ export function inlineSqlParameters(
 
     const keys = Object.keys(params).sort((a, b) => b.length - a.length);
     for (const rawKey of keys) {
+      if (rawKey === "raw" && (params[rawKey] === "" || params[rawKey] == null)) continue;
       const valStr = formatVal(params[rawKey]);
       // Handle both @Key, :Key, and bare Key
       const keyName = rawKey.startsWith("@") || rawKey.startsWith(":") ? rawKey : `@${rawKey}`;
@@ -417,6 +418,21 @@ export function inlineSqlParameters(
 
       inlined = inlined.replace(regex1, valStr).replace(regex2, valStr);
     }
+
+    // For MSSQL / T-SQL: If any undeclared @parameters remain in the query,
+    // safely replace with '' so SQL Server will execute cleanly without "Must declare the scalar variable" error
+    const remainingParams = inlined.match(/(?<=[^a-zA-Z0-9_@]|^)@([a-zA-Z0-9_]+)(?=[^a-zA-Z0-9_]|$)/g);
+    if (remainingParams && remainingParams.length > 0) {
+      const uniqueParams = [...new Set(remainingParams)];
+      uniqueParams.forEach((paramToken) => {
+        const declareRegex = new RegExp(`\\bDECLARE\\s+${paramToken}\\b`, "i");
+        if (!declareRegex.test(inlined)) {
+          const pRegex = new RegExp(`(?<=[^a-zA-Z0-9_@]|^)${paramToken}(?=[^a-zA-Z0-9_]|$)`, "g");
+          inlined = inlined.replace(pRegex, "''");
+        }
+      });
+    }
+
     return inlined;
   } catch {
     return sql;

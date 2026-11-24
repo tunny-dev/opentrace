@@ -103,10 +103,18 @@ export function aggregateSqlQueries(traces) {
 
       if (!queryMap.has(fp)) {
         const tables = extractSqlTables(rawSql);
+        let initialParams = evt.paramsJson || evt.parameters || '';
+        if (initialParams && typeof initialParams === 'object') {
+          try {
+            initialParams = JSON.stringify(initialParams, null, 2);
+          } catch {
+            initialParams = '';
+          }
+        }
         queryMap.set(fp, {
           fingerprint: fp,
           sampleSql: rawSql,
-          paramsJson: evt.paramsJson || '',
+          paramsJson: initialParams,
           calls: 0,
           durations: [],
           totalDurationMs: 0,

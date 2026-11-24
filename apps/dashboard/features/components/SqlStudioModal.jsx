@@ -25,14 +25,28 @@ export function SqlStudioModal({
       let params = evt.paramsJson ?? evt.parameters ?? {};
       if (typeof params === 'string') {
         try {
-          params = JSON.parse(params);
+          params = params.trim() ? JSON.parse(params) : {};
         } catch {
-          params = { raw: params };
+          params = {};
         }
       }
+      if (!params || typeof params !== 'object') params = {};
+      if ('raw' in params && (params.raw === '' || params.raw == null)) delete params.raw;
+
+      const rawSql = evt.sql || evt.query || evt.rawSql || '';
+      const matches = rawSql.match(/@([a-zA-Z0-9_]+)/g);
+      if (matches) {
+        matches.forEach((m) => {
+          const pName = m.substring(1);
+          if (!(pName in params) && !(`@${pName}` in params)) {
+            params[pName] = pName.toLowerCase().includes('lang') ? 'zh-TW' : '';
+          }
+        });
+      }
+
       return {
         id: evt.id || `q_${idx}`,
-        sql: evt.sql || evt.query || evt.rawSql || '',
+        sql: rawSql,
         paramsJson: params,
         durationMs: Number(evt.durationMs ?? evt.duration ?? 0),
         name: evt.name || evt.fingerprint || `Query #${idx + 1}`,

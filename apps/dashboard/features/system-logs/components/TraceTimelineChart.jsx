@@ -9,15 +9,15 @@ import { Button } from '@/components/ui/button';
 
 const chartConfig = {
   ok: {
-    label: '200 OK (Th�nh c�ng)',
+    label: '200 OK (Thành công)',
     color: '#10b981', // Emerald
   },
   slow: {
-    label: 'Slow (= 1s)',
+    label: 'Slow (≥ 1s)',
     color: '#f59e0b', // Amber
   },
   error: {
-    label: 'Error (L?i)',
+    label: 'Error (Lỗi)',
     color: '#ef4444', // Red
   },
 };
@@ -26,7 +26,7 @@ export function TraceTimelineChart({ traces = [], timeline = [], onSelectBucket 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [chartType, setChartType] = useState('bar'); // 'bar' | 'area' (default: 'bar')
 
-  // Chu?n h�a d? li?u bucket
+  // Chuẩn hóa dữ liệu bucket
   const chartData = useMemo(() => {
     if (timeline && timeline.length > 0) {
       return timeline.map((b) => ({
@@ -93,7 +93,7 @@ export function TraceTimelineChart({ traces = [], timeline = [], onSelectBucket 
     }));
   }, [traces, timeline]);
 
-  // Th?ng k� t?ng quan
+  // Thống kê tổng quan
   const stats = useMemo(() => {
     let total = 0;
     let ok = 0;
@@ -252,10 +252,8 @@ export function TraceTimelineChart({ traces = [], timeline = [], onSelectBucket 
                         const row = payload?.[0]?.payload;
                         return (
                           <div className="flex items-center justify-between gap-4 pb-1 border-b border-border/50">
-                            <span className="font-semibold text-cyan-500">Khung gi?: {val}</span>
-                            <span className="text-[10px] text-muted-foreground">
-                              �? tr? TB: {row?.avgDuration || 0}ms
-                            </span>
+                            <span className="font-semibold text-cyan-500">Khung giờ: {val}</span>
+                            <span className="text-[10px] text-muted-foreground">Độ trễ TB: {row?.avgDuration || 0}ms</span>
                           </div>
                         );
                       }}
@@ -332,12 +330,8 @@ export function TraceTimelineChart({ traces = [], timeline = [], onSelectBucket 
                         const row = payload?.[0]?.payload;
                         return (
                           <div className="flex items-center justify-between gap-4 pb-1 border-b border-border/50">
-                            <span className="font-semibold text-[#3274d9] dark:text-[#5794f2]">
-                              Time: {val}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              Avg Latency: {row?.avgDuration || 0}ms
-                            </span>
+                            <span className="font-semibold text-[#3274d9] dark:text-[#5794f2]">Khung giờ: {val}</span>
+                            <span className="text-[10px] text-muted-foreground">Độ trễ TB: {row?.avgDuration || 0}ms</span>
                           </div>
                         );
                       }}

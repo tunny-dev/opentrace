@@ -57,8 +57,36 @@ const DEFAULT_QUERY: StudioQueryItem = {
   durationMs: 50,
 };
 
-function getParamsText(params: StudioQueryItem["paramsJson"]) {
-  return typeof params === "string" ? params : JSON.stringify(params || {}, null, 2);
+function getParamsText(params: StudioQueryItem["paramsJson"], sql?: string) {
+  let obj: Record<string, any> = {};
+  if (params && typeof params === "object") {
+    obj = { ...params };
+  } else if (typeof params === "string" && params.trim()) {
+    try {
+      const parsed = JSON.parse(params);
+      if (parsed && typeof parsed === "object") obj = parsed;
+    } catch {
+      // ignore
+    }
+  }
+
+  if ("raw" in obj && Object.keys(obj).length === 1 && (obj.raw === "" || obj.raw == null)) {
+    delete obj.raw;
+  }
+
+  if (sql) {
+    const matches = sql.match(/@([a-zA-Z0-9_]+)/g);
+    if (matches) {
+      matches.forEach((m) => {
+        const pName = m.substring(1);
+        if (!(pName in obj) && !(`@${pName}` in obj)) {
+          obj[pName] = pName.toLowerCase().includes("lang") ? "zh-TW" : "";
+        }
+      });
+    }
+  }
+
+  return JSON.stringify(obj, null, 2);
 }
 
 export function SqlStudioModal({
@@ -89,7 +117,7 @@ export function SqlStudioModal({
   const currentItem = queryList[safeIndex] || DEFAULT_QUERY;
 
   const [sqlText, setSqlText] = useState(currentItem.sql);
-  const [paramsText, setParamsText] = useState(getParamsText(currentItem.paramsJson));
+  const [paramsText, setParamsText] = useState(getParamsText(currentItem.paramsJson, currentItem.sql));
 
   const [isMaximized, setIsMaximized] = useState(false);
   const [activeTab, setActiveTab] = useState<"grid" | "stats" | "inlined">("grid");
@@ -111,7 +139,7 @@ export function SqlStudioModal({
   useEffect(() => {
     const item = queryList[safeIndex] || DEFAULT_QUERY;
     setSqlText(item.sql);
-    setParamsText(getParamsText(item.paramsJson));
+    setParamsText(getParamsText(item.paramsJson, item.sql));
     setHasExecuted(false);
     setResultRows([]);
     setExecutionStats(null);
@@ -143,7 +171,7 @@ export function SqlStudioModal({
 
   function handleReset() {
     setSqlText(currentItem.sql);
-    setParamsText(getParamsText(currentItem.paramsJson));
+    setParamsText(getParamsText(currentItem.paramsJson, currentItem.sql));
     setHasExecuted(false);
     setResultRows([]);
     setExecutionStats(null);
