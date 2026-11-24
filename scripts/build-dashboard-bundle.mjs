@@ -54,11 +54,12 @@ cpSync(outDir, opentraceTarget, { recursive: true })
 
 const emsWwwroot = resolve("D:/Senao/EMS/EMS/wwwroot/telemetry")
 if (existsSync("D:/Senao/EMS/EMS/wwwroot")) {
-  if (!existsSync(emsWwwroot)) {
-    mkdirSync(emsWwwroot, { recursive: true })
+  if (existsSync(emsWwwroot)) {
+    rmSync(emsWwwroot, { recursive: true, force: true })
   }
+  mkdirSync(emsWwwroot, { recursive: true })
   cpSync(outDir, emsWwwroot, { recursive: true })
-  console.log("✔ Copied bundle to Senao EMS wwwroot/telemetry!")
+  console.log("✔ Copied clean bundle to Senao EMS wwwroot/telemetry!")
 }
 
 console.log("✔ Successfully packaged SpurTrace Dashboard UI into spurtrace SDK!")

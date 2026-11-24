@@ -219,7 +219,11 @@ export function DataTable<TData>({
       url.searchParams.delete("quick");
     }
 
-    window.history.replaceState({}, "", url.toString());
+    try {
+      if (url.toString() !== window.location.href) {
+        window.history.replaceState(window.history.state, "", url.toString());
+      }
+    } catch {}
   }, [search, pagination.pageSize, activeQuickFilter, initialPageSize]);
 
   const resetPage = React.useCallback(
