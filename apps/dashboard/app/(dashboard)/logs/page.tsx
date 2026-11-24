@@ -50,7 +50,7 @@ export default function LogsPage() {
             })}
           >
             <Activity className="h-3.5 w-3.5 text-cyan-500" />
-            <span>MES APM System Logs</span>
+            <span>System Trace Explorer</span>
           </Link>
           <TelemetryToolbar />
         </div>

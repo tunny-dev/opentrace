@@ -15,7 +15,7 @@ export function SystemHealthPage() {
 
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = 'System Health & Probes | MES APM';
+    document.title = 'SpurTrace | System Health & Probes';
     return () => {
       document.title = prevTitle;
     };

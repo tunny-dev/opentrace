@@ -179,10 +179,15 @@ export function TraceFilterToolbar({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b dark:border-[#22252b] border-slate-200 pb-2.5">
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-[#f4f5f7]">
-              <div className="flex h-7 w-7 items-center justify-center rounded bg-[#3274d9] text-white shadow-sm">
+              <div className="flex h-7 w-7 items-center justify-center rounded bg-emerald-600 text-white shadow-sm">
                 <Activity className="h-4 w-4" />
               </div>
-              <span className="tracking-tight hidden sm:inline">MES APM</span>
+              <div className="flex items-center gap-1.5">
+                <span className="tracking-tight hidden sm:inline font-bold">SpurTrace</span>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                  System Logs
+                </span>
+              </div>
             </div>
 
             <nav className="flex items-center gap-1 bg-slate-100 dark:bg-[#111217] p-0.5 rounded-lg border border-slate-200 dark:border-[#2c323f]">
@@ -242,14 +247,12 @@ export function TraceFilterToolbar({
               </NavLink>
             </nav>
             <a
-              href={import.meta.env.VITE_OPENTRACE_URL || 'http://localhost:4175/_telemetry'}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-2.5 py-1 text-xs font-semibold rounded transition flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30"
-              title="Mở bảng điều khiển OpenTrace APM trực tiếp"
+              href="/telemetry"
+              className="px-2.5 py-1 text-xs font-semibold rounded transition flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 cursor-pointer"
+              title="Quay về SpurTrace APM Dashboard chính"
             >
               <Zap className="h-3.5 w-3.5 text-emerald-500 fill-emerald-500/30" />
-              <span>OpenTrace APM</span>
+              <span>SpurTrace Dashboard</span>
               <ExternalLink className="h-3 w-3 opacity-70" />
             </a>
           </div>

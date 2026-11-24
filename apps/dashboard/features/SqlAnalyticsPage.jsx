@@ -16,7 +16,7 @@ export function SqlAnalyticsPage() {
 
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = 'SQL Performance Hub | MES APM';
+    document.title = 'SpurTrace | SQL Performance Hub';
     return () => {
       document.title = prevTitle;
     };

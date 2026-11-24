@@ -18,7 +18,7 @@ export function ErrorTrackingPage() {
 
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = 'Error Tracking & Exception Triage | MES APM';
+    document.title = 'SpurTrace | Error Tracking & Exception Triage';
     return () => {
       document.title = prevTitle;
     };
