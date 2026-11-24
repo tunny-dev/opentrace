@@ -27,10 +27,11 @@ import { Field, FieldLabel } from "@/components/ui/field";
 export function LoginPage({ onLogin }: { onLogin: (role: UserRole, username: string) => void }) {
   const { dict } = useI18n();
   const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("••••••••");
+  const [password, setPassword] = useState("admin@123");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [loadingRole, setLoadingRole] = useState<UserRole | null>(null);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   function handleDirectLogin(role: UserRole, user: string) {
     setLoadingRole(role);
@@ -39,14 +40,32 @@ export function LoginPage({ onLogin }: { onLogin: (role: UserRole, username: str
     }, 300);
   }
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (loadingRole) return;
-    const role: UserRole =
-      username.toLowerCase().includes("viewer") || username.toLowerCase().includes("guest")
-        ? "Viewer"
-        : "Admin";
-    handleDirectLogin(role, username.trim() || "admin");
+    setLoginError(null);
+    setLoadingRole("Admin");
+
+    try {
+      const res = await fetch("/api/telemetry/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: username.trim(), password }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Tên đăng nhập hoặc mật khẩu không chính xác.");
+      }
+
+      const data = await res.json();
+      const role: UserRole = data.user?.role || "Admin";
+      onLogin(role, data.user?.username || username.trim());
+    } catch (err: any) {
+      setLoginError(err.message);
+    } finally {
+      setLoadingRole(null);
+    }
   }
 
   return (
@@ -210,6 +229,11 @@ export function LoginPage({ onLogin }: { onLogin: (role: UserRole, username: str
           </div>
 
           <form onSubmit={handleSubmit} className="mt-7 space-y-4">
+            {loginError && (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-600 dark:text-red-400 font-medium">
+                {loginError}
+              </div>
+            )}
             <Field>
               <FieldLabel
                 htmlFor="username"
@@ -226,7 +250,7 @@ export function LoginPage({ onLogin }: { onLogin: (role: UserRole, username: str
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin or viewer"
+                  placeholder="admin"
                   className="h-11 sm:h-12 w-full pl-10 pr-3.5 text-sm rounded-md bg-background/90 border border-border focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-muted-foreground"
                 />
                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
@@ -242,7 +266,7 @@ export function LoginPage({ onLogin }: { onLogin: (role: UserRole, username: str
                   {dict.auth.passwordLabel}
                 </FieldLabel>
                 <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                  demo: admin / viewer
+                  Default: admin / admin@123
                 </span>
               </div>
               <div className="relative mt-1.5">

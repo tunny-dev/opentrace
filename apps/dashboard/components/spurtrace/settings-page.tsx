@@ -58,6 +58,20 @@ export function SettingsPage({ role }: { role: UserRole }) {
 
   useEffect(() => {
     setMounted(true);
+    fetch("/api/telemetry/settings")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return;
+        if (data.smtp_host) setSmtpHost(data.smtp_host);
+        if (data.smtp_port) setSmtpPort(data.smtp_port);
+        if (data.smtp_user) setSmtpUser(data.smtp_user);
+        if (data.alert_email_to) setRecipientEmails(data.alert_email_to);
+        if (data.slow_query_threshold_ms) setSlowSqlThreshold(data.slow_query_threshold_ms);
+        if (data.slow_request_threshold_ms) setSlowTraceThreshold(data.slow_request_threshold_ms);
+        if (data.sample_rate_success) setSampleRate(Math.round(parseFloat(data.sample_rate_success) * 100));
+        if (data.retention_days) setRetentionDays(data.retention_days);
+      })
+      .catch(() => {});
   }, []);
 
   const isDark = mounted ? theme === "dark" : true;
@@ -136,18 +150,35 @@ export function SettingsPage({ role }: { role: UserRole }) {
   const [isSaving, setIsSaving] = useState(false);
 
   // Send Test Email via Outlook / SMTP
-  function handleSendTestEmail() {
+  async function handleSendTestEmail() {
     setSendingTestAlert(true);
     setAlertTestResult(null);
-    setTimeout(() => {
-      setSendingTestAlert(false);
-      const msg = `✓ Connected to ${smtpHost}:${smtpPort} (STARTTLS). Test dispatch accepted by Microsoft 365 gateway.`;
-      setAlertTestResult(msg);
-      toast.success("Test email dispatched to Outlook recipients!", {
-        description: `Delivered to: ${recipientEmails}`,
+    try {
+      const res = await fetch("/api/telemetry/settings/test-smtp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          smtpHost,
+          smtpPort,
+          smtpUser,
+          recipient: recipientEmails.split(",")[0].trim(),
+        }),
       });
-      setTimeout(() => setAlertTestResult(null), 6000);
-    }, 1100);
+      const data = await res.json().catch(() => ({}));
+      if (data.success) {
+        setAlertTestResult(`✓ ${data.message}`);
+        toast.success(data.message);
+      } else {
+        setAlertTestResult(`✗ ${data.error || "Không thể gửi email kiểm tra."}`);
+        toast.error(data.error || "Gửi email thất bại.");
+      }
+    } catch (err: any) {
+      setAlertTestResult(`✗ Lỗi kết nối: ${err.message}`);
+      toast.error(err.message);
+    } finally {
+      setSendingTestAlert(false);
+      setTimeout(() => setAlertTestResult(null), 8000);
+    }
   }
 
   // Test DB connection simulation (Prioritized: PgSQL #1, MSSQL #2, MySQL #3, SQLite #4)
@@ -175,38 +206,31 @@ export function SettingsPage({ role }: { role: UserRole }) {
     }, 700);
   }
 
-  // Backup DB snapshot download simulation
-  function handleDownloadBackup() {
+  // Backup DB snapshot triggered via live server API
+  async function handleDownloadBackup() {
     setIsBackingUp(true);
-    setTimeout(() => {
+    setBackupMessage("");
+    try {
+      const res = await fetch("/api/telemetry/settings/backup-now", {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.success) {
+        const msg = `✓ Backup thành công: ${data.fileName} (${data.sizeMb} MB) tại ${data.backupPath}`;
+        setBackupMessage(msg);
+        toast.success("Sao lưu cơ sở dữ liệu thành công!", { description: data.fileName });
+      } else {
+        const msg = `✗ Lỗi sao lưu: ${data.error || "Không thể tạo file backup."}`;
+        setBackupMessage(msg);
+        toast.error(data.error || "Sao lưu thất bại.");
+      }
+    } catch (err: any) {
+      setBackupMessage(`✗ Lỗi kết nối: ${err.message}`);
+      toast.error(err.message);
+    } finally {
       setIsBackingUp(false);
-      const dateStr = new Date().toISOString().slice(0, 10);
-      const filename = `spurtrace_backup_${dbEngine}_${dateStr}.sql`;
-      const content = `-- ========================================================
--- SpurTrace Database Backup Snapshot
--- Engine: ${dbEngine.toUpperCase()} (Priority: ${DB_ENGINE_MAP[dbEngine].priority})
--- Generated: ${new Date().toISOString()}
--- Architecture: ${dbMode.toUpperCase()}
--- Primary Key: UUID (RFC 4122 v4 Auto-generated)
--- Version-Agnostic Schema
--- ========================================================
-
-${getEngineDdl(dbEngine)}
-`;
-      const blob = new Blob([content], { type: "application/sql" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      setBackupMessage(`✓ Snapshot downloaded: ${filename}`);
-      toast.success("Backup snapshot generated!", { description: filename });
-      setTimeout(() => setBackupMessage(""), 5000);
-    }, 1200);
+      setTimeout(() => setBackupMessage(""), 10000);
+    }
   }
 
   // Optimize & Vacuum simulation
@@ -229,17 +253,39 @@ ${getEngineDdl(dbEngine)}
     setTimeout(() => setCopiedDdl(false), 2000);
   }
 
-  // Save Settings
-  function handleSave(e: FormEvent) {
+  // Save Settings to live backend database
+  async function handleSave(e: FormEvent) {
     e.preventDefault();
     if (!isAdmin || isSaving) return;
     setIsSaving(true);
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/telemetry/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          smtp_host: smtpHost,
+          smtp_port: smtpPort,
+          smtp_user: smtpUser,
+          alert_email_to: recipientEmails,
+          slow_query_threshold_ms: slowSqlThreshold,
+          slow_request_threshold_ms: slowTraceThreshold,
+          sample_rate_success: (sampleRate / 100).toFixed(2),
+          retention_days: retentionDays,
+        }),
+      });
+
+      if (res.ok) {
+        setSavedSuccess(true);
+        toast.success(dict.settings.savedSuccess);
+        setTimeout(() => setSavedSuccess(false), 3000);
+      } else {
+        toast.error("Không thể lưu cài đặt lên server.");
+      }
+    } catch (err: any) {
+      toast.error(`Lỗi kết nối khi lưu cài đặt: ${err.message}`);
+    } finally {
       setIsSaving(false);
-      setSavedSuccess(true);
-      toast.success(dict.settings.savedSuccess);
-      setTimeout(() => setSavedSuccess(false), 3000);
-    }, 600);
+    }
   }
 
   // Production-grade DDL scripts generated with UUID PK and dialect conventions

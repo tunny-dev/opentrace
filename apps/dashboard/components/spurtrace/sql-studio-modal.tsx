@@ -95,6 +95,8 @@ export function SqlStudioModal({
   const [searchFilter, setSearchFilter] = useState("");
   const [executionStats, setExecutionStats] = useState<any>(null);
   const [resultRows, setResultRows] = useState<any[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [queryColumns, setQueryColumns] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -157,63 +159,45 @@ export function SqlStudioModal({
   const lineCount = (sqlText.match(/\n/g) || []).length + 1;
   const charCount = sqlText.length;
 
-  function handleRunQuery(mode: "run" | "analyze") {
+  async function handleRunQuery(mode: "run" | "analyze") {
     setExecuting(true);
-    setTimeout(() => {
+    setErrorMessage(null);
+    try {
+      const targetSql = mode === "analyze" ? statsSql : inlinedSql;
+      const res = await fetch("/api/telemetry/sql/execute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sql: targetSql, maxRows: 100 }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.error) {
+        setErrorMessage(data.error || `HTTP ${res.status}`);
+        setResultRows([]);
+        setQueryColumns([]);
+      } else {
+        setResultRows(data.rows || []);
+        setQueryColumns(data.columns || (data.rows && data.rows.length > 0 ? Object.keys(data.rows[0]) : []));
+        setExecutionStats({
+          durationMs: data.executionTimeMs || 0,
+          compileTimeMs: 1.0,
+          executionTimeMs: data.executionTimeMs || 0,
+          logicalReads: data.totalRows || 0,
+          physicalReads: 0,
+          scanCount: 1,
+          table: "Database Execution",
+        });
+      }
+    } catch (err: any) {
+      setErrorMessage(`Lỗi kết nối cơ sở dữ liệu: ${err.message}`);
+      setResultRows([]);
+      setQueryColumns([]);
+    } finally {
       setExecuting(false);
       setHasExecuted(true);
       if (mode === "analyze") setActiveTab("stats");
       else setActiveTab("grid");
-
-      const sampleRows = [
-        {
-          MfgCode: "MFG-001",
-          MfgTypeName: "Surface Mount Technology (SMT)",
-          Factory: "VN-FAC1",
-          ActiveLines: 12,
-          YieldRate: "99.4%",
-        },
-        {
-          MfgCode: "MFG-002",
-          MfgTypeName: "Dual In-line Package (DIP)",
-          Factory: "VN-FAC1",
-          ActiveLines: 9,
-          YieldRate: "98.9%",
-        },
-        {
-          MfgCode: "MFG-003",
-          MfgTypeName: "System Integration & Packing",
-          Factory: "VN-FAC2",
-          ActiveLines: 8,
-          YieldRate: "99.8%",
-        },
-        {
-          MfgCode: "MFG-004",
-          MfgTypeName: "Final Quality Assurance (FQA)",
-          Factory: "VN-FAC2",
-          ActiveLines: 6,
-          YieldRate: "100.0%",
-        },
-        {
-          MfgCode: "MFG-005",
-          MfgTypeName: "Optical Inspection (AOI)",
-          Factory: "VN-FAC1",
-          ActiveLines: 14,
-          YieldRate: "99.2%",
-        },
-      ];
-
-      setResultRows(sampleRows);
-      setExecutionStats({
-        durationMs: 32.4,
-        compileTimeMs: 1.2,
-        executionTimeMs: 31.2,
-        logicalReads: 48,
-        physicalReads: 0,
-        scanCount: 1,
-        table: "SSFDC",
-      });
-    }, 450);
+    }
   }
 
   const filteredRows = resultRows.filter((row) => {
@@ -221,7 +205,7 @@ export function SqlStudioModal({
     return JSON.stringify(row).toLowerCase().includes(searchFilter.toLowerCase());
   });
 
-  const columns = resultRows.length > 0 ? Object.keys(resultRows[0]) : [];
+  const columns = queryColumns.length > 0 ? queryColumns : resultRows.length > 0 ? Object.keys(resultRows[0]) : [];
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -585,7 +569,15 @@ export function SqlStudioModal({
 
                   {/* Results Tab Body */}
                   <div className="flex-1 overflow-auto p-3 bg-card min-h-0">
-                    {!hasExecuted ? (
+                    {errorMessage ? (
+                      <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-600 dark:text-red-400 font-mono">
+                        <div className="font-bold mb-1 flex items-center gap-1.5 font-sans text-sm">
+                          <AlertTriangle className="h-4 w-4" />
+                          SQL Execution Notice:
+                        </div>
+                        <div className="whitespace-pre-wrap">{errorMessage}</div>
+                      </div>
+                    ) : !hasExecuted ? (
                       <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground">
                         <Database className="h-8 w-8 text-muted-foreground/40 mb-2" />
                         <p className="text-xs font-sans">

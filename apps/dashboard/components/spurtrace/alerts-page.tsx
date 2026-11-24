@@ -87,6 +87,28 @@ export function AlertsPageContent({ role }: { role: UserRole }) {
   React.useEffect(() => {
     setLogs(evaluatedLogs);
   }, [evaluatedLogs]);
+
+  React.useEffect(() => {
+    fetch("/api/telemetry/alerts")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.rules?.length > 0) {
+          setRules(
+            data.rules.map((r: any) => ({
+              id: r.id,
+              name: r.name,
+              metric: r.metric,
+              threshold: r.threshold,
+              unit: r.unit,
+              enabled: r.isEnabled,
+              severity: r.severity,
+              channels: Array.isArray(r.channels) ? r.channels : ["email", "inApp"],
+            }))
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [isAddRuleOpen, setIsAddRuleOpen] = React.useState(false);
   const [preview, setPreview] = React.useState<IncidentPreview | null>(null);
 
@@ -99,6 +121,11 @@ export function AlertsPageContent({ role }: { role: UserRole }) {
       if (!target) return;
       const next = !target.enabled;
       setRules((prev) => prev.map((rule) => (rule.id === ruleId ? { ...rule, enabled: next } : rule)));
+      fetch("/api/telemetry/alerts/toggle-rule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: ruleId, isEnabled: next }),
+      }).catch(() => {});
       toast.info(
         t(next ? "alerts.toast.ruleActive" : "alerts.toast.rulePaused", {
           name: ruleLabel(t, target),

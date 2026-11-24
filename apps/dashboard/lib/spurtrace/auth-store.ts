@@ -32,9 +32,9 @@ const defaultUser: UserProfile = {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      isAuthenticated: true,
+      isAuthenticated: false,
       user: defaultUser,
-      token: "ot_session_tok_99a8b17f309d44e88102ca",
+      token: null,
 
       login: (email: string, role: UserRole = "Admin") => {
         set({
@@ -55,6 +55,9 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           token: null,
         });
+        if (typeof window !== "undefined") {
+          fetch("/api/telemetry/auth/logout", { method: "POST" }).catch(() => {});
+        }
       },
 
       setRole: (role: UserRole) => {
