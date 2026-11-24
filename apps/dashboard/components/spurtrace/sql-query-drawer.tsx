@@ -20,12 +20,7 @@ import { buildExplainPlan, formatSql } from "@/lib/spurtrace/sql-analytics";
 import { SqlSyntax } from "./sql-syntax";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-
-function formatDuration(value: number) {
-  return value >= 1000
-    ? `${(value / 1000).toFixed(2)} s`
-    : `${value.toFixed(value < 10 ? 1 : 0)} ms`;
-}
+import { formatDuration } from "@/lib/spurtrace/format-duration";
 
 export function SqlQueryDrawer({
   query,

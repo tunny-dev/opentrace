@@ -6,6 +6,7 @@ import type { DemoEnvironment, DemoService, DemoTrace } from "./demo-data";
 import type { DemoLog } from "./demo-logs";
 import type { UserRole } from "@/components/spurtrace/user-profile-menu";
 import { useAuthStore } from "./auth-store";
+import { roundDuration } from "./format-duration";
 
 interface TelemetryContextType {
   traces: DemoTrace[];
@@ -73,7 +74,24 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       if (Array.isArray(data.traces) && data.traces.length > 0) {
-        setTraces(data.traces);
+        const cleanTraces = data.traces.map((t: any) => ({
+          ...t,
+          duration: roundDuration(t.duration ?? t.durationMs),
+          durationMs: roundDuration(t.durationMs ?? t.duration),
+          spans: (t.spans || []).map((s: any) => ({
+            ...s,
+            start: roundDuration(s.start ?? s.startOffsetMs),
+            startOffsetMs: roundDuration(s.startOffsetMs ?? s.start),
+            duration: roundDuration(s.duration ?? s.durationMs),
+            durationMs: roundDuration(s.durationMs ?? s.duration),
+          })),
+          queries: (t.queries || t.sqlCalls || []).map((q: any) => ({
+            ...q,
+            duration: roundDuration(q.duration ?? q.durationMs),
+            durationMs: roundDuration(q.durationMs ?? q.duration),
+          })),
+        }));
+        setTraces(cleanTraces);
         if (Array.isArray(data.logs)) {
           setLogs(data.logs);
         }

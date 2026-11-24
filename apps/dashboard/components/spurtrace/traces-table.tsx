@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { formatDuration } from "@/lib/spurtrace/format-duration";
 
 const STATE_RANK: Record<DemoTrace["state"], number> = { error: 0, slow: 1, success: 2 };
 
@@ -31,10 +32,6 @@ const METHOD_CLASS: Record<string, string> = {
   PATCH: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-400",
   DELETE: "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-400",
 };
-
-function formatDuration(value: number) {
-  return value >= 1000 ? `${(value / 1000).toFixed(2)} s` : `${Math.round(value)} ms`;
-}
 
 function hasNPlusOne(trace: DemoTrace) {
   return trace.queries.some((query) => query.duplicateCount > 2);

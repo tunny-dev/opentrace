@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/i18n-context";
 import { useTelemetry } from "@/lib/spurtrace/telemetry-context";
+import { formatDuration } from "@/lib/spurtrace/format-duration";
 
 export function DashboardMetrics() {
   const { isVietnamese } = useI18n();
@@ -56,7 +57,7 @@ export function DashboardMetrics() {
     // 3 & 4. P95 & P99 Latency
     const sorted = [...filteredTraces].map((t) => t.duration).sort((a, b) => a - b);
     const p95Val = sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.95)] : 0;
-    const formattedP95 = `${Math.round(p95Val)} ms`;
+    const formattedP95 = formatDuration(p95Val);
 
     const recentSorted = [...recentTraces].map((t) => t.duration).sort((a, b) => a - b);
     const olderSorted = [...olderTraces].map((t) => t.duration).sort((a, b) => a - b);
@@ -69,7 +70,7 @@ export function DashboardMetrics() {
     const p95Change = `${p95Diff >= 0 ? "+" : "−"}${Math.abs(p95Diff)}%`;
 
     const p99Val = sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.99)] : 0;
-    const formattedP99 = `${Math.round(p99Val)} ms`;
+    const formattedP99 = formatDuration(p99Val);
     const recentP99 =
       recentSorted.length > 0 ? recentSorted[Math.floor(recentSorted.length * 0.99)] : 0;
     const olderP99 =

@@ -36,6 +36,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { formatDuration } from "@/lib/spurtrace/format-duration";
 
 const statementTypes: Array<StatementType | "ALL"> = [
   "ALL",
@@ -45,12 +46,6 @@ const statementTypes: Array<StatementType | "ALL"> = [
   "DELETE",
   "OTHER",
 ];
-
-function formatDuration(value: number) {
-  return value >= 1000
-    ? `${(value / 1000).toFixed(2)} s`
-    : `${value.toFixed(value < 10 ? 1 : 0)} ms`;
-}
 
 export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: UserRole }) {
   const { openTraceFromLog } = useTelemetry();

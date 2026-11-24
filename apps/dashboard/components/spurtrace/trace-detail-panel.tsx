@@ -36,12 +36,7 @@ import {
   type MockExecutionResult,
 } from "@/lib/spurtrace/sql-helpers";
 import { cn } from "@/lib/utils";
-
-function formatDuration(value: number) {
-  return value >= 1000
-    ? `${(value / 1000).toFixed(2)} s`
-    : `${value.toFixed(value < 10 ? 1 : 0)} ms`;
-}
+import { formatDuration, roundDuration } from "@/lib/spurtrace/format-duration";
 
 function TraceSqlQueryCard({
   queryItem,
@@ -158,7 +153,7 @@ function TraceSqlQueryCard({
           </strong>
           <span className="text-[11px] text-muted-foreground font-sans">+0ms offset</span>
           <span className="px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25 text-[10px] font-sans font-medium">
-            {queryItem.durationMs ?? 5} ms
+            {formatDuration(queryItem.durationMs ?? 5)}
           </span>
         </div>
 
@@ -372,7 +367,7 @@ function TraceSqlQueryCard({
               <span className="text-[11px] text-muted-foreground font-sans">
                 Elapsed:{" "}
                 <strong className="text-emerald-700 dark:text-emerald-400 font-bold">
-                  {result.elapsedMs}ms
+                  {formatDuration(result.elapsedMs)}
                 </strong>
               </span>
               <Button
@@ -602,32 +597,52 @@ function RawStreamViewer({ trace }: { trace: DemoTrace }) {
   const [search, setSearch] = useState("");
   const [copied, setCopied] = useState(false);
 
+  const sanitizedTrace = useMemo(() => {
+    return {
+      ...trace,
+      duration: roundDuration(trace.duration),
+      durationMs: roundDuration((trace as any).durationMs ?? trace.duration),
+      spans: (trace.spans || []).map((s) => ({
+        ...s,
+        start: roundDuration(s.start),
+        startOffsetMs: roundDuration((s as any).startOffsetMs ?? s.start),
+        duration: roundDuration(s.duration),
+        durationMs: roundDuration((s as any).durationMs ?? s.duration),
+      })),
+      queries: (trace.queries || []).map((q) => ({
+        ...q,
+        duration: roundDuration(q.duration),
+        durationMs: roundDuration((q as any).durationMs ?? q.duration),
+      })),
+    };
+  }, [trace]);
+
   const displayData = useMemo(() => {
     switch (filterMode) {
       case "spans":
-        return trace.spans || [];
+        return sanitizedTrace.spans || [];
       case "queries":
-        return trace.queries || [];
+        return sanitizedTrace.queries || [];
       case "exception":
-        return (trace as any).exception || { message: "No unhandled exceptions in this trace." };
+        return (sanitizedTrace as any).exception || { message: "No unhandled exceptions in this trace." };
       case "meta":
         return {
-          id: trace.id,
-          timestamp: (trace as any).timestamp || (trace as any).createdAt,
-          method: trace.method,
-          route: trace.route,
-          status: trace.status,
-          duration: trace.duration,
-          clientIp: (trace as any).clientIp,
-          userAgent: (trace as any).userAgent,
-          environment: (trace as any).environment,
-          service: trace.service,
-          sampleReason: (trace as any).sampleReason,
+          id: sanitizedTrace.id,
+          timestamp: (sanitizedTrace as any).timestamp || (sanitizedTrace as any).createdAt,
+          method: sanitizedTrace.method,
+          route: sanitizedTrace.route,
+          status: sanitizedTrace.status,
+          duration: sanitizedTrace.duration,
+          clientIp: (sanitizedTrace as any).clientIp,
+          userAgent: (sanitizedTrace as any).userAgent,
+          environment: (sanitizedTrace as any).environment,
+          service: sanitizedTrace.service,
+          sampleReason: (sanitizedTrace as any).sampleReason,
         };
       default:
-        return trace;
+        return sanitizedTrace;
     }
-  }, [trace, filterMode]);
+  }, [sanitizedTrace, filterMode]);
 
   const jsonString = useMemo(() => {
     return JSON.stringify(displayData, null, 2);
@@ -977,7 +992,7 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
             <div className="flex items-center gap-1.5 ml-auto">
               <span className="text-muted-foreground">Total Duration:</span>
               <strong className="text-emerald-700 dark:text-emerald-400 font-bold font-sans">
-                {trace.duration} ms
+                {formatDuration(trace.duration)}
               </strong>
             </div>
           </div>
@@ -1040,13 +1055,13 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
                 <div className="flex items-center gap-3 text-[11px] font-sans">
                   <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-medium">
                     <i className="h-2 w-2 rounded-full bg-emerald-500" />
-                    DB: {dbPercent}% ({dbDurationMs}ms)
+                    DB: {dbPercent}% ({formatDuration(dbDurationMs)})
                   </span>
                   <span className="flex items-center gap-1.5 text-sky-600 dark:text-sky-400 font-medium">
                     <i className="h-2 w-2 rounded-full bg-sky-500" />
-                    App: {appPercent}% ({appDurationMs}ms)
+                    App: {appPercent}% ({formatDuration(appDurationMs)})
                   </span>
-                  <span className="text-muted-foreground">Total: {trace.duration} ms</span>
+                  <span className="text-muted-foreground">Total: {formatDuration(trace.duration)}</span>
                 </div>
               </div>
 
@@ -1069,7 +1084,7 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
                   TOTAL DURATION
                 </span>
                 <strong className="block text-lg font-bold text-foreground mt-1 font-sans">
-                  {trace.duration} ms
+                  {formatDuration(trace.duration)}
                 </strong>
               </div>
               <div className="p-3.5 rounded-lg bg-card border border-border shadow-xs">
@@ -1078,7 +1093,7 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
                   DATABASE TIME
                 </span>
                 <strong className="block text-lg font-bold text-emerald-700 dark:text-emerald-400 mt-1 font-sans">
-                  {dbDurationMs} ms{" "}
+                  {formatDuration(dbDurationMs)}{" "}
                   <small className="text-xs text-muted-foreground font-normal">
                     ({dbPercent}%)
                   </small>
@@ -1090,7 +1105,7 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
                   SERVER LOGIC
                 </span>
                 <strong className="block text-lg font-bold text-sky-600 dark:text-sky-400 mt-1 font-sans">
-                  {appDurationMs} ms{" "}
+                  {formatDuration(appDurationMs)}{" "}
                   <small className="text-xs text-muted-foreground font-normal">
                     ({appPercent}%)
                   </small>
@@ -1202,7 +1217,7 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
                         </div>
 
                         <span className="text-xs font-bold text-foreground font-sans text-right">
-                          {span.duration} ms
+                          {formatDuration(span.duration)}
                         </span>
 
                         <div className="relative h-2.5 w-full bg-muted/70 rounded-full overflow-hidden">
@@ -1238,7 +1253,7 @@ export function TraceDetailPanel({ trace, onClose }: { trace: DemoTrace; onClose
         onClose={() => setStudioOpen(false)}
         traceId={trace.id}
         endpoint={`${trace.method} ${trace.route}`}
-        traceLatency={`${trace.duration} ms`}
+        traceLatency={formatDuration(trace.duration)}
         queries={sampleQueries}
         initialQueryIndex={studioQueryIndex}
       />

@@ -181,7 +181,7 @@ export class SpurTrace {
       const finalize = () => {
         if (finalized) return
         finalized = true
-        const durationMs = Math.max(0, performance.now() - startedAt)
+        const durationMs = Math.round(Math.max(0.01, performance.now() - startedAt) * 100) / 100
         const statusCode = response.statusCode || 200
         const failed = statusCode >= 500 || Boolean(context.exception)
         const slow = durationMs >= this.options.slowRequestThresholdMs || context.hasSlowSql
@@ -212,7 +212,7 @@ export class SpurTrace {
           name: "Application logic",
           kind: "app",
           startOffsetMs: 0,
-          durationMs: Math.max(0, durationMs - externalAndDb),
+          durationMs: Math.round(Math.max(0, durationMs - externalAndDb) * 100) / 100,
         })
         context.breadcrumbs.push({
           atMs: durationMs,
@@ -353,10 +353,13 @@ export class SpurTrace {
   recordSpan(name: string, kind: SpanKind, durationMs: number, tags?: TraceSpan["tags"]) {
     const context = this.context.getStore()
     if (!context || context.spans.length >= 256) return
-    const safeDuration = Math.max(0, durationMs)
+    const safeDuration = Math.round(Math.max(0, durationMs) * 100) / 100
+    const startOffsetMs = Math.round(Math.max(0, performance.now() - context.startedAt - safeDuration) * 100) / 100
     context.spans.push({
-      id: randomUUID(), name, kind,
-      startOffsetMs: Math.max(0, performance.now() - context.startedAt - safeDuration),
+      id: randomUUID(),
+      name,
+      kind,
+      startOffsetMs,
       durationMs: safeDuration,
       tags,
     })
@@ -365,16 +368,24 @@ export class SpurTrace {
   recordSql(query: string, durationMs: number, rows?: number) {
     const context = this.context.getStore()
     if (!context) return
+    const cleanDuration = Math.round(Math.max(0, durationMs) * 100) / 100
     const fingerprint = fingerprintSql(query)
-    const isSlow = durationMs >= this.options.slowQueryThresholdMs
+    const isSlow = cleanDuration >= this.options.slowQueryThresholdMs
     if (isSlow) context.hasSlowSql = true
     if (context.sqlCalls.length < 200) {
-      context.sqlCalls.push({ fingerprint, query: fingerprint.slice(0, 2000), durationMs: Math.max(0, durationMs), isSlow, duplicateCount: 1, rows })
+      context.sqlCalls.push({
+        fingerprint,
+        query: fingerprint.slice(0, 2000),
+        durationMs: cleanDuration,
+        isSlow,
+        duplicateCount: 1,
+        rows,
+      })
     }
-    this.recordSpan("SQL query", "db", durationMs, { fingerprint, slow: isSlow })
+    this.recordSpan("SQL query", "db", cleanDuration, { fingerprint, slow: isSlow })
     if (context.breadcrumbs.length < 64) {
       context.breadcrumbs.push({
-        atMs: Math.max(0, performance.now() - context.startedAt),
+        atMs: Math.round(Math.max(0, performance.now() - context.startedAt) * 100) / 100,
         category: "db",
         message: isSlow ? `Slow SQL · ${fingerprint}` : `SQL · ${fingerprint}`,
         level: isSlow ? "warning" : "info",

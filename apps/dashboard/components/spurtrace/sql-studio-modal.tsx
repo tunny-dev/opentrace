@@ -38,6 +38,7 @@ import {
 } from "@/lib/spurtrace/sql-helpers";
 import type { UserRole } from "./user-profile-menu";
 import { cn } from "@/lib/utils";
+import { formatDuration } from "@/lib/spurtrace/format-duration";
 
 export interface StudioQueryItem {
   id?: string;
@@ -402,7 +403,7 @@ export function SqlStudioModal({
                         Query #{idx + 1}
                       </strong>
                       <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground font-sans">
-                        {q.durationMs ? `${q.durationMs}ms` : "30ms"}
+                        {formatDuration(q.durationMs || 30)}
                       </span>
                     </div>
                     <code className="text-[10px] text-muted-foreground line-clamp-2 font-sans block leading-snug">
@@ -644,7 +645,7 @@ export function SqlStudioModal({
                               DURATION
                             </span>
                             <strong className="text-sm text-emerald-700 dark:text-emerald-400 font-semibold font-sans">
-                              {executionStats?.durationMs} ms
+                              {formatDuration(executionStats?.durationMs)}
                             </strong>
                           </div>
                           <div className="p-2.5 rounded bg-muted/30 border border-border">
