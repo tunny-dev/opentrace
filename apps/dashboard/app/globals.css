@@ -4208,12 +4208,12 @@ small {
 
 .log-line {
   display: grid;
-  grid-template-columns: 2px 166px 64px 130px 140px minmax(260px, 1fr);
-  min-width: 960px;
+  grid-template-columns: 2px 160px 72px 240px 150px minmax(320px, 1fr);
+  min-width: 1040px;
   align-items: start;
   gap: 12px;
   min-height: 38px;
-  padding: 10px 14px;
+  padding: 8px 14px;
   border-bottom: 1px solid #1f2227;
   transition: background-color 0.15s ease;
 }
@@ -4279,15 +4279,15 @@ small {
 }
 
 .log-trace-id {
-  width: max-content;
-  max-width: 128px;
+  width: 100%;
+  max-width: 236px;
   overflow: hidden;
   padding: 2px 6px;
   border: 1px solid #33383e;
   border-radius: 4px;
   background: #17191c;
-  color: #cbd5e1;
-  font: 11px var(--font-manrope), sans-serif;
+  color: #38bdf8;
+  font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
@@ -4317,22 +4317,34 @@ small {
 }
 
 .logs-wrap-nowrap .log-line {
-  min-width: 1120px;
+  min-width: 1040px;
 }
 
 .logs-wrap-nowrap .log-payload {
-  overflow: visible;
+  overflow-x: auto;
   white-space: pre;
+  word-break: normal;
 }
 
 .logs-wrap-wrap .log-line {
-  min-width: 100%;
-  grid-template-columns: 2px 166px 64px 130px 140px minmax(200px, 1fr);
+  min-width: 1040px;
 }
 
 .logs-wrap-wrap .log-payload {
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.logs-wrap-pretty .log-line {
+  min-width: 1040px;
+}
+
+.logs-wrap-pretty .log-payload {
+  overflow-x: auto;
+  white-space: pre;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  line-height: 1.5;
 }
 
 .logs-empty {

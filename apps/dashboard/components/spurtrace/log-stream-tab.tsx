@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 
 export type LogViewMode = "terminal" | "table";
 type QuickFilter = "all" | "sql" | "slow" | "error" | "warn" | "info" | "debug";
-type WrapMode = "nowrap" | "wrap";
+type WrapMode = "nowrap" | "wrap" | "pretty";
 
 const quickFilters: Array<{ id: QuickFilter; label: string }> = [
   { id: "all", label: "All Logs" },
@@ -141,7 +141,11 @@ export function LogStreamTab({
   );
 
   function renderPayload(log: DemoLog) {
-    return log.rawPayload ?? log.message;
+    const raw = log.rawPayload ?? log.message;
+    if (wrapMode === "pretty") {
+      return <JsonPayload value={raw} />;
+    }
+    return raw;
   }
 
   return (
@@ -221,13 +225,22 @@ export function LogStreamTab({
               <span>{newestFirst ? "Newest logs first" : "Oldest logs first"}</span>
             </Button>
             <div className="flex items-center">
-              <Select value={wrapMode} onValueChange={(val) => setWrapMode(val as WrapMode)}>
+              <Select
+                value={wrapMode}
+                onValueChange={(val) => {
+                  setWrapMode(val as WrapMode);
+                }}
+              >
                 <SelectTrigger
                   size="sm"
-                  className="h-7 text-xs bg-background border-border text-foreground shadow-xs font-sans gap-2 w-auto min-w-[170px] cursor-pointer"
+                  className="h-7 text-xs bg-background border-border text-foreground shadow-xs font-sans gap-2 w-auto min-w-[185px] cursor-pointer"
                 >
                   <span className="truncate">
-                    {wrapMode === "wrap" ? "Enable line wrapping" : "Disable line wrapping"}
+                    {wrapMode === "wrap"
+                      ? "Enable line wrapping"
+                      : wrapMode === "pretty"
+                        ? "Prettify JSON (Làm đẹp)"
+                        : "Disable line wrapping"}
                   </span>
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border text-popover-foreground text-xs shadow-md font-sans">
@@ -237,6 +250,11 @@ export function LogStreamTab({
                   <SelectItem value="wrap" className="text-xs cursor-pointer">
                     Enable line wrapping
                   </SelectItem>
+                  {viewMode === "terminal" && (
+                    <SelectItem value="pretty" className="text-xs cursor-pointer font-medium text-emerald-500">
+                      Prettify JSON (Làm đẹp)
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -245,15 +263,15 @@ export function LogStreamTab({
         </div>
 
         {viewMode === "terminal" ? (
-          <div className="rounded-lg border border-border overflow-hidden bg-card text-card-foreground shadow-2xs">
+          <div className="rounded-lg border border-border overflow-x-auto bg-card text-card-foreground shadow-2xs">
             {/* Terminal Column Header for clean alignment at 100% zoom */}
-            <div className="hidden sm:flex items-center gap-3 border-b border-border bg-muted/60 dark:bg-zinc-900/90 px-4 py-2.5 font-mono text-[10px] uppercase font-bold text-muted-foreground tracking-wider select-none">
-              <span className="w-4 shrink-0 text-muted-foreground/60">#</span>
-              <span className="w-[166px] shrink-0">Timestamp (UTC)</span>
-              <span className="w-[64px] shrink-0 text-center">Level</span>
-              <span className="w-[124px] shrink-0">Trace ID</span>
-              <span className="w-[140px] shrink-0">Source / Service</span>
-              <span className="flex-1">Message / Raw Payload</span>
+            <div className="flex items-center gap-3 border-b border-border bg-muted/60 dark:bg-zinc-900/90 px-3.5 py-2.5 font-mono text-[10px] uppercase font-bold text-muted-foreground tracking-wider select-none min-w-[1040px]">
+              <span className="w-1 shrink-0" />
+              <span className="w-[160px] shrink-0">Timestamp (UTC)</span>
+              <span className="w-[72px] shrink-0 text-center">Level</span>
+              <span className="w-[240px] shrink-0">Trace ID</span>
+              <span className="w-[150px] shrink-0">Source / Service</span>
+              <span className="flex-1 min-w-[320px]">Message / Raw Payload</span>
             </div>
 
             <div
@@ -268,9 +286,11 @@ export function LogStreamTab({
                   <time className="log-timestamp" dateTime={log.timestamp}>
                     {formatTimestamp(log.timestamp)}
                   </time>
-                  <LogLevelBadge level={log.level} />
+                  <div className="flex justify-center items-center">
+                    <LogLevelBadge level={log.level} />
+                  </div>
                   <Button
-                    className="log-trace-id h-auto p-0 bg-transparent hover:bg-transparent"
+                    className="log-trace-id h-auto p-0 bg-transparent hover:bg-transparent font-mono"
                     variant="ghost"
                     type="button"
                     onClick={() => onOpenTrace(log.traceId)}
@@ -289,25 +309,25 @@ export function LogStreamTab({
           </div>
         ) : (
           <div className="logs-grid-scroll border border-border rounded-lg overflow-x-auto bg-card shadow-2xs">
-            <table className="logs-data-table w-full border-collapse font-sans text-left text-xs">
+            <table className="logs-data-table w-full border-collapse font-sans text-left text-xs min-w-[1040px]">
               <thead className="bg-muted/50 border-b border-border text-[10px] uppercase font-bold tracking-wider text-muted-foreground select-none">
                 <tr>
                   <th scope="col" className="w-12 text-center p-2.5">
                     STT
                   </th>
-                  <th scope="col" className="w-40 p-2.5">
+                  <th scope="col" className="w-44 p-2.5 whitespace-nowrap">
                     TIMESTAMP (UTC)
                   </th>
-                  <th scope="col" className="w-20 text-center p-2.5">
+                  <th scope="col" className="w-24 text-center p-2.5">
                     LEVEL
                   </th>
-                  <th scope="col" className="w-32 p-2.5">
+                  <th scope="col" className="w-64 min-w-[240px] p-2.5">
                     TRACE ID
                   </th>
-                  <th scope="col" className="w-36 p-2.5">
+                  <th scope="col" className="w-40 min-w-[150px] p-2.5">
                     SOURCE / LAYER
                   </th>
-                  <th scope="col" className="p-2.5 min-w-[280px]">
+                  <th scope="col" className="p-2.5 min-w-[320px]">
                     MESSAGE / RAW PAYLOAD
                   </th>
                 </tr>
@@ -326,7 +346,7 @@ export function LogStreamTab({
                     </td>
                     <td className="p-2.5 font-mono text-xs">
                       <Button
-                        className="log-trace-id h-auto p-0 bg-transparent hover:bg-transparent font-semibold text-emerald-600 dark:text-emerald-400 cursor-pointer"
+                        className="log-trace-id h-auto p-0 bg-transparent hover:bg-transparent font-semibold text-emerald-600 dark:text-emerald-400 cursor-pointer text-left font-mono"
                         variant="ghost"
                         type="button"
                         onClick={() => onOpenTrace(log.traceId)}

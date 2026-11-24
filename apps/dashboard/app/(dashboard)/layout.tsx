@@ -70,13 +70,13 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
       {/* Main Content Area via official Shadcn SidebarInset */}
       <SidebarInset className="min-w-0 bg-(--ot-bg) flex flex-col h-svh overflow-hidden">
         {/* Fixed Sticky Header (matching MESProductionReport Header) */}
-        <header className="sticky top-0 z-40 flex h-14 sm:h-16 shrink-0 items-center justify-between gap-3 overflow-hidden border-b border-(--ot-border) bg-(--ot-panel)/95 px-4 sm:px-6 backdrop-blur-md shadow-xs transition-colors">
-          <div className="flex h-full min-w-0 items-center gap-3 sm:gap-4">
+        <header className="sticky top-0 z-40 flex h-12 sm:h-14 shrink-0 items-center justify-between gap-3 overflow-hidden border-b border-(--ot-border) bg-(--ot-panel)/95 px-3 sm:px-5 backdrop-blur-md shadow-xs transition-colors">
+          <div className="flex h-full min-w-0 items-center gap-2.5 sm:gap-3">
             <SidebarTrigger
               variant="outline"
-              className="shrink-0 cursor-pointer max-md:scale-110"
+              className="shrink-0 cursor-pointer max-md:scale-105"
             />
-            <div className="flex h-6 shrink-0">
+            <div className="flex h-5 shrink-0">
               <Separator orientation="vertical" />
             </div>
             <span className="truncate text-xs font-semibold text-(--ot-text) sm:text-sm">
@@ -127,7 +127,7 @@ function DashboardLayoutContent({ children }: { children: React.ReactNode }) {
         {/* Full-width scroll container so the scrollbar stays on the viewport edge,
             while the content is free to use the whole width on large screens. */}
         <div className="min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto">
-          <main className="w-full min-w-0 p-4 sm:p-6">{children}</main>
+          <main className="w-full min-w-0 p-3 sm:p-4 lg:p-5">{children}</main>
         </div>
       </SidebarInset>
 

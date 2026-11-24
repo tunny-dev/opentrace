@@ -85,9 +85,15 @@ export default function OverviewPage() {
 
       <DashboardMetrics />
 
-      <div className="chart-row">
-        <LatencyChart />
-        <section className="panel-card breakdown-panel" aria-labelledby="breakdown-title">
+      {/* Observability Multi-Charts Grid (Grafana Grade) */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <LatencyChart mode="percentiles" />
+        <LatencyChart mode="status" />
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+        <LatencyChart mode="breakdown" />
+        <section className="panel-card breakdown-panel flex flex-col justify-between" aria-labelledby="breakdown-title">
           <div className="panel-heading">
             <div>
               <div className="section-kicker">{dict.dashboard.systemHealth}</div>

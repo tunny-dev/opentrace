@@ -24,16 +24,9 @@ export function ErrorTrackingPage() {
     };
   }, []);
 
-  const [mounted, setMounted] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [mounted, setMounted] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    const authed = systemLogsService.isAuthenticated();
-    setIsAuthenticated(authed);
-    setShowAuthModal(!authed);
-  }, []);
   const [isFilesModalOpen, setIsFilesModalOpen] = useState(false);
   const [inspectTrace, setInspectTrace] = useState(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -116,18 +109,6 @@ export function ErrorTrackingPage() {
   return (
     <TooltipProvider delayDuration={150}>
       <div className="min-h-screen bg-slate-50 dark:bg-[#111217] text-slate-900 dark:text-[#c7d0d9] font-sans antialiased transition-colors">
-        <CimdevAuthModal
-          isOpen={showAuthModal}
-          onSuccess={handleAuthSuccess}
-          onCancel={() => {
-            if (!isAuthenticated) {
-              window.location.href = '/';
-            } else {
-              setShowAuthModal(false);
-            }
-          }}
-        />
-
         <TraceFilterToolbar
           isSubPage={true}
           dates={dates}

@@ -34,6 +34,8 @@ import {
   Edit3,
   UserCheck,
   UserX,
+  Code2,
+  UserRound,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -1613,37 +1615,65 @@ export function SettingsPage({ role }: { role: UserRole }) {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="flex flex-col gap-1">
-                        <Label className="text-[11px] font-medium text-(--ot-muted)">Phân quyền (Role)</Label>
-                        <Select
-                          value={userFormRole}
-                          onValueChange={(val) => {
-                            if (val) setUserFormRole(val);
-                          }}
-                        >
-                          <SelectTrigger className="h-8 bg-(--ot-panel-raised) border border-(--ot-border) text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="bg-(--ot-panel) border border-(--ot-border)">
-                            <SelectItem value="Admin">Admin (Toàn quyền)</SelectItem>
-                            <SelectItem value="Engineer">Engineer (Đọc + Truy vấn SQL)</SelectItem>
-                            <SelectItem value="Viewer">Viewer (Chỉ xem Traces)</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-[11px] font-medium text-(--ot-muted)">Phân quyền (Role) *</Label>
+                      <Select
+                        value={userFormRole}
+                        onValueChange={(val) => {
+                          if (val) setUserFormRole(val);
+                        }}
+                      >
+                        <SelectTrigger className="h-9 w-full bg-(--ot-panel-raised) border border-(--ot-border) text-xs">
+                          <SelectValue placeholder="Chọn vai trò người dùng..." />
+                        </SelectTrigger>
+                        <SelectContent className="min-w-[340px] bg-(--ot-panel) border border-(--ot-border) shadow-2xl z-[100] text-xs">
+                          <SelectItem value="Admin" className="cursor-pointer py-2">
+                            <div className="flex flex-col gap-0.5 text-left">
+                              <span className="font-semibold text-emerald-500 flex items-center gap-1.5">
+                                <ShieldCheck className="h-3.5 w-3.5" />
+                                Admin (Toàn quyền quản trị)
+                              </span>
+                              <span className="text-[10px] text-(--ot-muted)">
+                                Quản trị toàn bộ cài đặt, người dùng, backup CSDL và chạy SQL Studio
+                              </span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="Engineer" className="cursor-pointer py-2">
+                            <div className="flex flex-col gap-0.5 text-left">
+                              <span className="font-semibold text-sky-400 flex items-center gap-1.5">
+                                <Code2 className="h-3.5 w-3.5" />
+                                Engineer (Kỹ sư hệ thống)
+                              </span>
+                              <span className="text-[10px] text-(--ot-muted)">
+                                Xem traces, chạy truy vấn SQL Studio, phân tích sự cố và xem cảnh báo
+                              </span>
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="Viewer" className="cursor-pointer py-2">
+                            <div className="flex flex-col gap-0.5 text-left">
+                              <span className="font-semibold text-slate-400 flex items-center gap-1.5">
+                                <UserRound className="h-3.5 w-3.5" />
+                                Viewer (Người xem)
+                              </span>
+                              <span className="text-[10px] text-(--ot-muted)">
+                                Chỉ xem traces và số liệu đo lường tổng quan, ẩn các thông tin nhạy cảm
+                              </span>
+                            </div>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                      <div className="flex flex-col gap-1 justify-center pt-4">
-                        <label className="flex items-center gap-2 cursor-pointer text-xs text-(--ot-text)">
-                          <input
-                            type="checkbox"
-                            checked={userFormActive}
-                            onChange={(e) => setUserFormActive(e.target.checked)}
-                            className="rounded accent-emerald-500 cursor-pointer"
-                          />
-                          <span>Đang hoạt động</span>
-                        </label>
-                      </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <label className="flex items-center gap-2 cursor-pointer text-xs text-(--ot-text)">
+                        <input
+                          type="checkbox"
+                          checked={userFormActive}
+                          onChange={(e) => setUserFormActive(e.target.checked)}
+                          className="rounded accent-emerald-500 cursor-pointer h-4 w-4"
+                        />
+                        <span className="font-medium">Kích hoạt tài khoản ngay sau khi tạo</span>
+                      </label>
                     </div>
 
                     <div className="flex items-center justify-end gap-2 pt-3 border-t border-(--ot-border)">

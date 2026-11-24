@@ -8,6 +8,7 @@ import {
   Bell,
   Boxes,
   ChevronsUpDown,
+  Code2,
   Database,
   FileText,
   Gauge,
@@ -209,7 +210,9 @@ export function SpurTraceShadcnSidebar({
                   className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold group-data-[collapsible=icon]:hidden ${
                     role === "Admin"
                       ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                      : "bg-sky-500/15 text-sky-600 dark:text-sky-400"
+                      : role === "Engineer"
+                        ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
+                        : "bg-slate-500/15 text-slate-600 dark:text-slate-400"
                   }`}
                 >
                   {role}
@@ -240,7 +243,7 @@ export function SpurTraceShadcnSidebar({
               <DropdownMenuRadioGroup
                 value={role}
                 onValueChange={(value) => {
-                  if (value === "Admin" || value === "Viewer") onRoleChange(value);
+                  if (value === "Admin" || value === "Engineer" || value === "Viewer") onRoleChange(value as any);
                 }}
               >
                 <DropdownMenuRadioItem
@@ -256,10 +259,22 @@ export function SpurTraceShadcnSidebar({
                   </span>
                 </DropdownMenuRadioItem>
                 <DropdownMenuRadioItem
+                  value="Engineer"
+                  className="min-h-12 cursor-pointer rounded-xl py-2 pl-3 pr-8"
+                >
+                  <Code2 className="text-sky-500" />
+                  <span className="flex flex-col gap-0.5">
+                    <span className="font-medium">Kỹ sư (Engineer)</span>
+                    <span className="text-xs text-muted-foreground">
+                      Đọc traces & truy vấn SQL Studio
+                    </span>
+                  </span>
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem
                   value="Viewer"
                   className="min-h-12 cursor-pointer rounded-xl py-2 pl-3 pr-8"
                 >
-                  <UserRound className="text-sky-500" />
+                  <UserRound className="text-slate-400" />
                   <span className="flex flex-col gap-0.5">
                     <span className="font-medium">{dict.common.viewer}</span>
                     <span className="text-xs text-muted-foreground">

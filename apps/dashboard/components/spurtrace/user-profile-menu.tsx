@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, ChevronDown, LogOut, Settings2, ShieldCheck, UserRound, X } from "lucide-react";
+import { Check, ChevronDown, Code2, LogOut, Settings2, ShieldCheck, UserRound, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export type UserRole = "Admin" | "Viewer";
+export type UserRole = "Admin" | "Engineer" | "Viewer";
 
 export function UserProfileMenu({
   role,
@@ -103,6 +103,24 @@ export function UserProfileMenu({
               <small>Full SQL, keys & system settings</small>
             </span>
             {role === "Admin" && <Check className="role-check" aria-hidden="true" />}
+          </Button>
+          <Button
+            className="profile-menu-item role-choice h-auto w-full justify-start text-left font-normal bg-transparent"
+            variant="ghost"
+            type="button"
+            role="menuitemradio"
+            aria-checked={role === "Engineer"}
+            onClick={() => {
+              onRoleChange("Engineer");
+              setMenuOpen(false);
+            }}
+          >
+            <Code2 aria-hidden="true" />
+            <span>
+              <strong>Engineer</strong>
+              <small>Traces, SQL Studio & alert diagnostics</small>
+            </span>
+            {role === "Engineer" && <Check className="role-check" aria-hidden="true" />}
           </Button>
           <Button
             className="profile-menu-item role-choice h-auto w-full justify-start text-left font-normal bg-transparent"

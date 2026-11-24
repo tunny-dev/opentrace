@@ -70,11 +70,12 @@ const breakdownConfig: ChartConfig = {
   },
 };
 
-export function LatencyChart() {
+export function LatencyChart({ mode }: { mode?: "percentiles" | "status" | "breakdown" } = {}) {
   const { filteredTraces } = useTelemetry();
-  const [activeMetric, setActiveMetric] = useState<"percentiles" | "status" | "breakdown">(
-    "percentiles"
+  const [internalMetric, setInternalMetric] = useState<"percentiles" | "status" | "breakdown">(
+    mode || "percentiles"
   );
+  const activeMetric = mode || internalMetric;
 
   const {
     series,
@@ -266,48 +267,50 @@ export function LatencyChart() {
           </div>
         </div>
 
-        {/* Metric Selector Pills */}
-        <div className="flex items-center gap-1 bg-(--ot-panel-raised) p-1 rounded-lg border border-(--ot-border)">
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={() => setActiveMetric("percentiles")}
-            className={`h-6 px-2 text-[11px] font-semibold transition-all cursor-pointer rounded-md ${
-              activeMetric === "percentiles"
-                ? "bg-emerald-600 text-white shadow-xs hover:bg-emerald-600"
-                : "text-(--ot-muted) hover:text-(--ot-text)"
-            }`}
-          >
-            <Clock className="h-3 w-3 mr-1" /> Percentiles
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={() => setActiveMetric("status")}
-            className={`h-6 px-2 text-[11px] font-semibold transition-all cursor-pointer rounded-md ${
-              activeMetric === "status"
-                ? "bg-blue-600 text-white shadow-xs hover:bg-blue-600"
-                : "text-(--ot-muted) hover:text-(--ot-text)"
-            }`}
-          >
-            <BarChart3 className="h-3 w-3 mr-1" /> HTTP Status
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            onClick={() => setActiveMetric("breakdown")}
-            className={`h-6 px-2 text-[11px] font-semibold transition-all cursor-pointer rounded-md ${
-              activeMetric === "breakdown"
-                ? "bg-purple-600 text-white shadow-xs hover:bg-purple-600"
-                : "text-(--ot-muted) hover:text-(--ot-text)"
-            }`}
-          >
-            <Layers className="h-3 w-3 mr-1" /> App vs DB
-          </Button>
-        </div>
+        {/* Metric Selector Pills (Show only when not locked in dedicated mode) */}
+        {!mode && (
+          <div className="flex items-center gap-1 bg-(--ot-panel-raised) p-1 rounded-lg border border-(--ot-border)">
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={() => setInternalMetric("percentiles")}
+              className={`h-6 px-2 text-[11px] font-semibold transition-all cursor-pointer rounded-md ${
+                activeMetric === "percentiles"
+                  ? "bg-emerald-600 text-white shadow-xs hover:bg-emerald-600"
+                  : "text-(--ot-muted) hover:text-(--ot-text)"
+              }`}
+            >
+              <Clock className="h-3 w-3 mr-1" /> Percentiles
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={() => setInternalMetric("status")}
+              className={`h-6 px-2 text-[11px] font-semibold transition-all cursor-pointer rounded-md ${
+                activeMetric === "status"
+                  ? "bg-blue-600 text-white shadow-xs hover:bg-blue-600"
+                  : "text-(--ot-muted) hover:text-(--ot-text)"
+              }`}
+            >
+              <BarChart3 className="h-3 w-3 mr-1" /> HTTP Status
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="xs"
+              onClick={() => setInternalMetric("breakdown")}
+              className={`h-6 px-2 text-[11px] font-semibold transition-all cursor-pointer rounded-md ${
+                activeMetric === "breakdown"
+                  ? "bg-purple-600 text-white shadow-xs hover:bg-purple-600"
+                  : "text-(--ot-muted) hover:text-(--ot-text)"
+              }`}
+            >
+              <Layers className="h-3 w-3 mr-1" /> App vs DB
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* KPI Stats Strip */}

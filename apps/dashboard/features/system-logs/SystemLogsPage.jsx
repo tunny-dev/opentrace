@@ -67,30 +67,9 @@ export function SystemLogsPage() {
     navigate(targetPath);
   };
 
-  const [mounted, setMounted] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [mounted, setMounted] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const authQuery = useQuery({
-    queryKey: ['system-logs', 'auth-session'],
-    queryFn: async () => {
-      const response = await fetch('/api/system-logs/auth', { cache: 'no-store' });
-      const result = await response.json();
-      if (!response.ok && response.status !== 401) {
-        throw new Error(result.error || 'Could not verify system logs session.');
-      }
-      return result.authenticated === true;
-    },
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-
-  useEffect(() => {
-    if (authQuery.isPending) return;
-    const authed = authQuery.data === true;
-    setMounted(true);
-    setIsAuthenticated(authed);
-    setShowAuthModal(!authed);
-  }, [authQuery.data, authQuery.isPending]);
 
   const [selectedDate, setSelectedDate] = useState('');
   const [timeRange, setTimeRange] = useState({
@@ -266,7 +245,6 @@ export function SystemLogsPage() {
   return (
     <TooltipProvider delayDuration={150}>
       <div className="min-h-screen w-full dark:bg-[#111217] bg-[#f4f5f7] dark:text-[#f4f5f7] text-slate-800 transition-colors">
-        <CimdevAuthModal isOpen={showAuthModal} onSuccess={handleAuthSuccess} />
 
         <TraceFilterToolbar
           dates={dates}
