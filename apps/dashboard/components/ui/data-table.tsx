@@ -178,6 +178,50 @@ export function DataTable<TData>({
   const searchRef = React.useRef<HTMLInputElement>(null);
   const lastSelectedId = React.useRef<string | null>(null);
 
+  // Synchronize initial filters from URL Query String on mount
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const qSearch = params.get("search");
+    if (qSearch) setSearch(qSearch);
+    const qLimit = params.get("limit");
+    if (qLimit && !isNaN(Number(qLimit))) {
+      setPagination((prev) => ({ ...prev, pageSize: Number(qLimit) }));
+    }
+    const qQuick = params.get("quick");
+    if (qQuick) setActiveQuickFilter(qQuick);
+  }, []);
+
+  // Sync state changes back to URL without reloading the page
+  const isInitialMount = React.useRef(true);
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const url = new URL(window.location.href);
+    if (search.trim()) {
+      url.searchParams.set("search", search.trim());
+    } else {
+      url.searchParams.delete("search");
+    }
+
+    if (pagination.pageSize !== initialPageSize) {
+      url.searchParams.set("limit", String(pagination.pageSize));
+    } else {
+      url.searchParams.delete("limit");
+    }
+
+    if (activeQuickFilter !== "all") {
+      url.searchParams.set("quick", activeQuickFilter);
+    } else {
+      url.searchParams.delete("quick");
+    }
+
+    window.history.replaceState({}, "", url.toString());
+  }, [search, pagination.pageSize, activeQuickFilter, initialPageSize]);
+
   const resetPage = React.useCallback(
     () => setPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 })),
     []

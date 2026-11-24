@@ -263,7 +263,7 @@ export function LatencyChart({ mode }: { mode?: "percentiles" | "status" | "brea
               {activeMetric === "status" && "Traffic & HTTP Status Codes (2xx, 4xx, 5xx)"}
               {activeMetric === "breakdown" && "App Processing vs Database Time"}
             </h2>
-            <span className="panel-badge text-[10px]">GRAFANA GRADE</span>
+            <span className="panel-badge text-[10px]">ENTERPRISE APM</span>
           </div>
         </div>
 
@@ -548,7 +548,7 @@ export function LatencyChart({ mode }: { mode?: "percentiles" | "status" | "brea
       <div className="chart-footer flex items-center justify-between text-[11px] text-(--ot-muted) pt-2 border-t border-(--ot-border)">
         <span>Dữ liệu đo đạc trực tiếp từ telemetry pipeline · Tần số 3.5s SSE</span>
         <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-medium">
-          Grafana APM Specifications <ArrowUpRight className="h-3 w-3" />
+          SpurTrace APM Telemetry <ArrowUpRight className="h-3 w-3" />
         </span>
       </div>
     </section>

@@ -125,11 +125,13 @@ export function TracesTable({
   section,
   onSelect,
   liveStream,
+  isLoading = false,
 }: {
   traces: DemoTrace[];
   section: string;
   onSelect: (trace: DemoTrace) => void;
   liveStream: boolean;
+  isLoading?: boolean;
 }) {
   const title =
     section === "errors"
@@ -381,6 +383,7 @@ export function TracesTable({
       initialColumnVisibility={INITIAL_COLUMN_VISIBILITY}
       exportFileName="spurtrace-traces"
       emptyMessage="No traces recorded yet."
+      isLoading={isLoading}
       onRowClick={onSelect}
       getRowClassName={getRowClassName}
     />

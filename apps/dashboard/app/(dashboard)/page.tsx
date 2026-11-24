@@ -12,7 +12,7 @@ import { useTelemetry } from "@/lib/spurtrace/telemetry-context";
 import { useI18n } from "@/lib/i18n/i18n-context";
 
 export default function OverviewPage() {
-  const { filteredTraces, openTrace, liveStream } = useTelemetry();
+  const { filteredTraces, openTrace, liveStream, refreshing } = useTelemetry();
   const { dict } = useI18n();
 
   const breakdown = useMemo(() => {
@@ -158,6 +158,7 @@ export default function OverviewPage() {
         section="overview"
         onSelect={openTrace}
         liveStream={liveStream}
+        isLoading={refreshing}
       />
     </div>
   );

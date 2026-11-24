@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import type { UserRole } from "./user-profile-menu";
 import {
   getEngineDdl,
@@ -1373,15 +1374,19 @@ export function SettingsPage({ role }: { role: UserRole }) {
                     {sampleRate}%
                   </strong>
                 </div>
-                <Input
-                  type="range"
-                  min="1"
-                  max="100"
-                  value={sampleRate}
-                  onChange={(e) => setSampleRate(Number(e.target.value))}
-                  disabled={!isAdmin}
-                  className="accent-emerald-500 cursor-pointer"
-                />
+                <div className="py-2.5">
+                  <Slider
+                    min={1}
+                    max={100}
+                    step={1}
+                    value={sampleRate}
+                    onValueChange={(val) => {
+                      const num = Array.isArray(val) ? val[0] : Number(val);
+                      if (!isNaN(num)) setSampleRate(num);
+                    }}
+                    disabled={!isAdmin}
+                  />
+                </div>
                 <small className="text-[10px] text-(--ot-muted)">
                   Errors (5xx) and Slow queries are always captured at 100%.
                 </small>
