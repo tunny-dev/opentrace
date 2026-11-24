@@ -124,6 +124,13 @@ export const docsNavItems: NavGroup[] = [
         badge: "Vanilla",
         keywords: ["vanilla", "javascript", "cdn", "script"],
       },
+      {
+        title: "Embedded Dashboard & UI Features",
+        href: "/docs/frontend/dashboard-ui",
+        description: "TanStack Table v8, Click-to-Copy, 404 Radar Diagnostics, and zero-reload SPA routing.",
+        badge: "v2.14",
+        keywords: ["dashboard", "ui", "tanstack", "table", "copy", "404", "responsive", "spa"],
+      },
     ],
   },
   {

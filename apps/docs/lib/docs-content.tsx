@@ -329,7 +329,7 @@ export class AppModule implements NestModule {
     group: "Getting Started",
     lastUpdated: "November 2026",
     toc: [
-      { id: "plug-and-play-philosophy", title: "Plug-and-Play Philosophy (Like Telescope for Any Framework)", level: 2 },
+      { id: "self-contained-philosophy", title: "Self-Contained Embedded Architecture (Zero External Dependencies)", level: 2 },
       { id: "three-tier-design", title: "The 3 Core Architectural Tiers", level: 2 },
       { id: "four-framework-blueprints", title: "Integration Blueprints for 4 Project Types", level: 2 },
       { id: "dotnet-mvc-blueprint", title: "Scenario 1: .NET MVC (Self-Hosted UI)", level: 3 },
@@ -341,14 +341,14 @@ export class AppModule implements NestModule {
     ],
     content: (
       <div className="space-y-6">
-        <h2 id="plug-and-play-philosophy" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-          Plug-and-Play Philosophy (Like Telescope for Any Framework)
+        <h2 id="self-contained-philosophy" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+          Self-Contained Embedded Architecture (Zero External Dependencies)
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-          In Laravel, developers love <strong>Laravel Telescope</strong> because it is <strong>completely self-contained</strong>: you install the package into your Laravel app, it creates its tables in your database, and it serves the dashboard right inside your web application without needing external servers, third-party clouds, or Docker containers.
+          Modern enterprise systems require high-fidelity telemetry, real-time SQL execution profiling, and granular error waterfall traces directly within the application. Traditional cloud APMs force engineering teams to operate complex external collector clusters (like Datadog agents, Jaeger daemons, or heavy OpenTelemetry collector pods) and pay expensive cloud ingestion bills.
         </p>
         <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-          <strong>SpurTrace takes this exact philosophy and makes it universal across every major web framework:</strong>
+          <strong>SpurTrace is engineered as a completely self-contained, in-app APM engine:</strong> you add the library directly into your project (.NET, Next.js, NestJS, Express), it maintains its telemetry table directly inside your existing database (or an isolated DB), and serves the rich dashboard right inside your web application without needing external servers, third-party clouds, or Docker containers.
         </p>
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-900/40 text-xs space-y-2">
           <p className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">
@@ -977,8 +977,15 @@ app.Run();`}
         <h2 id="dapper-efcore" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
           4. Dapper &amp; EF Core Tracking
         </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          SpurTrace provides transparent tracking for both <strong>Entity Framework Core</strong> and <strong>Dapper</strong>. All queries are captured with execution latency, parameter tokens, and linked to the active HTTP request Trace ID:
+        </p>
+
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 pt-2">
+          A. Entity Framework Core (Zero Code Interceptor)
+        </h3>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          Attach the zero-code <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">SpurTraceDbInterceptor</code> to your EF Core DbContext to automatically track query latency, sanitize literal bindings, and detect duplicate N+1 patterns:
+          Attach the zero-code <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">SpurTraceDbInterceptor</code> to your EF Core DbContext:
         </p>
         <CodeBlock
           filename="Program.cs (EF Core)"
@@ -987,6 +994,67 @@ app.Run();`}
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
            .AddInterceptors(new SpurTraceDbInterceptor(slowQueryThresholdMs: 250));
 });`}
+        />
+
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 pt-2">
+          B. Dapper &amp; Raw ADO.NET Interception
+        </h3>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          Because Dapper operates directly on <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">IDbConnection</code> without an interceptor pipeline, wrap your connection with <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">SpurTraceDbConnection</code> or use the extension method to automatically capture query duration, SQL statement, and parameters:
+        </p>
+        <CodeBlock
+          filename="UserRepository.cs (Dapper Tracking)"
+          code={`using Dapper;
+using SpurTrace.AspNetCore;
+
+public class UserRepository
+{
+    private readonly string _connectionString;
+    public UserRepository(IConfiguration config) =>
+        _connectionString = config.GetConnectionString("DefaultConnection")!;
+
+    // Option 1: Wrap connection with SpurTraceDbConnection
+    public async Task<IEnumerable<User>> GetActiveUsersAsync(string factory)
+    {
+        using var rawConn = new SqlConnection(_connectionString);
+        using var conn = new SpurTraceDbConnection(rawConn); // Automatically records to current Trace ID
+
+        const string sql = "SELECT * FROM Users WHERE Factory = @factory AND IsActive = 1";
+        return await conn.QueryAsync<User>(sql, new { factory });
+    }
+
+    // Option 2: Explicit SpurTrace Query Scope
+    public async Task<int> UpdateUserStatusAsync(int userId, string status)
+    {
+        using var conn = new SqlConnection(_connectionString);
+        const string sql = "UPDATE Users SET Status = @status WHERE Id = @userId";
+
+        return await SpurTrace.ProfileQueryAsync(sql, new { userId, status }, async () =>
+        {
+            return await conn.ExecuteAsync(sql, new { userId, status });
+        });
+    }
+}`}
+        />
+
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100 pt-2">
+          C. Application Name Configuration (e.g. Senao-EMS)
+        </h3>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          You can configure your application name in <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">appsettings.json</code> or directly in C# code. If omitted, SpurTrace automatically defaults to your entry assembly name:
+        </p>
+        <CodeBlock
+          filename="appsettings.json"
+          code={`{
+  "SpurTrace": {
+    "AppName": "Senao-EMS",
+    "Environment": "Production",
+    "StorageType": "SqlServer",
+    "SlowRequestThresholdMs": 500,
+    "SlowQueryThresholdMs": 250,
+    "SampleRateSuccess": 1.0
+  }
+}`}
         />
 
         <h2 id="multi-framework" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
@@ -1383,16 +1451,186 @@ const instance = mountSpurTrace(container, {
     ),
   },
 
+  // 9b. Embedded Dashboard UI & Interactions
+  "frontend/dashboard-ui": {
+    title: "Embedded Dashboard UI & Interactions",
+    description: "Enterprise Next.js dashboard features: TanStack Table v8, universal Click-to-Copy, 404 Radar Diagnostics, and zero-reload SPA navigation.",
+    group: "Frontend Integration",
+    lastUpdated: "November 2026",
+    badge: "v2.14 UI",
+    toc: [
+      { id: "tanstack-table", title: "1. TanStack Table v8 & URL State Sync", level: 2 },
+      { id: "universal-copy", title: "2. Universal Click-to-Copy System", level: 2 },
+      { id: "not-found-radar", title: "3. APM 404 Radar Signal Diagnostic Page", level: 2 },
+      { id: "zero-reload-spa", title: "4. Zero-Reload SPA Routing in .NET (/telemetry)", level: 2 },
+      { id: "responsive-laptop", title: "5. Responsive Layout for 14-Inch Laptops", level: 2 },
+      { id: "sql-studio", title: "6. Inlined SQL Studio & Diagnostics", level: 2 },
+      { id: "rbac-profiles", title: "7. RBAC Roles & User Profiles (Admin, Engineer, Viewer)", level: 2 },
+    ],
+    content: (
+      <div className="space-y-6">
+        <h2 id="tanstack-table" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+          1. TanStack Table v8 &amp; URL State Sync
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          The SpurTrace Dashboard uses <strong>TanStack Table v8</strong> to deliver desktop-grade performance across massive trace datasets. All filter states, sorting keys, search queries, and pagination indexes are bidirectionally synchronized with the browser&apos;s URL query string:
+        </p>
+
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-900/40 text-xs space-y-2">
+          <p className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">
+            Example URL Query String Sync
+          </p>
+          <code className="font-mono text-emerald-600 dark:text-emerald-400 block bg-zinc-950 p-2.5 rounded-lg overflow-x-auto">
+            /telemetry/traces?page=1&amp;limit=50&amp;search=users&amp;status=500&amp;method=POST&amp;slow=true
+          </code>
+          <p className="text-zinc-600 dark:text-zinc-400">
+            This enables engineers to bookmark specific incident views, refresh without losing filter configurations, and share precise diagnostic links with teammates over Slack or email.
+          </p>
+        </div>
+
+        <ul className="list-disc pl-5 space-y-1.5 text-xs text-zinc-700 dark:text-zinc-300">
+          <li><strong>Multi-Column Sorting:</strong> Click any header to sort ascending/descending. Duration, timestamp, HTTP status, and error counts support immediate re-ordering.</li>
+          <li><strong>Dynamic Faceted Filters:</strong> Filter by HTTP Method (GET, POST, PUT, DELETE), Status (2xx, 4xx, 5xx), Execution Speed (Slow &gt; 500ms, Critical), and N+1 Loop warnings.</li>
+          <li><strong>Data Export:</strong> 1-click export of filtered rows into CSV, JSON dump, or executable cURL statements.</li>
+        </ul>
+
+        <h2 id="universal-copy" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          2. Universal Click-to-Copy System
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          Every critical identifier, query statement, error payload, and connection string is equipped with a dedicated <strong>Click-to-Copy</strong> button:
+        </p>
+        <Cards cols={3}>
+          <Card
+            title="Trace &amp; Request IDs"
+            description="Copy 32-character hexadecimal Trace IDs directly from the table, log line stream, or metadata ribbon."
+            href="#universal-copy"
+            iconName="activity"
+            badge="Instant"
+          />
+          <Card
+            title="SQL Queries &amp; Params"
+            description="Copy raw SQL templates, inlined executable scripts with replaced @params, or SQL + STATISTICS."
+            href="#universal-copy"
+            iconName="database"
+            badge="Formatted"
+          />
+          <Card
+            title="Logs &amp; Payloads"
+            description="Copy raw JSON payloads, stack traces, and database connection strings with animated Sonner toast confirmation."
+            href="#universal-copy"
+            iconName="terminal"
+            badge="Toast UI"
+          />
+        </Cards>
+
+        <Callout type="tip" title="Iframe &amp; Webview Fallback Mechanism">
+          In embedded webviews or sandboxed iframes where <code className="font-mono">navigator.clipboard</code> may be blocked by browser security policies, SpurTrace automatically falls back to an invisible <code className="font-mono">document.execCommand(&apos;copy&apos;)</code> routine to guarantee 100% reliable clipboard copying.
+        </Callout>
+
+        <h2 id="not-found-radar" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          3. APM 404 Radar Signal Diagnostic Page
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          When a requested route, deleted trace, or expired telemetry waterfall is accessed, SpurTrace renders a dark enterprise-grade 404 diagnostic screen:
+        </p>
+        <ul className="list-disc pl-5 space-y-1.5 text-xs text-zinc-700 dark:text-zinc-300">
+          <li><strong>Radar / Sonar Pulse Graphic:</strong> Visual signal indicator badge <code className="font-mono text-rose-500">404 • ROUTE_OR_TRACE_NOT_FOUND</code>.</li>
+          <li><strong>Requested URL Diagnostic Card:</strong> Displays the exact URL target that failed, with a 1-click copy button to share with ops teams.</li>
+          <li><strong>Quick Module Links:</strong> 1-click navigation cards pointing to Overview, Traces, SQL Studio, Logs, and Settings.</li>
+        </ul>
+
+        <h2 id="zero-reload-spa" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          4. Zero-Reload SPA Routing in .NET (/telemetry)
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          When hosted inside ASP.NET Core under <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">/telemetry</code>, navigating between tabs (Traces, SQL Studio, Logs, Settings) runs as a pure single-page application (SPA) without full-page reloads:
+        </p>
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-900/40 text-xs space-y-2">
+          <p className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">
+            RSC Flight Payload Mapping in SpurTraceExtensions.cs
+          </p>
+          <p className="text-zinc-600 dark:text-zinc-400">
+            Next.js App Router requests client page flight data using <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">.txt</code> extensions (e.g. <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">/telemetry/sql.txt</code>). SpurTrace maps these statically generated flight payloads with the <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">Content-Type: text/x-component</code> header, ensuring Next.js client-side router transitions instantaneously without triggering browser 404 fallbacks or page reloads.
+          </p>
+        </div>
+
+        <h2 id="responsive-laptop" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          5. Responsive Layout for 14-Inch Laptops
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          The dashboard layout is specifically calibrated for 14-inch enterprise laptops (1366x768 to 1920x1080 at 125%/150% Windows display scaling):
+        </p>
+        <ul className="list-disc pl-5 space-y-1.5 text-xs text-zinc-700 dark:text-zinc-300">
+          <li><strong>Seamless Top Border Alignment:</strong> Both sidebar header and top navbar are locked to exactly <code className="font-mono">h-14 (56px)</code> with matching borders, preventing header jumping.</li>
+          <li><strong>Overflow Containment:</strong> Tables wrap in horizontal scroll containers with minimum widths (<code className="font-mono">min-w-[1040px]</code>), preventing text clipping or collapsed columns.</li>
+          <li><strong>Left-Aligned Mono Badges:</strong> Trace IDs and timestamps are strictly left-aligned to eliminate visual jitter across varied trace ID string lengths.</li>
+        </ul>
+
+        <h2 id="sql-studio" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          6. Inlined SQL Studio &amp; Diagnostics
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          The embedded SQL Studio enables DBAs and backend engineers to inspect query execution directly:
+        </p>
+        <ul className="list-disc pl-5 space-y-1.5 text-xs text-zinc-700 dark:text-zinc-300">
+          <li><strong>Automatic Parameter Inlining:</strong> Automatically substitutes query placeholders (<code className="font-mono">@id</code>, <code className="font-mono">@factory</code>) with actual execution arguments for copy-pasting into SSMS or pgAdmin.</li>
+          <li><strong>Read-Only Sandbox:</strong> Only <code className="font-mono">SELECT</code> and <code className="font-mono">DECLARE</code> statements are permitted in live testing to ensure production safety.</li>
+          <li><strong>Execution Statistics:</strong> Measures CPU time, elapsed time, scan count, and logical reads via <code className="font-mono">SET STATISTICS TIME, IO ON</code> wrappers.</li>
+        </ul>
+
+        <h2 id="rbac-profiles" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          7. RBAC Roles &amp; User Profiles (Admin, Engineer, Viewer)
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          SpurTrace provides built-in Role-Based Access Control (RBAC) manageable directly in the Settings tab:
+        </p>
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden text-xs">
+          <table className="w-full text-left border-collapse">
+            <thead className="bg-muted/50 border-b border-border text-[11px] uppercase text-muted-foreground font-semibold">
+              <tr>
+                <th className="p-3">Role</th>
+                <th className="p-3">Traces &amp; Waterfall</th>
+                <th className="p-3">SQL Studio</th>
+                <th className="p-3">DB &amp; Email Settings</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border/60 text-xs">
+              <tr>
+                <td className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">Admin</td>
+                <td className="p-3">Full Access</td>
+                <td className="p-3">Full Access</td>
+                <td className="p-3">Full Access (Connection string, backup, retention)</td>
+              </tr>
+              <tr>
+                <td className="p-3 font-semibold text-sky-600 dark:text-sky-400">Engineer</td>
+                <td className="p-3">Full Access</td>
+                <td className="p-3">Read &amp; Execute Sandbox</td>
+                <td className="p-3 text-muted-foreground">Read Only</td>
+              </tr>
+              <tr>
+                <td className="p-3 font-semibold text-amber-600 dark:text-amber-400">Viewer</td>
+                <td className="p-3">Masked Sensitive Values</td>
+                <td className="p-3 text-muted-foreground">Disabled</td>
+                <td className="p-3 text-muted-foreground">Disabled</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ),
+  },
+
   // 10. Database Architecture & Schemas
   "storage/database-setup": {
     title: "Database Architecture & sys_traces Schema",
-    description: "Single-table APM architecture vs Laravel Telescope comparison, unified DDL schemas, and zero-setup auto-migration.",
+    description: "High-throughput single-table APM architecture, unified DDL schemas, and zero-setup auto-migration.",
     group: "Storage Adapters",
     lastUpdated: "November 2026",
     badge: "Architecture",
     toc: [
       { id: "engine-overview", title: "Supported Database Engines", level: 2 },
-      { id: "telescope-comparison", title: "Why 1 Table? vs Laravel Telescope (3 Tables)", level: 2 },
+      { id: "single-table-vs-multi-table", title: "Why 1 Table? vs Multi-Table Tracing Architecture", level: 2 },
       { id: "unified-schema", title: "Unified sys_traces Schema & Design", level: 2 },
       { id: "sqlite-ddl", title: "1. SQLite WAL DDL (Zero Setup)", level: 2 },
       { id: "postgres-ddl", title: "2. PostgreSQL Range-Partitioned DDL", level: 2 },
@@ -1433,30 +1671,30 @@ const instance = mountSpurTrace(container, {
           />
         </Cards>
 
-        <h2 id="telescope-comparison" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
-          Why 1 Table? vs Laravel Telescope (3 Tables)
+        <h2 id="single-table-vs-multi-table" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          Why 1 Table? vs Multi-Table Tracing Architecture
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-          Many developers ask: <em>&ldquo;In Laravel Telescope, there are 3 tables (telescope_entries, telescope_entries_tags, telescope_monitoring). Why does SpurTrace use only 1 table (sys_traces)? Does 1 table satisfy all APM monitoring requirements, and is it truly optimal?&rdquo;</em>
+          Many developers ask: <em>&ldquo;Traditional tracing tools often use 3 to 5 separate normalized tables (spans, tags, logs, metrics). Why does SpurTrace consolidate everything into 1 unified table (sys_traces)? Does 1 table satisfy all enterprise APM monitoring requirements?&rdquo;</em>
         </p>
 
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden text-xs">
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-200 dark:divide-zinc-800">
             <div className="p-4 bg-amber-500/5 space-y-2">
-              <span className="font-bold text-amber-600 dark:text-amber-400 text-sm block">Laravel Telescope (3 Tables)</span>
+              <span className="font-bold text-amber-600 dark:text-amber-400 text-sm block">Traditional Multi-Table Tracing</span>
               <p className="text-zinc-600 dark:text-zinc-400">
-                Designed for <strong>local/staging developer debugging</strong>. Each SQL query, log, dump, request, and cache hit is inserted as a separate row in <code className="font-mono">telescope_entries</code> plus multiple rows in <code className="font-mono">telescope_entries_tags</code>.
+                Spreads each request across multiple relational tables with foreign keys (<code className="font-mono">traces</code>, <code className="font-mono">spans</code>, <code className="font-mono">tags</code>, <code className="font-mono">logs</code>).
               </p>
               <ul className="list-disc pl-4 space-y-1 text-zinc-600 dark:text-zinc-400">
-                <li><strong>Heavy Write Amplification:</strong> 1 HTTP request executing 30 SQL queries and 5 logs produces <strong>36+ database inserts</strong>.</li>
-                <li><strong>Catastrophic Analytics:</strong> Calculating P95/P99 latency, error rate %, or DB time % requires scanning and deserializing millions of rows of JSON <code className="font-mono">content</code> fields.</li>
-                <li><strong>High Table Lock Risk:</strong> Foreign key cascades and tag lookups create lock contention under concurrent load.</li>
+                <li><strong>Heavy Write Amplification:</strong> 1 HTTP request executing 30 SQL queries and 5 logs produces <strong>36+ database inserts</strong> across multiple tables.</li>
+                <li><strong>Catastrophic Analytics:</strong> Calculating P95/P99 latency, error rate %, or DB time % requires multiple table JOINs, leading to high CPU load and cache misses under concurrent production traffic.</li>
+                <li><strong>High Table Lock Risk &amp; Cascade Latency:</strong> Foreign key cascades and tag lookups create lock contention and deadlock risks during high throughput.</li>
               </ul>
             </div>
             <div className="p-4 bg-emerald-500/5 space-y-2">
               <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm block">SpurTrace APM (Unified sys_traces)</span>
               <p className="text-zinc-600 dark:text-zinc-400">
-                Engineered for <strong>high-throughput production APM</strong> (the same architectural pattern used by Sentry, Datadog, and OpenTelemetry collectors).
+                Engineered for <strong>high-throughput production APM</strong> (the same architectural pattern used by Sentry, Datadog, and OpenTelemetry modern collectors).
               </p>
               <ul className="list-disc pl-4 space-y-1 text-zinc-600 dark:text-zinc-400">
                 <li><strong>Zero Write Amplification (1 Write/Request):</strong> All execution spans, queries, breadcrumbs, and exceptions are flushed in <strong>a single batch write</strong> at request completion.</li>

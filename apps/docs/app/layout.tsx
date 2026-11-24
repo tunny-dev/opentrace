@@ -18,9 +18,17 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SpurTrace - The Embedded APM for Modern Web Backends",
+  title: "SpurTrace Docs - Embedded APM for Modern Web Backends",
   description:
     "Official website & documentation for SpurTrace: zero-cloud, embedded APM & observability for Express, NestJS, Next.js, and .NET 6+.",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", sizes: "any" },
+    ],
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
