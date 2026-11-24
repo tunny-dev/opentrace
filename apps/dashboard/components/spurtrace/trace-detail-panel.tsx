@@ -677,7 +677,7 @@ function RawStreamViewer({ trace }: { trace: DemoTrace }) {
         </div>
         <div>
           <span className="text-muted-foreground block text-[10px] uppercase font-bold">Duration</span>
-          <span className="font-mono text-[11px] text-foreground">{trace.duration} ms</span>
+          <span className="font-mono text-[11px] text-foreground">{formatDuration(trace.duration)}</span>
         </div>
         <div>
           <span className="text-muted-foreground block text-[10px] uppercase font-bold">Spans / Queries</span>
