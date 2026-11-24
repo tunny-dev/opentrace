@@ -662,8 +662,7 @@ ${getEngineDdl(dbEngine)}
                     {dbMode === "shared" && <Check className="h-4 w-4 text-emerald-500" />}
                   </div>
                   <p className="text-[11px] text-(--ot-muted) leading-relaxed">
-                    Tables like <code>opentrace_traces</code> and <code>opentrace_spans</code>{" "}
-                    reside inside your existing MES/MSSQL/PostgreSQL database.
+                    The unified telemetry table <code>sys_traces</code> resides inside your existing MES/MSSQL/PostgreSQL database with indexed metrics and embedded JSON waterfalls.
                   </p>
                 </div>
 

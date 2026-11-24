@@ -151,7 +151,7 @@ export function LogStreamTab({
           <div className="section-kicker">SYSTEM EVENTS / RAW EXPLORER</div>
           <div className="logs-title-row">
             <h2 id="logs-heading">Log Stream</h2>
-            <span className="logs-sample-pill">SIMULATED DATA</span>
+            <span className="logs-sample-pill">LIVE TELEMETRY</span>
           </div>
           <p>Correlate application, SQL, and exception logs with request traces.</p>
         </div>
@@ -365,7 +365,7 @@ export function LogStreamTab({
             <i className="collector-dot" />
             Raw log explorer · trace IDs open the request waterfall
           </span>
-          <span>DEMO FIXTURE</span>
+          <span>LIVE TRACE LOGS</span>
         </footer>
       </section>
     </section>

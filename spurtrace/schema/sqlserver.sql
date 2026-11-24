@@ -22,7 +22,7 @@ IF OBJECT_ID(N'dbo.sys_traces', N'U') IS NULL
 BEGIN
   CREATE TABLE dbo.sys_traces (
     created_at datetime2(3) NOT NULL,
-    trace_id uniqueidentifier NOT NULL,
+    trace_id nvarchar(64) NOT NULL,
     app_name nvarchar(160) NOT NULL,
     method varchar(12) NOT NULL,
     route nvarchar(1024) NOT NULL,

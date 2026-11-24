@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,57 @@ import { useI18n } from "@/lib/i18n/i18n-context";
 export default function OverviewPage() {
   const { filteredTraces, openTrace, liveStream } = useTelemetry();
   const { dict } = useI18n();
+
+  const breakdown = useMemo(() => {
+    if (filteredTraces.length === 0) {
+      return {
+        avgDuration: 0,
+        dbPct: 0,
+        appPct: 100,
+        extPct: 0,
+        avgDbMs: 0,
+        avgAppMs: 0,
+        avgExtMs: 0,
+      };
+    }
+    let totalDur = 0;
+    let totalDb = 0;
+    let totalExt = 0;
+    let totalApp = 0;
+
+    for (const trace of filteredTraces) {
+      totalDur += trace.duration;
+      const dbTime =
+        (trace.spans || [])
+          .filter((s) => s.kind === "db")
+          .reduce((sum, s) => sum + s.duration, 0) ||
+        (trace.queries || []).reduce((sum, q) => sum + q.duration, 0);
+      const extTime = (trace.spans || [])
+        .filter((s) => s.kind === "http")
+        .reduce((sum, s) => sum + s.duration, 0);
+      const appTime = Math.max(0, trace.duration - dbTime - extTime);
+
+      totalDb += dbTime;
+      totalExt += extTime;
+      totalApp += appTime;
+    }
+
+    const n = filteredTraces.length;
+    const avgDuration = Math.round(totalDur / n);
+    const dbPct = totalDur > 0 ? Number(((totalDb / totalDur) * 100).toFixed(1)) : 0;
+    const extPct = totalDur > 0 ? Number(((totalExt / totalDur) * 100).toFixed(1)) : 0;
+    const appPct = totalDur > 0 ? Number(Math.max(0, 100 - dbPct - extPct).toFixed(1)) : 100;
+
+    return {
+      avgDuration,
+      dbPct,
+      appPct,
+      extPct,
+      avgDbMs: Math.round(totalDb / n),
+      avgAppMs: Math.round(totalApp / n),
+      avgExtMs: Math.round(totalExt / n),
+    };
+  }, [filteredTraces]);
 
   return (
     <div className="flex flex-col gap-5">
@@ -55,37 +107,38 @@ export default function OverviewPage() {
           </div>
           <div className="breakdown-total">
             <strong>
-              184<span>ms</span>
+              {breakdown.avgDuration}
+              <span>ms</span>
             </strong>
             <span>avg. request duration</span>
           </div>
           <div
             className="composition-track"
             role="img"
-            aria-label="68 percent database, 24 percent application, 8 percent external services"
+            aria-label={`${breakdown.dbPct}% database, ${breakdown.appPct}% application, ${breakdown.extPct}% external services`}
           >
-            <i />
-            <span />
-            <b />
+            <i style={{ width: `${breakdown.dbPct}%` }} />
+            <span style={{ width: `${breakdown.appPct}%` }} />
+            <b style={{ width: `${breakdown.extPct}%` }} />
           </div>
           <div className="composition-list">
             <div>
               <i className="composition-db" />
               <span>Database</span>
-              <strong>68.4%</strong>
-              <small>126 ms</small>
+              <strong>{breakdown.dbPct}%</strong>
+              <small>{breakdown.avgDbMs} ms</small>
             </div>
             <div>
               <i className="composition-app" />
               <span>App logic</span>
-              <strong>23.7%</strong>
-              <small>44 ms</small>
+              <strong>{breakdown.appPct}%</strong>
+              <small>{breakdown.avgAppMs} ms</small>
             </div>
             <div>
               <i className="composition-ext" />
               <span>External APIs</span>
-              <strong>7.9%</strong>
-              <small>14 ms</small>
+              <strong>{breakdown.extPct}%</strong>
+              <small>{breakdown.avgExtMs} ms</small>
             </div>
           </div>
           <Link href="/sql" className="breakdown-link cursor-pointer">

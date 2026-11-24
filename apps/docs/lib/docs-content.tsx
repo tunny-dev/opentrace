@@ -665,9 +665,10 @@ export const GET = withSpurTrace(async (request) => {
     toc: [
       { id: "supported-versions", title: "Supported .NET Versions", level: 2 },
       { id: "nuget-package", title: "1. Install NuGet Package", level: 2 },
-      { id: "program-cs", title: "2. Program.cs Configuration", level: 2 },
-      { id: "dapper-efcore", title: "3. Dapper & EF Core Tracking", level: 2 },
-      { id: "minimal-apis", title: "4. Minimal APIs Example", level: 2 },
+      { id: "program-cs", title: "2. Web API & Auto DB Migration", level: 2 },
+      { id: "dotnet-mvc", title: "3. .NET MVC & Embedded Dashboard", level: 2 },
+      { id: "dapper-efcore", title: "4. Dapper & EF Core Tracking", level: 2 },
+      { id: "multi-framework", title: "5. Multi-Framework Fleet (Next.js & NestJS)", level: 2 },
     ],
     content: (
       <div className="space-y-6">
@@ -675,7 +676,7 @@ export const GET = withSpurTrace(async (request) => {
           Supported .NET Versions
         </h2>
         <Callout type="tip" title="Modern .NET First (from .NET 6 onwards)">
-          SpurTrace for .NET targets modern unified .NET versions: <strong>.NET 6 (LTS), .NET 7, .NET 8 (LTS), and .NET 9</strong>. It leverages modern C# 10/11/12 features, <code className="font-mono">AsyncLocal&lt;T&gt;</code>, and high-performance zero-allocation buffers.
+          SpurTrace for .NET targets modern unified .NET versions: <strong>.NET 6 (LTS), .NET 7, .NET 8 (LTS), and .NET 9</strong>. It supports both <strong>ASP.NET Core Web APIs</strong> and <strong>ASP.NET Core MVC</strong>, leveraging <code className="font-mono">AsyncLocal&lt;T&gt;</code>, EF Core interceptors, and non-blocking in-memory batch writers.
         </Callout>
 
         <h2 id="nuget-package" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
@@ -707,10 +708,10 @@ export const GET = withSpurTrace(async (request) => {
         />
 
         <h2 id="program-cs" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
-          2. Program.cs Configuration
+          2. Web API &amp; Auto Database Migration
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          In your modern ASP.NET Core project (like <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">MESProductionDashboardAPI</code>), configure SpurTrace in <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">Program.cs</code>:
+          When your .NET application boots, SpurTrace automatically verifies and creates the universal <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">sys_traces</code> table if it does not already exist. Configure in <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded text-zinc-900 dark:text-zinc-100">Program.cs</code>:
         </p>
         <CodeBlock
           filename="Program.cs"
@@ -718,56 +719,72 @@ export const GET = withSpurTrace(async (request) => {
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Add SpurTrace Services & Configure Storage
+// 1. Add SpurTrace Services & Auto-Create Table in SQL Server or SQLite
 builder.Services.AddSpurTrace(options =>
 {
-    options.AppName = "MESProductionDashboardAPI";
-    options.StoragePath = "./spurtrace.sqlite";
-    options.SampleRateSuccess = 0.2; // 20% healthy requests
+    options.AppName = "MES-Production-API";
+    options.StorageType = SpurTraceStorageType.SqlServer;
+    options.ConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+    options.AutoCreateTables = true; // Auto-creates dbo.sys_traces if not exists
+    options.SampleRateSuccess = 0.2; // 20% healthy requests, 100% errors/slow
     options.SlowRequestThresholdMs = 500;
     options.SlowQueryThresholdMs = 250;
-    options.Auth.Enabled = true;
-    options.Auth.Users.Add(new("CIMDEV", "cimdev"));
 });
 
 var app = builder.Build();
 
-// 2. SpurTrace HTTP Middleware (Must be before routing/controllers)
+// 2. SpurTrace HTTP Middleware (non-blocking request & error tracking)
 app.UseSpurTrace();
 
-// 3. Serve the Embedded Dashboard UI
-app.UseSpurTraceDashboard("/_telemetry");
+// 3. Expose Telemetry API for external React Frontend or monitoring agents
+app.MapSpurTraceEndpoints();
 
 app.MapControllers();
 app.Run();`}
         />
 
+        <h2 id="dotnet-mvc" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          3. .NET MVC &amp; Embedded Dashboard UI
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300">
+          In a <strong>.NET MVC project</strong>, you can serve the complete React Dashboard directly from your MVC application (similar to Swagger UI or Hangfire Dashboard) without installing Node.js on production servers:
+        </p>
+        <CodeBlock
+          filename="Program.cs (.NET MVC)"
+          code={`var app = builder.Build();
+
+app.UseSpurTrace();
+app.UseStaticFiles(); // Serves dashboard bundle from wwwroot/telemetry
+
+// Map dashboard UI to https://your-domain/telemetry
+app.MapFallbackToFile("/telemetry/{*path}", "/telemetry/index.html");
+app.MapSpurTraceEndpoints(); // Exposes /api/traces
+
+app.MapDefaultControllerRoute();
+app.Run();`}
+        />
+
         <h2 id="dapper-efcore" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
-          3. Dapper & EF Core Tracking
+          4. Dapper &amp; EF Core Tracking
         </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300">
+          Attach the zero-code <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">SpurTraceDbInterceptor</code> to your EF Core DbContext to automatically track query latency, sanitize literal bindings, and detect duplicate N+1 patterns:
+        </p>
         <CodeBlock
-          filename="ProductionReportRepository.cs"
-          code={`public async Task<IEnumerable<ReportDto>> GetDailyReportAsync(string lineId, DateTime date)
+          filename="Program.cs (EF Core)"
+          code={`builder.Services.AddDbContext<AppDbContext>((sp, options) =>
 {
-    const string sql = "SELECT * FROM MES_PRODUCTION_LOG WHERE LineId = @LineId AND WorkDate = @Date";
-
-    // Automatically captures query execution time, sanitizes parameters, and detects N+1
-    return await _trace.RunSqlAsync(sql, async () =>
-    {
-        using var connection = CreateConnection();
-        return await connection.QueryAsync<ReportDto>(sql, new { LineId = lineId, Date = date });
-    });
-}`}
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+           .AddInterceptors(new SpurTraceDbInterceptor(slowQueryThresholdMs: 250));
+});`}
         />
 
-        <h2 id="minimal-apis" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
-          4. Minimal APIs Example
+        <h2 id="multi-framework" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          5. Multi-Framework Fleet (Next.js &amp; NestJS)
         </h2>
-        <CodeBlock
-          filename="Program.cs"
-          code={`app.MapGet("/api/status", () => Results.Ok(new { status = "operational" }))
-   .WithSpurTrace("HealthCheck");`}
-        />
+        <p className="text-sm text-zinc-700 dark:text-zinc-300">
+          Because SpurTrace uses a single universal contract (<code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">sys_traces</code>), your <strong>Next.js</strong> frontends, <strong>NestJS</strong> microservices, and <strong>.NET</strong> backends can all report to the same database. The unified SpurTrace Dashboard automatically aggregates all services into a live dependency topology map.
+        </p>
       </div>
     ),
   },
@@ -1156,20 +1173,22 @@ const instance = mountSpurTrace(container, {
     ),
   },
 
-  // Database Setup & Schemas
+  // 10. Database Architecture & Schemas
   "storage/database-setup": {
-    title: "Database Setup & Schemas",
-    description: "Connect SpurTrace to SQLite WAL, PostgreSQL, or Microsoft SQL Server with automated schema migrations.",
+    title: "Database Architecture & sys_traces Schema",
+    description: "Single-table APM architecture vs Laravel Telescope comparison, unified DDL schemas, and zero-setup auto-migration.",
     group: "Storage Adapters",
     lastUpdated: "November 2026",
-    badge: "Setup",
+    badge: "Architecture",
     toc: [
       { id: "engine-overview", title: "Supported Database Engines", level: 2 },
-      { id: "sqlite-setup", title: "1. SQLite WAL (Zero Setup)", level: 2 },
-      { id: "postgres-setup", title: "2. PostgreSQL Enterprise Setup", level: 2 },
-      { id: "mssql-setup", title: "3. Microsoft SQL Server Setup", level: 2 },
-      { id: "schema-ddl", title: "Database Schema & UUID Convention", level: 2 },
-      { id: "retention-maintenance", title: "Automated Retention & Pruning", level: 2 },
+      { id: "telescope-comparison", title: "Why 1 Table? vs Laravel Telescope (3 Tables)", level: 2 },
+      { id: "unified-schema", title: "Unified sys_traces Schema & Design", level: 2 },
+      { id: "sqlite-ddl", title: "1. SQLite WAL DDL (Zero Setup)", level: 2 },
+      { id: "postgres-ddl", title: "2. PostgreSQL Range-Partitioned DDL", level: 2 },
+      { id: "mssql-ddl", title: "3. Microsoft SQL Server Partitioned DDL", level: 2 },
+      { id: "multi-framework-fleet", title: "Multi-Framework Fleet Integration", level: 2 },
+      { id: "retention-maintenance", title: "Automated Retention & Partition Dropping", level: 2 },
     ],
     content: (
       <div className="space-y-6">
@@ -1177,130 +1196,316 @@ const instance = mountSpurTrace(container, {
           Supported Database Engines
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-          SpurTrace supports flexible storage backends depending on your deployment architecture. Every backend uses <strong>UUIDv4 primary keys</strong>, automated schema initialization on first boot, and non-blocking background workers:
+          SpurTrace provides first-class support for three production database backends. All backends adhere to the <strong>exact same single-table contract (<code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">sys_traces</code>)</strong>, enabling any frontend or backend service (.NET, NestJS, Next.js, Express) to write to and read from the exact same telemetry store:
         </p>
 
         <Cards cols={3}>
           <Card
             title="SQLite WAL"
-            description="Zero maintenance, embedded single-file storage. Recommended for 95% of single-node deployments."
+            description="Zero-maintenance, self-contained single-file storage. Powered by a dedicated worker thread with WAL mode. Ideal for standalone and microservice nodes."
             href="/docs/storage/sqlite"
             iconName="database"
-            badge="Default (Priority #4)"
+            badge="Default (Zero-Config)"
           />
           <Card
             title="PostgreSQL"
-            description="Enterprise relational storage with JSONB support, connection pooling, and multi-node cluster scaling."
+            description="Enterprise relational storage with JSONB columns and daily range partitioning. Detach and drop old daily partitions instantly without table locks."
             href="/docs/storage/postgres-mssql"
             iconName="server"
-            badge="Priority #1"
+            badge="Enterprise Cluster"
           />
           <Card
             title="Microsoft SQL Server"
-            description="First-class adapter for Windows Server and MES / ERP enterprise relational clusters (.NET 6+)."
+            description="First-class adapter for Windows Server and enterprise MES / ERP relational clusters (.NET 6+). Partition schemes and native ISJSON check constraints."
             href="/docs/storage/postgres-mssql"
             iconName="cpu"
-            badge="Priority #2"
+            badge="Enterprise .NET"
           />
         </Cards>
 
-        <h2 id="sqlite-setup" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
-          1. SQLite WAL (Zero Setup)
+        <h2 id="telescope-comparison" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          Why 1 Table? vs Laravel Telescope (3 Tables)
         </h2>
-        <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          SQLite is enabled by default. You do not need to install or run any external database server:
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          Many developers ask: <em>&ldquo;In Laravel Telescope, there are 3 tables (telescope_entries, telescope_entries_tags, telescope_monitoring). Why does SpurTrace use only 1 table (sys_traces)? Does 1 table satisfy all APM monitoring requirements, and is it truly optimal?&rdquo;</em>
         </p>
-        <CodeBlock
-          filename="server.ts (Node.js)"
-          code={`import { createSpurTrace, SqliteStorageAdapter } from "spurtrace"
 
-const trace = createSpurTrace({
-  appName: "OrderService",
-  storage: new SqliteStorageAdapter({
-    path: "./spurtrace.sqlite", // Created automatically with WAL mode
-    busyTimeoutMs: 5000,
-  }),
-})`}
-        />
-        <CodeBlock
-          filename="Program.cs (.NET 6+)"
-          code={`builder.Services.AddSpurTrace(options =>
-{
-    options.AppName = "MESProductionAPI";
-    options.StoragePath = "./spurtrace.sqlite"; // Auto-configured SQLite WAL
-});`}
-        />
+        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden text-xs">
+          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-zinc-200 dark:divide-zinc-800">
+            <div className="p-4 bg-amber-500/5 space-y-2">
+              <span className="font-bold text-amber-600 dark:text-amber-400 text-sm block">Laravel Telescope (3 Tables)</span>
+              <p className="text-zinc-600 dark:text-zinc-400">
+                Designed for <strong>local/staging developer debugging</strong>. Each SQL query, log, dump, request, and cache hit is inserted as a separate row in <code className="font-mono">telescope_entries</code> plus multiple rows in <code className="font-mono">telescope_entries_tags</code>.
+              </p>
+              <ul className="list-disc pl-4 space-y-1 text-zinc-600 dark:text-zinc-400">
+                <li><strong>Heavy Write Amplification:</strong> 1 HTTP request executing 30 SQL queries and 5 logs produces <strong>36+ database inserts</strong>.</li>
+                <li><strong>Catastrophic Analytics:</strong> Calculating P95/P99 latency, error rate %, or DB time % requires scanning and deserializing millions of rows of JSON <code className="font-mono">content</code> fields.</li>
+                <li><strong>High Table Lock Risk:</strong> Foreign key cascades and tag lookups create lock contention under concurrent load.</li>
+              </ul>
+            </div>
+            <div className="p-4 bg-emerald-500/5 space-y-2">
+              <span className="font-bold text-emerald-600 dark:text-emerald-400 text-sm block">SpurTrace APM (Unified sys_traces)</span>
+              <p className="text-zinc-600 dark:text-zinc-400">
+                Engineered for <strong>high-throughput production APM</strong> (the same architectural pattern used by Sentry, Datadog, and OpenTelemetry collectors).
+              </p>
+              <ul className="list-disc pl-4 space-y-1 text-zinc-600 dark:text-zinc-400">
+                <li><strong>Zero Write Amplification (1 Write/Request):</strong> All execution spans, queries, breadcrumbs, and exceptions are flushed in <strong>a single batch write</strong> at request completion.</li>
+                <li><strong>Sub-Millisecond Percentile Scans:</strong> Metrics (<code className="font-mono">duration_ms</code>, <code className="font-mono">status_code</code>, <code className="font-mono">created_at</code>, <code className="font-mono">app_name</code>) are top-level B-Tree indexed. P50/P95/P99 latency computes in &lt;1 ms without touching JSON payloads.</li>
+                <li><strong>Zero Foreign Key Deadlocks:</strong> 1 table means no cascaded deletes, no orphaned children, and instant daily partition drops.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
 
-        <h2 id="postgres-setup" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
-          2. PostgreSQL Enterprise Setup
+        <Callout type="tip" title="Best of Both Worlds: Fast Aggregates + Deep Waterfalls">
+          Top-level indexed columns drive all dashboard graphs, throughput timelines, error rates, and percentile calculations at lightning speed. The rich execution details (<code className="font-mono">spans_json</code>, <code className="font-mono">sql_calls_json</code>, <code className="font-mono">breadcrumbs_json</code>) are stored as compressed JSON and only fetched on demand when clicking into a specific trace waterfall.
+        </Callout>
+
+        <h2 id="unified-schema" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          Unified sys_traces Schema &amp; Data Types
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          For multi-node services writing to a central PostgreSQL database:
+          The table structure is normalized across SQLite, PostgreSQL, and SQL Server:
         </p>
-        <CodeBlock
-          filename="server.ts"
-          code={`import { createSpurTrace, PostgresStorageAdapter } from "spurtrace"
 
-const trace = createSpurTrace({
-  appName: "ProductionOrderService",
-  storage: new PostgresStorageAdapter({
-    connectionString: process.env.DATABASE_URL || "postgres://postgres:secret@db.internal:5432/opentrace_db",
-    maxConnections: 10,
-    schema: "public",
-  }),
-})`}
-        />
+        <div className="overflow-x-auto rounded-lg border border-zinc-200 dark:border-zinc-800">
+          <table className="w-full text-xs text-left border-collapse">
+            <thead className="bg-zinc-100 dark:bg-zinc-800/60 font-semibold text-zinc-900 dark:text-zinc-100">
+              <tr>
+                <th className="p-2.5 border-b border-zinc-200 dark:border-zinc-700">Column Name</th>
+                <th className="p-2.5 border-b border-zinc-200 dark:border-zinc-700">PostgreSQL</th>
+                <th className="p-2.5 border-b border-zinc-200 dark:border-zinc-700">SQL Server (MSSQL)</th>
+                <th className="p-2.5 border-b border-zinc-200 dark:border-zinc-700">SQLite</th>
+                <th className="p-2.5 border-b border-zinc-200 dark:border-zinc-700">Description</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800 text-zinc-700 dark:text-zinc-300">
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">trace_id</td>
+                <td className="p-2.5 font-mono">VARCHAR(64)</td>
+                <td className="p-2.5 font-mono">NVARCHAR(64)</td>
+                <td className="p-2.5 font-mono">TEXT</td>
+                <td className="p-2.5">Universal trace ID (UUIDv4, W3C traceparent, or custom string)</td>
+              </tr>
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">app_name</td>
+                <td className="p-2.5 font-mono">TEXT</td>
+                <td className="p-2.5 font-mono">NVARCHAR(160)</td>
+                <td className="p-2.5 font-mono">TEXT</td>
+                <td className="p-2.5">Service name (e.g. &apos;MES-Production&apos;, &apos;Storefront-NextJS&apos;, &apos;Order-NestJS&apos;)</td>
+              </tr>
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">method</td>
+                <td className="p-2.5 font-mono">VARCHAR(12)</td>
+                <td className="p-2.5 font-mono">VARCHAR(12)</td>
+                <td className="p-2.5 font-mono">TEXT</td>
+                <td className="p-2.5">HTTP method: GET, POST, PUT, DELETE, PATCH, etc.</td>
+              </tr>
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">route</td>
+                <td className="p-2.5 font-mono">TEXT</td>
+                <td className="p-2.5 font-mono">NVARCHAR(1024)</td>
+                <td className="p-2.5 font-mono">TEXT</td>
+                <td className="p-2.5">Normalized HTTP route pattern (e.g. &apos;/api/orders/[id]&apos;)</td>
+              </tr>
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">status_code</td>
+                <td className="p-2.5 font-mono">SMALLINT</td>
+                <td className="p-2.5 font-mono">SMALLINT</td>
+                <td className="p-2.5 font-mono">INTEGER</td>
+                <td className="p-2.5">HTTP status code (200, 404, 500, etc.)</td>
+              </tr>
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">duration_ms</td>
+                <td className="p-2.5 font-mono">DOUBLE PRECISION</td>
+                <td className="p-2.5 font-mono">FLOAT</td>
+                <td className="p-2.5 font-mono">REAL</td>
+                <td className="p-2.5">Total execution latency in milliseconds</td>
+              </tr>
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">created_at</td>
+                <td className="p-2.5 font-mono">TIMESTAMPTZ</td>
+                <td className="p-2.5 font-mono">DATETIME2(3)</td>
+                <td className="p-2.5 font-mono">TEXT (ISO8601)</td>
+                <td className="p-2.5">Creation timestamp; acts as partition key</td>
+              </tr>
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">sample_reason</td>
+                <td className="p-2.5 font-mono">VARCHAR(12)</td>
+                <td className="p-2.5 font-mono">VARCHAR(12)</td>
+                <td className="p-2.5 font-mono">TEXT</td>
+                <td className="p-2.5">&apos;error&apos;, &apos;slow&apos;, &apos;random&apos;, &apos;forced&apos; (adaptive tail sampling)</td>
+              </tr>
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">exception_json</td>
+                <td className="p-2.5 font-mono">JSONB NULL</td>
+                <td className="p-2.5 font-mono">NVARCHAR(MAX) NULL</td>
+                <td className="p-2.5 font-mono">TEXT NULL</td>
+                <td className="p-2.5">Serialized error stack, exception type, and inner exceptions</td>
+              </tr>
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">spans_json</td>
+                <td className="p-2.5 font-mono">JSONB NOT NULL</td>
+                <td className="p-2.5 font-mono">NVARCHAR(MAX) NOT NULL</td>
+                <td className="p-2.5 font-mono">TEXT NOT NULL</td>
+                <td className="p-2.5">Array of execution spans: middleware, app logic, external HTTP</td>
+              </tr>
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">sql_calls_json</td>
+                <td className="p-2.5 font-mono">JSONB NOT NULL</td>
+                <td className="p-2.5 font-mono">NVARCHAR(MAX) NOT NULL</td>
+                <td className="p-2.5 font-mono">TEXT NOT NULL</td>
+                <td className="p-2.5">Array of SQL executions: query, fingerprint, duration, rows affected</td>
+              </tr>
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">breadcrumbs_json</td>
+                <td className="p-2.5 font-mono">JSONB NOT NULL</td>
+                <td className="p-2.5 font-mono">NVARCHAR(MAX) NOT NULL</td>
+                <td className="p-2.5 font-mono">TEXT NOT NULL</td>
+                <td className="p-2.5">Correlated logging events and checkpoints occurring during the trace</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
-        <h2 id="mssql-setup" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
-          3. Microsoft SQL Server Setup (MSSQL)
+        <h2 id="sqlite-ddl" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          1. SQLite WAL DDL (Zero Setup)
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          In .NET enterprise environments (such as factory MES Production systems), connect to Microsoft SQL Server:
-        </p>
-        <CodeBlock
-          filename="Program.cs (.NET 8/9)"
-          code={`builder.Services.AddSpurTrace(options =>
-{
-    options.AppName = "MESProductionAPI";
-    options.UseSqlServer(builder.Configuration.GetConnectionString("SpurTraceMssql"));
-    options.RetentionDays = 14;
-});`}
-        />
-
-        <h2 id="schema-ddl" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
-          Database Schema &amp; UUID Convention
-        </h2>
-        <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          All records utilize <strong>RFC 4122 UUIDv4</strong> keys, avoiding auto-increment lock contention across distributed workers:
+          Created automatically by SpurTrace on startup. Zero configuration required:
         </p>
         <CodeBlock
           language="sql"
-          filename="schema.sql"
-          code={`-- PostgreSQL / SQLite / MSSQL Telemetry Table Schema
-CREATE TABLE IF NOT EXISTS opentrace_spans (
-    id VARCHAR(36) PRIMARY KEY, -- UUIDv4
-    trace_id VARCHAR(36) NOT NULL,
-    parent_span_id VARCHAR(36),
-    service_name VARCHAR(120) NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    kind VARCHAR(30) NOT NULL,
-    status_code INT NOT NULL,
-    duration_ms FLOAT NOT NULL,
-    start_time TIMESTAMP NOT NULL,
-    metadata JSON,
-    error_message TEXT
+          filename="sqlite_schema.sql"
+          code={`PRAGMA journal_mode = WAL;
+PRAGMA synchronous = NORMAL;
+PRAGMA busy_timeout = 5000;
+
+CREATE TABLE IF NOT EXISTS sys_traces (
+  trace_id TEXT NOT NULL,
+  app_name TEXT NOT NULL,
+  method TEXT NOT NULL,
+  route TEXT NOT NULL,
+  status_code INTEGER NOT NULL,
+  duration_ms REAL NOT NULL,
+  created_at TEXT NOT NULL,
+  sample_reason TEXT NOT NULL,
+  exception_json TEXT,
+  spans_json TEXT NOT NULL DEFAULT '[]',
+  sql_calls_json TEXT NOT NULL DEFAULT '[]',
+  breadcrumbs_json TEXT NOT NULL DEFAULT '[]',
+  PRIMARY KEY (trace_id, created_at)
 );
 
-CREATE INDEX IF NOT EXISTS idx_opentrace_trace ON opentrace_spans(trace_id);
-CREATE INDEX IF NOT EXISTS idx_opentrace_start_time ON opentrace_spans(start_time);
-CREATE INDEX IF NOT EXISTS idx_opentrace_duration ON opentrace_spans(duration_ms DESC);`}
+CREATE INDEX IF NOT EXISTS idx_sys_traces_app_created ON sys_traces (app_name, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sys_traces_status_created ON sys_traces (status_code, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sys_traces_duration ON sys_traces (duration_ms DESC);`}
         />
 
-        <h2 id="retention-maintenance" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
-          Automated Retention &amp; Pruning
+        <h2 id="postgres-ddl" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          2. PostgreSQL Range-Partitioned DDL
         </h2>
-        <Callout type="tip" title="Automatic 7-Day Rolling Retention">
-          The background worker automatically runs a lightweight pruning transaction once every 24 hours to delete spans older than <code className="font-mono">retentionDays</code> (default 7 days). For SQLite, WAL checkpoints ensure file size is maintained without vacuum locks.
+        <p className="text-sm text-zinc-700 dark:text-zinc-300">
+          Partitioned by day on <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">created_at</code>. Daily child partitions automatically inherit all indexes:
+        </p>
+        <CodeBlock
+          language="sql"
+          filename="spurtrace/schema/postgres.sql"
+          code={`CREATE TABLE IF NOT EXISTS sys_traces (
+  trace_id VARCHAR(64) NOT NULL,
+  app_name TEXT NOT NULL,
+  method VARCHAR(12) NOT NULL,
+  route TEXT NOT NULL,
+  status_code SMALLINT NOT NULL,
+  duration_ms DOUBLE PRECISION NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL,
+  sample_reason VARCHAR(12) NOT NULL,
+  exception_json JSONB,
+  spans_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  sql_calls_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  breadcrumbs_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  PRIMARY KEY (trace_id, created_at)
+) PARTITION BY RANGE (created_at);
+
+CREATE INDEX IF NOT EXISTS idx_sys_traces_app_created ON sys_traces (app_name, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sys_traces_status_created ON sys_traces (status_code, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sys_traces_duration ON sys_traces (duration_ms DESC);`}
+        />
+
+        <h2 id="mssql-ddl" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          3. Microsoft SQL Server Partitioned DDL
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300">
+          Uses partition functions and partition schemes for Windows Server / Azure SQL:
+        </p>
+        <CodeBlock
+          language="sql"
+          filename="spurtrace/schema/sqlserver.sql"
+          code={`IF OBJECT_ID(N'dbo.sys_traces', N'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.sys_traces (
+    created_at datetime2(3) NOT NULL,
+    trace_id nvarchar(64) NOT NULL,
+    app_name nvarchar(160) NOT NULL,
+    method varchar(12) NOT NULL,
+    route nvarchar(1024) NOT NULL,
+    status_code smallint NOT NULL,
+    duration_ms float NOT NULL,
+    sample_reason varchar(12) NOT NULL,
+    exception_json nvarchar(max) NULL,
+    spans_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_spans DEFAULT N'[]',
+    sql_calls_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_sql DEFAULT N'[]',
+    breadcrumbs_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_breadcrumbs DEFAULT N'[]',
+    CONSTRAINT pk_sys_traces PRIMARY KEY CLUSTERED (created_at, trace_id),
+    CONSTRAINT ck_sys_traces_spans_json CHECK (ISJSON(spans_json) = 1),
+    CONSTRAINT ck_sys_traces_sql_json CHECK (ISJSON(sql_calls_json) = 1),
+    CONSTRAINT ck_sys_traces_breadcrumbs_json CHECK (ISJSON(breadcrumbs_json) = 1)
+  );
+
+  CREATE INDEX idx_sys_traces_app_created ON dbo.sys_traces (app_name, created_at DESC);
+  CREATE INDEX idx_sys_traces_status_created ON dbo.sys_traces (status_code, created_at DESC);
+  CREATE INDEX idx_sys_traces_duration ON dbo.sys_traces (duration_ms DESC, created_at);
+END;`}
+        />
+
+        <h2 id="multi-framework-fleet" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          Multi-Framework Fleet Integration
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300">
+          Because every SDK writes to this single table schema, your entire polyglot fleet lives in harmony in one dashboard:
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-zinc-50 dark:bg-zinc-900/40">
+            <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 block mb-1">.NET 6 / 7 / 8 / 9 (.NET MVC &amp; Web API)</span>
+            <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+              Uses <code className="font-mono">SpurTraceDbInitializer</code> on application boot to automatically verify or create <code className="font-mono">sys_traces</code>. Writes non-blocking records via <code className="font-mono">System.Threading.Channels</code>.
+            </p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-zinc-50 dark:bg-zinc-900/40">
+            <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 block mb-1">Next.js &amp; React (App Router &amp; Actions)</span>
+            <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+              Instruments server-side route handlers and server actions via <code className="font-mono">withSpurTrace()</code> or <code className="font-mono">instrumentation.ts</code>, writing directly to SQLite or posting to <code className="font-mono">POST /api/traces</code>.
+            </p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-zinc-50 dark:bg-zinc-900/40">
+            <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 block mb-1">NestJS &amp; Express Microservices</span>
+            <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+              Emits traces tagged with their unique <code className="font-mono">app_name</code> (e.g. &apos;Order-Service&apos;, &apos;Payment-Gateway&apos;). The dashboard automatically maps services into a dependency topology.
+            </p>
+          </div>
+          <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-3 bg-zinc-50 dark:bg-zinc-900/40">
+            <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100 block mb-1">Direct Ingestion API</span>
+            <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+              Any legacy service or external worker can push traces via standard HTTP <code className="font-mono">POST /api/traces</code> with a JSON payload matching the <code className="font-mono">TraceRecord</code> interface.
+            </p>
+          </div>
+        </div>
+
+        <h2 id="retention-maintenance" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          Automated Retention &amp; Partition Dropping
+        </h2>
+        <Callout type="tip" title="Zero Table-Lock Partition Detach">
+          For PostgreSQL and SQL Server, do not run heavy <code className="font-mono">DELETE FROM sys_traces WHERE created_at &lt; ...</code> statements, which cause high transaction log bloat and row locks. Instead, run daily maintenance to detach and drop expired daily partitions instantly.
         </Callout>
       </div>
     ),
@@ -1309,13 +1514,15 @@ CREATE INDEX IF NOT EXISTS idx_opentrace_duration ON opentrace_spans(duration_ms
   // 11. SQLite WAL
   "storage/sqlite": {
     title: "SQLite WAL Storage Adapter",
-    description: "High-performance, zero-maintenance local storage with Write-Ahead Logging.",
+    description: "High-performance, zero-maintenance local storage with Write-Ahead Logging and dedicated worker thread.",
     group: "Storage Adapters",
     lastUpdated: "November 2026",
     badge: "Default",
     toc: [
       { id: "why-sqlite", title: "Why SQLite WAL for APM?", level: 2 },
-      { id: "configuration", title: "Adapter Configuration", level: 2 },
+      { id: "worker-architecture", title: "Dedicated Worker Thread Architecture", level: 2 },
+      { id: "configuration", title: "Configuration Options", level: 2 },
+      { id: "auto-migration", title: "Zero-Setup Auto-Migration", level: 2 },
     ],
     content: (
       <div className="space-y-6">
@@ -1323,38 +1530,234 @@ CREATE INDEX IF NOT EXISTS idx_opentrace_duration ON opentrace_spans(duration_ms
           Why SQLite WAL for APM?
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
-          SQLite with <strong>Write-Ahead Logging (WAL)</strong> mode provides incredible write throughput (up to 50,000 writes/sec in batch transactions) while allowing concurrent reads without locking.
+          SQLite in <strong>Write-Ahead Logging (WAL)</strong> mode is an exceptional storage engine for telemetry. Readers never block writers, and writers never block readers. Under batch transactions, SQLite achieves up to <strong>50,000 writes/second</strong> on modern NVMe drives with virtually zero CPU overhead.
         </p>
-        <CodeBlock
-          code={`import { SqliteStorageAdapter } from "spurtrace"
 
-const storage = new SqliteStorageAdapter({
-  path: "./spurtrace.sqlite",
-  wal: true,               // Enables WAL mode
-  busyTimeoutMs: 5000,     // Prevents SQLITE_BUSY under heavy concurrency
+        <h2 id="worker-architecture" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          Dedicated Worker Thread Architecture
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          In Node.js / Bun environments, SpurTrace offloads all SQLite file I/O to a dedicated background <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">worker_thread</code> (<code className="font-mono">sqlite-worker.mjs</code>). The main event loop that processes your web traffic <strong>never touches the SQLite database file directly</strong>:
+        </p>
+        <ul className="list-disc pl-5 text-xs text-zinc-700 dark:text-zinc-300 space-y-1.5">
+          <li><strong>0 ms Event Loop Lag:</strong> Trace records are buffered into an in-memory batch writer and transferred via structured cloning.</li>
+          <li><strong>WAL Checkpoints:</strong> Passive checkpoints merge WAL pages back to the main database file without locking reads or writes.</li>
+          <li><strong>Busy Timeout Protection:</strong> Configured with <code className="font-mono">busy_timeout = 5000</code> to eliminate any <code className="font-mono">SQLITE_BUSY</code> errors during peak traffic spikes.</li>
+        </ul>
+
+        <h2 id="configuration" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          Configuration Options
+        </h2>
+        <CodeBlock
+          filename="server.ts"
+          code={`import { createSpurTrace, SqliteStorageAdapter } from "spurtrace"
+
+const trace = createSpurTrace({
+  appName: "OrderService",
+  storage: new SqliteStorageAdapter({
+    path: "./spurtrace.sqlite", // Auto-creates file and sys_traces table
+  }),
 })`}
         />
+
+        <h2 id="auto-migration" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          Zero-Setup Auto-Migration
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300">
+          On initialization, the adapter automatically executes <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">CREATE TABLE IF NOT EXISTS sys_traces</code> and the required composite indexes. No manual migration scripts, CLI migrations, or database administrators are required.
+        </p>
       </div>
     ),
   },
 
   // 12. Postgres / MSSQL
   "storage/postgres-mssql": {
-    title: "PostgreSQL & MSSQL Adapters",
-    description: "Enterprise storage adapters for multi-instance clusters and shared databases.",
+    title: "PostgreSQL & SQL Server Enterprise Setup",
+    description: "Production setup for shared enterprise databases, daily range partitioning, connection pooling, and multi-framework fleet ingestion.",
     group: "Storage Adapters",
     lastUpdated: "November 2026",
+    badge: "Enterprise",
     toc: [
-      { id: "enterprise-setup", title: "Enterprise Database Setup", level: 2 },
+      { id: "enterprise-overview", title: "Enterprise Multi-Instance APM", level: 2 },
+      { id: "postgres-setup", title: "1. PostgreSQL Production Guide", level: 2 },
+      { id: "postgres-cron", title: "2. PostgreSQL Daily Partition Cron", level: 2 },
+      { id: "mssql-setup", title: "3. Microsoft SQL Server Setup", level: 2 },
+      { id: "mssql-retention", title: "4. SQL Server Partition Switching", level: 2 },
+      { id: "polyglot-connection", title: "5. Connecting .NET, Next.js & NestJS", level: 2 },
     ],
     content: (
       <div className="space-y-6">
-        <h2 id="enterprise-setup" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-          Enterprise Database Setup
+        <h2 id="enterprise-overview" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+          Enterprise Multi-Instance APM
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          In distributed microservice clusters (Kubernetes pods, Docker Swarms, or multi-server IIS farms), container instances are ephemeral. SpurTrace supports centralizing all telemetry into a shared PostgreSQL or Microsoft SQL Server cluster while keeping application overhead below 1 millisecond.
+        </p>
+
+        <h2 id="postgres-setup" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          1. PostgreSQL Production Guide
         </h2>
         <p className="text-sm text-zinc-700 dark:text-zinc-300">
-          For distributed container environments (Kubernetes, AWS ECS) where pods are ephemeral, SpurTrace supports storing traces in centralized PostgreSQL or Microsoft SQL Server instances.
+          Execute the unified partitioned schema in your PostgreSQL database:
         </p>
+        <CodeBlock
+          language="sql"
+          filename="spurtrace/schema/postgres.sql"
+          code={`CREATE TABLE IF NOT EXISTS sys_traces (
+  trace_id VARCHAR(64) NOT NULL,
+  app_name TEXT NOT NULL,
+  method VARCHAR(12) NOT NULL,
+  route TEXT NOT NULL,
+  status_code SMALLINT NOT NULL,
+  duration_ms DOUBLE PRECISION NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL,
+  sample_reason VARCHAR(12) NOT NULL,
+  exception_json JSONB,
+  spans_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  sql_calls_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  breadcrumbs_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  PRIMARY KEY (trace_id, created_at)
+) PARTITION BY RANGE (created_at);
+
+CREATE INDEX IF NOT EXISTS idx_sys_traces_app_created ON sys_traces (app_name, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sys_traces_status_created ON sys_traces (status_code, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sys_traces_duration ON sys_traces (duration_ms DESC);`}
+        />
+
+        <h2 id="postgres-cron" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          2. PostgreSQL Daily Partition Maintenance
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300">
+          Pre-create the next 14 daily partitions using a scheduled maintenance job (or <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">pg_cron</code>):
+        </p>
+        <CodeBlock
+          language="sql"
+          code={`DO \$\$
+DECLARE
+  day_offset INTEGER;
+  partition_start TIMESTAMPTZ;
+  partition_end TIMESTAMPTZ;
+  partition_name TEXT;
+BEGIN
+  FOR day_offset IN 0..13 LOOP
+    partition_start := date_trunc('day', now()) + day_offset * INTERVAL '1 day';
+    partition_end := partition_start + INTERVAL '1 day';
+    partition_name := 'sys_traces_' || to_char(partition_start, 'YYYYMMDD');
+    EXECUTE format(
+      'CREATE TABLE IF NOT EXISTS %I PARTITION OF sys_traces FOR VALUES FROM (%L) TO (%L)',
+      partition_name, partition_start, partition_end
+    );
+  END LOOP;
+END \$\$;`}
+        />
+
+        <h2 id="mssql-setup" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          3. Microsoft SQL Server Setup
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300">
+          For enterprise Windows Server, Azure SQL, and MES factory clusters:
+        </p>
+        <CodeBlock
+          language="sql"
+          filename="spurtrace/schema/sqlserver.sql"
+          code={`IF OBJECT_ID(N'dbo.sys_traces', N'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.sys_traces (
+    created_at datetime2(3) NOT NULL,
+    trace_id nvarchar(64) NOT NULL,
+    app_name nvarchar(160) NOT NULL,
+    method varchar(12) NOT NULL,
+    route nvarchar(1024) NOT NULL,
+    status_code smallint NOT NULL,
+    duration_ms float NOT NULL,
+    sample_reason varchar(12) NOT NULL,
+    exception_json nvarchar(max) NULL,
+    spans_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_spans DEFAULT N'[]',
+    sql_calls_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_sql DEFAULT N'[]',
+    breadcrumbs_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_breadcrumbs DEFAULT N'[]',
+    CONSTRAINT pk_sys_traces PRIMARY KEY CLUSTERED (created_at, trace_id),
+    CONSTRAINT ck_sys_traces_spans_json CHECK (ISJSON(spans_json) = 1),
+    CONSTRAINT ck_sys_traces_sql_json CHECK (ISJSON(sql_calls_json) = 1),
+    CONSTRAINT ck_sys_traces_breadcrumbs_json CHECK (ISJSON(breadcrumbs_json) = 1)
+  );
+
+  CREATE INDEX idx_sys_traces_app_created ON dbo.sys_traces (app_name, created_at DESC);
+  CREATE INDEX idx_sys_traces_status_created ON dbo.sys_traces (status_code, created_at DESC);
+  CREATE INDEX idx_sys_traces_duration ON dbo.sys_traces (duration_ms DESC, created_at);
+END;`}
+        />
+
+        <h2 id="mssql-retention" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          4. SQL Server Partition Switching &amp; Retention
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          To purge traces older than your retention window (e.g. 14 days) in high-throughput SQL Server environments without causing table lock escalation:
+        </p>
+        <ul className="list-disc pl-5 text-xs text-zinc-700 dark:text-zinc-300 space-y-1">
+          <li>Switch the expired partition into an empty staging table (<code className="font-mono">ALTER TABLE dbo.sys_traces SWITCH PARTITION 1 TO dbo.sys_traces_staging;</code>).</li>
+          <li>Truncate the staging table (<code className="font-mono">TRUNCATE TABLE dbo.sys_traces_staging;</code>). This takes 0 milliseconds.</li>
+          <li>Merge the old partition boundary using <code className="font-mono">ALTER PARTITION FUNCTION</code>.</li>
+        </ul>
+
+        <h2 id="polyglot-connection" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          5. Connecting .NET, Next.js &amp; NestJS to Central DB
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300">
+          Point all your applications to the shared database:
+        </p>
+        <Tabs
+          items={[
+            {
+              id: "dotnet",
+              label: ".NET 6+ (Program.cs)",
+              content: (
+                <CodeBlock
+                  filename="Program.cs"
+                  code={`builder.Services.AddSpurTrace(options =>
+{
+    options.AppName = "MES-Production-API";
+    options.StorageType = SpurTraceStorageType.SqlServer;
+    options.ConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
+    options.AutoCreateTables = true; // Auto-creates sys_traces on first run
+});`}
+                />
+              ),
+            },
+            {
+              id: "nestjs",
+              label: "NestJS (app.module.ts)",
+              content: (
+                <CodeBlock
+                  filename="app.module.ts"
+                  code={`SpurTraceModule.forRoot({
+  appName: "Order-NestJS",
+  storage: new PostgresStorageAdapter({
+    connectionString: process.env.DATABASE_URL!,
+  }),
+})`}
+                />
+              ),
+            },
+            {
+              id: "nextjs",
+              label: "Next.js (instrumentation.ts)",
+              content: (
+                <CodeBlock
+                  filename="instrumentation.ts"
+                  code={`export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    const { initSpurTrace } = await import("@spurtrace/next");
+    initSpurTrace({
+      appName: "Storefront-NextJS",
+      connectionString: process.env.DATABASE_URL,
+    });
+  }
+}`}
+                />
+              ),
+            },
+          ]}
+        />
       </div>
     ),
   },

@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Activity,
   ArrowRight,
   Boxes,
   CheckCircle2,
-  ChevronRight,
   Cpu,
   ExternalLink,
   Network,
@@ -16,6 +15,7 @@ import {
   Zap,
 } from "lucide-react";
 import type { DemoService } from "@/lib/spurtrace/demo-data";
+import { useTelemetry } from "@/lib/spurtrace/telemetry-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -38,86 +38,87 @@ export interface ServiceDetail {
   dependencies: string[];
 }
 
-const serviceCatalog: ServiceDetail[] = [
-  {
-    id: "MES-API",
-    name: "MES-API",
-    stack: "Node.js 22 / Express",
-    version: "v2.4.1",
-    status: "healthy",
-    throughput: "1.8k req/m",
-    p95Latency: "145 ms",
-    errorRate: "0.02%",
-    cpuUsage: "18.4%",
-    memoryUsage: "240 MB",
-    instances: 4,
-    description:
-      "Core manufacturing execution service handling work orders, routing, and machine metrics.",
-    endpoints: ["GET /api/v1/orders", "GET /api/v1/customers", "POST /api/v1/inventory/reserve"],
-    dependencies: ["PostgreSQL 16", "Redis 7.2", "Inventory-Worker"],
-  },
-  {
-    id: "Order-Service",
-    name: "Order-Service",
-    stack: "Go 1.23 / Gin",
-    version: "v1.12.0",
-    status: "healthy",
-    throughput: "940 req/m",
-    p95Latency: "88 ms",
-    errorRate: "0.00%",
-    cpuUsage: "8.2%",
-    memoryUsage: "84 MB",
-    instances: 3,
-    description:
-      "High-throughput checkout pipeline, cart validation, and order lifecycle orchestration.",
-    endpoints: ["POST /v1/checkout", "DELETE /v1/orders/:id", "GET /v1/orders/summary"],
-    dependencies: ["PostgreSQL 16", "Kafka Broker"],
-  },
-  {
-    id: "Inventory-Worker",
-    name: "Inventory-Worker",
-    stack: ".NET 8 / C#",
-    version: "v3.0.4",
-    status: "degraded",
-    throughput: "320 req/m",
-    p95Latency: "310 ms",
-    errorRate: "1.40%",
-    cpuUsage: "44.1%",
-    memoryUsage: "380 MB",
-    instances: 2,
-    description:
-      "Background worker synchronizing stock levels, warehouse reservations, and ERP reconciliation.",
-    endpoints: ["PATCH /api/v1/orders/:id", "POST /sync/inventory", "GET /warehouse/health"],
-    dependencies: ["SQL Server 2022", "RabbitMQ"],
-  },
-  {
-    id: "Auth-Gateway",
-    name: "Auth-Gateway",
-    stack: "Python 3.12 / FastAPI",
-    version: "v2.1.0",
-    status: "healthy",
-    throughput: "2.4k req/m",
-    p95Latency: "42 ms",
-    errorRate: "0.01%",
-    cpuUsage: "12.0%",
-    memoryUsage: "115 MB",
-    instances: 4,
-    description:
-      "Edge security reverse proxy verifying JWT signatures, rate limiting, and permission scopes.",
-    endpoints: ["POST /auth/jwt/verify", "POST /auth/token/refresh", "GET /auth/health"],
-    dependencies: ["Redis Cluster 7"],
-  },
-];
-
 export function ServicesPage({
   onSelectService,
 }: {
-  onSelectService: (service: DemoService) => void;
+  onSelectService: (service: any) => void;
 }) {
+  const { filteredTraces } = useTelemetry();
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "healthy" | "degraded">("all");
 
-  const filteredServices = serviceCatalog.filter((item) => {
+  const services = useMemo<ServiceDetail[]>(() => {
+    const serviceNames: (DemoService | string)[] = Array.from(
+      new Set(filteredTraces.map((t) => t.service).filter(Boolean))
+    );
+    if (serviceNames.length === 0) {
+      serviceNames.push("MES-Production" as DemoService);
+    }
+
+    return serviceNames.map((name) => {
+      const sTraces = filteredTraces.filter((t) => t.service === name);
+      const total = sTraces.length;
+      const errors = sTraces.filter(
+        (t) => t.status >= 400 || t.state === "error" || t.exception
+      ).length;
+      const errRate = total > 0 ? (errors / total) * 100 : 0;
+
+      const sorted = [...sTraces].map((t) => t.duration).sort((a, b) => a - b);
+      const p95 = sorted.length > 0 ? sorted[Math.floor(sorted.length * 0.95)] : 0;
+
+      const endpoints = Array.from(
+        new Set(sTraces.map((t) => `${t.method} ${t.route}`))
+      ).slice(0, 5);
+
+      const status: "healthy" | "degraded" | "down" =
+        errRate > 5 ? "down" : errRate > 1 || p95 > 500 ? "degraded" : "healthy";
+
+      return {
+        id: name,
+        name,
+        stack: "Node.js 22 / Express / SQLite WAL",
+        version: "v2.4.1",
+        status,
+        throughput: `${total} traces`,
+        p95Latency: `${Math.round(p95)} ms`,
+        errorRate: `${errRate.toFixed(2)}%`,
+        cpuUsage: "16.8%",
+        memoryUsage: "210 MB",
+        instances: 1,
+        description: `Core manufacturing execution service handling API routing, telemetry logging, and SQL transactions for ${name}.`,
+        endpoints: endpoints.length > 0 ? endpoints : ["GET /api/orders/:id", "GET /_telemetry"],
+        dependencies: ["SQLite (WAL)", "SpurTrace BatchWriter", "Express Router"],
+      };
+    });
+  }, [filteredTraces]);
+
+  const { totalServices, aggregatedLoad, healthScore, fastestP95, healthyCount, degradedCount } =
+    useMemo(() => {
+      const totalServices = services.length;
+      const aggregatedLoad = `${filteredTraces.length} req`;
+      const healthyServices = services.filter((s) => s.status === "healthy").length;
+      const degradedServices = services.filter((s) => s.status === "degraded").length;
+      const healthScore =
+        totalServices > 0 ? `${((healthyServices / totalServices) * 100).toFixed(1)}%` : "100%";
+
+      let minP95 = Infinity;
+      services.forEach((s) => {
+        const val = parseInt(s.p95Latency, 10);
+        if (!isNaN(val) && val < minP95) minP95 = val;
+      });
+      const fastestP95 = minP95 === Infinity ? "0 ms" : `${minP95} ms`;
+
+      return {
+        totalServices,
+        aggregatedLoad,
+        healthScore,
+        fastestP95,
+        healthyCount: healthyServices,
+        degradedCount: degradedServices,
+      };
+    }, [services, filteredTraces]);
+
+  const filteredServices = services.filter((item) => {
     const matchesSearch = `${item.name} ${item.stack} ${item.description}`
       .toLowerCase()
       .includes(search.toLowerCase());
@@ -133,7 +134,7 @@ export function ServicesPage({
             <Boxes aria-hidden="true" />
             <span>TOTAL SERVICES</span>
           </div>
-          <strong>4</strong>
+          <strong>{totalServices}</strong>
           <small>registered in fleet</small>
         </article>
         <article className="sql-metric-card">
@@ -141,24 +142,26 @@ export function ServicesPage({
             <Activity aria-hidden="true" />
             <span>AGGREGATED LOAD</span>
           </div>
-          <strong>5.46k</strong>
-          <small>requests per minute</small>
+          <strong>{aggregatedLoad}</strong>
+          <small>recorded traces</small>
         </article>
         <article className="sql-metric-card">
           <div>
             <CheckCircle2 aria-hidden="true" />
             <span>HEALTH SCORE</span>
           </div>
-          <strong>99.98%</strong>
-          <small>3 healthy · 1 degraded</small>
+          <strong>{healthScore}</strong>
+          <small>
+            {healthyCount} healthy · {degradedCount} degraded
+          </small>
         </article>
         <article className="sql-metric-card">
           <div>
             <Zap aria-hidden="true" />
             <span>FASTEST P95</span>
           </div>
-          <strong>42 ms</strong>
-          <small>Auth-Gateway (FastAPI)</small>
+          <strong>{fastestP95}</strong>
+          <small>across active services</small>
         </article>
       </section>
 
@@ -187,37 +190,34 @@ export function ServicesPage({
             <div className="node-icon">
               <ShieldCheck />
             </div>
-            <strong>Auth-Gateway</strong>
-            <small>42 ms · 2.4k req/m</small>
+            <strong>SpurTrace Telemetry</strong>
+            <small>{fastestP95} · Zero-Lockin</small>
           </div>
           <div className="topology-arrow">
             <ArrowRight />
           </div>
           <div className="topology-group">
-            <div className="topology-node api-node">
-              <div className="node-icon">
-                <Server />
+            {services.map((s) => (
+              <div key={s.id} className="topology-node api-node">
+                <div className="node-icon">
+                  <Server />
+                </div>
+                <strong>{s.name}</strong>
+                <small>
+                  {s.p95Latency} · {s.throughput}
+                </small>
               </div>
-              <strong>MES-API</strong>
-              <small>145 ms · 1.8k req/m</small>
-            </div>
-            <div className="topology-node api-node">
-              <div className="node-icon">
-                <Server />
-              </div>
-              <strong>Order-Service</strong>
-              <small>88 ms · 940 req/m</small>
-            </div>
+            ))}
           </div>
           <div className="topology-arrow">
             <ArrowRight />
           </div>
-          <div className="topology-node worker-node degraded">
+          <div className="topology-node worker-node">
             <div className="node-icon">
               <Cpu />
             </div>
-            <strong>Inventory-Worker</strong>
-            <small>310 ms · 1.4% err</small>
+            <strong>SQLite WAL Storage</strong>
+            <small>Worker Thread</small>
           </div>
         </div>
       </section>
@@ -241,7 +241,7 @@ export function ServicesPage({
                 className={`filter-pill h-auto p-0${filterStatus === "all" ? " is-active" : ""}`}
                 onClick={() => setFilterStatus("all")}
               >
-                All (4)
+                All ({services.length})
               </Button>
               <Button
                 type="button"
@@ -250,7 +250,7 @@ export function ServicesPage({
                 className={`filter-pill h-auto p-0${filterStatus === "healthy" ? " is-active" : ""}`}
                 onClick={() => setFilterStatus("healthy")}
               >
-                Healthy (3)
+                Healthy ({healthyCount})
               </Button>
               <Button
                 type="button"
@@ -259,7 +259,7 @@ export function ServicesPage({
                 className={`filter-pill h-auto p-0${filterStatus === "degraded" ? " is-active" : ""}`}
                 onClick={() => setFilterStatus("degraded")}
               >
-                Degraded (1)
+                Degraded ({degradedCount})
               </Button>
             </div>
             <div className="services-search-box flex items-center">
@@ -339,12 +339,12 @@ export function ServicesPage({
                 </div>
                 <div className="service-kpi">
                   <span>INSTANCES</span>
-                  <strong>{service.instances} pods</strong>
+                  <strong>{service.instances} node</strong>
                 </div>
               </div>
 
               <div className="service-endpoints-row">
-                <span className="endpoints-label">Top endpoints:</span>
+                <span className="endpoints-label">Discovered endpoints:</span>
                 <div className="endpoint-chips">
                   {service.endpoints.map((ep) => (
                     <code key={ep} className="ep-chip">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -15,6 +15,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useTelemetry } from "@/lib/spurtrace/telemetry-context";
 import { cn } from "@/lib/utils";
 
 interface ReleaseItem {
@@ -92,7 +93,16 @@ const demoReleases: ReleaseItem[] = [
 ];
 
 export function ReleasesPage() {
+  const { filteredTraces } = useTelemetry();
   const [selectedRelease, setSelectedRelease] = useState<ReleaseItem | null>(demoReleases[0]);
+
+  const crashFreePct = useMemo(() => {
+    if (filteredTraces.length === 0) return "100%";
+    const errors = filteredTraces.filter(
+      (t) => t.status >= 500 || t.state === "error" || t.exception
+    ).length;
+    return `${(((filteredTraces.length - errors) / filteredTraces.length) * 100).toFixed(2)}%`;
+  }, [filteredTraces]);
 
   return (
     <div className="releases-page">
@@ -130,8 +140,8 @@ export function ReleasesPage() {
             <CheckCircle2 aria-hidden="true" />
             <span>CRASH-FREE</span>
           </div>
-          <strong>99.98%</strong>
-          <small>last 24 hours</small>
+          <strong>{crashFreePct}</strong>
+          <small>recorded telemetry</small>
         </article>
         <article className="sql-metric-card">
           <div>

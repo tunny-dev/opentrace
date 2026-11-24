@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import type { UserRole } from "./user-profile-menu";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n/i18n-context";
+import { useTelemetry } from "@/lib/spurtrace/telemetry-context";
 import { AlertLogTable } from "./alert-log-table";
 import { AlertPreviewDialog, type IncidentPreview } from "./alert-preview-dialog";
 import { AlertRuleDialog } from "./alert-rule-dialog";
@@ -29,10 +30,63 @@ const TEST_RECIPIENTS = "devops@example.com, alerts@example.com";
 
 export function AlertsPageContent({ role }: { role: UserRole }) {
   const { t } = useI18n();
+  const { filteredTraces } = useTelemetry();
   const isAdmin = role === "Admin";
 
   const [rules, setRules] = React.useState<AlertRule[]>(DEFAULT_ALERT_RULES);
-  const [logs, setLogs] = React.useState<IncidentLog[]>(SEED_INCIDENT_LOGS);
+
+  const evaluatedLogs = React.useMemo<IncidentLog[]>(() => {
+    if (filteredTraces.length === 0) return SEED_INCIDENT_LOGS;
+
+    const incidents: IncidentLog[] = [];
+    const now = Date.now();
+
+    // Check 5xx / exceptions
+    const errTraces = filteredTraces.filter((t) => t.status >= 500 || t.exception);
+    if (errTraces.length > 0) {
+      const latestErr = errTraces[0];
+      const minsAgo = Math.max(
+        1,
+        Math.floor((now - new Date(latestErr.createdAt).getTime()) / 60000)
+      );
+      incidents.push({
+        id: `inc_err_${latestErr.id}`,
+        ruleName: "[CRITICAL] MES HTTP 500 & Unhandled Exceptions",
+        ruleNameKey: "alerts.seed.rule1",
+        severity: "critical",
+        minutesAgo: Math.min(minsAgo, 1440),
+        channels: ["email", "teams", "inApp"],
+        details: { key: "alerts.log.seedException" },
+      });
+    }
+
+    // Check slow queries / high latency
+    const slowTraces = filteredTraces.filter((t) => t.duration >= 300);
+    if (slowTraces.length > 0) {
+      const latestSlow = slowTraces[0];
+      const minsAgo = Math.max(
+        1,
+        Math.floor((now - new Date(latestSlow.createdAt).getTime()) / 60000)
+      );
+      incidents.push({
+        id: `inc_slow_${latestSlow.id}`,
+        ruleName: "[WARNING] High Latency Spike P95 (> 300ms)",
+        ruleNameKey: "alerts.seed.rule2",
+        severity: "warning",
+        minutesAgo: Math.min(minsAgo, 1440),
+        channels: ["inApp", "teams"],
+        details: { key: "alerts.log.seedSlowSql", metric: "slow_sql", threshold: 300, unit: "ms" },
+      });
+    }
+
+    return incidents.length > 0 ? incidents : SEED_INCIDENT_LOGS;
+  }, [filteredTraces]);
+
+  const [logs, setLogs] = React.useState<IncidentLog[]>(evaluatedLogs);
+
+  React.useEffect(() => {
+    setLogs(evaluatedLogs);
+  }, [evaluatedLogs]);
   const [isAddRuleOpen, setIsAddRuleOpen] = React.useState(false);
   const [preview, setPreview] = React.useState<IncidentPreview | null>(null);
 

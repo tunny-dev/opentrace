@@ -122,391 +122,164 @@ export function generateUuid(): string {
 }
 
 /**
- * Generates standard version-agnostic DDL schema with UUID primary keys.
- * All 4 supported database engines provide the exact same 5 enterprise telemetry tables:
- * 1. traces: High-level HTTP / RPC transactions
- * 2. spans: Distributed execution waterfall steps
- * 3. queries: Database query fingerprints & IO statistics
- * 4. telemetry_logs: Correlated application log streams linked to trace ID
- * 5. annotations: Production deployment, release & incident milestone markers
+ * Generates standard production-grade DDL schema for the unified `sys_traces` APM table.
+ * All supported database engines utilize the exact same single-table APM architecture:
+ * - Top-level indexed columns: trace_id, app_name, method, route, status_code, duration_ms, created_at, sample_reason
+ * - Embedded JSON payloads: spans_json, sql_calls_json, breadcrumbs_json, exception_json
+ * This guarantees zero write amplification (1 write per request) and sub-millisecond P95/P99 scans.
  */
 export function getEngineDdl(engine: SupportedDbEngine): string {
   switch (engine) {
     case "postgres":
       return `-- ===================================================================
--- SpurTrace APM Schema for PostgreSQL (Priority #1)
--- Version-Agnostic · UUID Primary Keys · Dedicated 'opentrace' Schema
--- SpurTrace Enterprise Telemetry & Distributed Observability Architecture
+-- SpurTrace Unified APM Schema for PostgreSQL (Priority #1)
+-- Daily Range-Partitioned · JSONB Payloads · Zero Write Amplification
 -- ===================================================================
-CREATE EXTENSION IF NOT EXISTS "pgcrypto"; -- UUID generator fallback
+CREATE TABLE IF NOT EXISTS sys_traces (
+  trace_id VARCHAR(64) NOT NULL,
+  app_name TEXT NOT NULL,
+  method VARCHAR(12) NOT NULL,
+  route TEXT NOT NULL,
+  status_code SMALLINT NOT NULL,
+  duration_ms DOUBLE PRECISION NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL,
+  sample_reason VARCHAR(12) NOT NULL,
+  exception_json JSONB,
+  spans_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  sql_calls_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  breadcrumbs_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  PRIMARY KEY (trace_id, created_at)
+) PARTITION BY RANGE (created_at);
 
-CREATE SCHEMA IF NOT EXISTS opentrace;
+-- Core APM indexes inherited by daily partitions
+CREATE INDEX IF NOT EXISTS idx_sys_traces_app_created
+  ON sys_traces (app_name, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sys_traces_status_created
+  ON sys_traces (status_code, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sys_traces_duration
+  ON sys_traces (duration_ms DESC);
 
--- 1. HTTP & RPC Traces
-CREATE TABLE IF NOT EXISTS opentrace.traces (
-    id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
-    app_name VARCHAR(64) NOT NULL DEFAULT 'MES-API',
-    environment VARCHAR(32) NOT NULL DEFAULT 'production',
-    route VARCHAR(256) NOT NULL,
-    method VARCHAR(16) NOT NULL,
-    status_code INTEGER NOT NULL,
-    duration_ms DOUBLE PRECISION NOT NULL,
-    sql_duration_ms DOUBLE PRECISION NOT NULL DEFAULT 0,
-    sql_count INTEGER NOT NULL DEFAULT 0,
-    client_ip VARCHAR(45) DEFAULT '127.0.0.1',
-    user_id VARCHAR(64) NULL,
-    metadata JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- 2. Distributed Spans Waterfall
-CREATE TABLE IF NOT EXISTS opentrace.spans (
-    id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
-    trace_id UUID NOT NULL REFERENCES opentrace.traces(id) ON DELETE CASCADE,
-    parent_span_id UUID NULL,
-    name VARCHAR(128) NOT NULL,
-    kind VARCHAR(24) NOT NULL,
-    start_offset_ms DOUBLE PRECISION NOT NULL DEFAULT 0,
-    duration_ms DOUBLE PRECISION NOT NULL,
-    attributes JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- 3. SQL Query Fingerprints & Diagnostics
-CREATE TABLE IF NOT EXISTS opentrace.queries (
-    id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
-    trace_id UUID NOT NULL REFERENCES opentrace.traces(id) ON DELETE CASCADE,
-    sql_statement TEXT NOT NULL,
-    fingerprint TEXT NOT NULL,
-    parameters JSONB NULL,
-    duration_ms DOUBLE PRECISION NOT NULL,
-    rows_affected INTEGER DEFAULT 0,
-    logical_reads BIGINT DEFAULT 0,
-    physical_reads BIGINT DEFAULT 0,
-    is_slow BOOLEAN NOT NULL DEFAULT FALSE,
-    duplicate_count INTEGER NOT NULL DEFAULT 1,
-    call_site VARCHAR(256) NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- 4. Correlated Telemetry Logs (SpurTrace Stream)
-CREATE TABLE IF NOT EXISTS opentrace.telemetry_logs (
-    id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
-    trace_id UUID NULL REFERENCES opentrace.traces(id) ON DELETE SET NULL,
-    service_name VARCHAR(64) NOT NULL DEFAULT 'MES-API',
-    level VARCHAR(16) NOT NULL DEFAULT 'INFO',
-    message TEXT NOT NULL,
-    caller VARCHAR(256) NULL,
-    attributes JSONB DEFAULT '{}'::jsonb,
-    timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- 5. Deployment & Incident Annotations (SpurTrace Timeline)
-CREATE TABLE IF NOT EXISTS opentrace.annotations (
-    id UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
-    title VARCHAR(128) NOT NULL,
-    text TEXT NULL,
-    tags VARCHAR(256) NULL,
-    category VARCHAR(32) NOT NULL DEFAULT 'deployment',
-    epoch_ms BIGINT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
--- Optimized Performance Indexes
-CREATE INDEX IF NOT EXISTS idx_traces_created_at ON opentrace.traces (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_traces_status_perf ON opentrace.traces (status_code, duration_ms DESC);
-CREATE INDEX IF NOT EXISTS idx_spans_trace_id ON opentrace.spans (trace_id);
-CREATE INDEX IF NOT EXISTS idx_queries_perf ON opentrace.queries (duration_ms DESC) WHERE is_slow = TRUE;
-CREATE INDEX IF NOT EXISTS idx_logs_trace_level ON opentrace.telemetry_logs (trace_id, level, timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_annotations_epoch ON opentrace.annotations (epoch_ms DESC);`;
+-- Automatic 14-day rolling partition provisioner (Run via scheduled cron/pg_cron)
+DO $$
+DECLARE
+  day_offset INTEGER;
+  partition_start TIMESTAMPTZ;
+  partition_end TIMESTAMPTZ;
+  partition_name TEXT;
+BEGIN
+  FOR day_offset IN 0..13 LOOP
+    partition_start := date_trunc('day', now()) + day_offset * INTERVAL '1 day';
+    partition_end := partition_start + INTERVAL '1 day';
+    partition_name := 'sys_traces_' || to_char(partition_start, 'YYYYMMDD');
+    EXECUTE format(
+      'CREATE TABLE IF NOT EXISTS %I PARTITION OF sys_traces FOR VALUES FROM (%L) TO (%L)',
+      partition_name, partition_start, partition_end
+    );
+  END LOOP;
+END $$;`;
 
     case "mssql":
       return `-- ===================================================================
--- SpurTrace APM Schema for Microsoft SQL Server (Priority #2)
--- Version-Agnostic · UNIQUEIDENTIFIER Primary Keys · [opentrace] Schema
--- SpurTrace Enterprise Telemetry & Distributed Observability Architecture
+-- SpurTrace Unified APM Schema for Microsoft SQL Server (Priority #2)
+-- Partition Scheme · ISJSON Constraints · Zero Write Amplification
 -- ===================================================================
-IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'opentrace')
+DECLARE @today DATE = CONVERT(date, SYSUTCDATETIME());
+DECLARE @boundaries NVARCHAR(MAX) = N'';
+DECLARE @offset INT = -14;
+WHILE @offset <= 30
 BEGIN
-    EXEC('CREATE SCHEMA [opentrace]');
-END
-GO
+  SET @boundaries += CASE WHEN @boundaries = N'' THEN N'' ELSE N',' END
+    + N'''' + CONVERT(nvarchar(10), DATEADD(day, @offset, @today), 23) + N'T00:00:00''';
+  SET @offset += 1;
+END;
 
--- 1. HTTP & RPC Traces
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Traces' AND schema_id = SCHEMA_ID('opentrace'))
+IF NOT EXISTS (SELECT 1 FROM sys.partition_functions WHERE name = N'pf_sys_traces_created_at')
+  EXEC(N'CREATE PARTITION FUNCTION pf_sys_traces_created_at (datetime2(3)) AS RANGE RIGHT FOR VALUES (' + @boundaries + N')');
+
+IF NOT EXISTS (SELECT 1 FROM sys.partition_schemes WHERE name = N'ps_sys_traces_created_at')
+  EXEC(N'CREATE PARTITION SCHEME ps_sys_traces_created_at AS PARTITION pf_sys_traces_created_at ALL TO ([PRIMARY])');
+
+IF OBJECT_ID(N'dbo.sys_traces', N'U') IS NULL
 BEGIN
-    CREATE TABLE [opentrace].[Traces] (
-        [Id] UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
-        [AppName] NVARCHAR(64) NOT NULL DEFAULT 'MES-API',
-        [Environment] NVARCHAR(32) NOT NULL DEFAULT 'production',
-        [Route] NVARCHAR(256) NOT NULL,
-        [Method] NVARCHAR(16) NOT NULL,
-        [StatusCode] INT NOT NULL,
-        [DurationMs] FLOAT NOT NULL,
-        [SqlDurationMs] FLOAT NOT NULL DEFAULT 0,
-        [SqlCount] INT NOT NULL DEFAULT 0,
-        [ClientIp] NVARCHAR(45) NULL DEFAULT '127.0.0.1',
-        [UserId] NVARCHAR(64) NULL,
-        [MetadataJson] NVARCHAR(MAX) NULL,
-        [CreatedAt] DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME()
-    );
-END
-GO
+  CREATE TABLE dbo.sys_traces (
+    created_at datetime2(3) NOT NULL,
+    trace_id nvarchar(64) NOT NULL,
+    app_name nvarchar(160) NOT NULL,
+    method varchar(12) NOT NULL,
+    route nvarchar(1024) NOT NULL,
+    status_code smallint NOT NULL,
+    duration_ms float NOT NULL,
+    sample_reason varchar(12) NOT NULL,
+    exception_json nvarchar(max) NULL,
+    spans_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_spans DEFAULT N'[]',
+    sql_calls_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_sql DEFAULT N'[]',
+    breadcrumbs_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_breadcrumbs DEFAULT N'[]',
+    CONSTRAINT pk_sys_traces PRIMARY KEY CLUSTERED (created_at, trace_id),
+    CONSTRAINT ck_sys_traces_spans_json CHECK (ISJSON(spans_json) = 1),
+    CONSTRAINT ck_sys_traces_sql_json CHECK (ISJSON(sql_calls_json) = 1),
+    CONSTRAINT ck_sys_traces_breadcrumbs_json CHECK (ISJSON(breadcrumbs_json) = 1)
+  ) ON ps_sys_traces_created_at(created_at);
 
--- 2. Distributed Spans Waterfall
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Spans' AND schema_id = SCHEMA_ID('opentrace'))
-BEGIN
-    CREATE TABLE [opentrace].[Spans] (
-        [Id] UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
-        [TraceId] UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES [opentrace].[Traces]([Id]) ON DELETE CASCADE,
-        [ParentSpanId] UNIQUEIDENTIFIER NULL,
-        [Name] NVARCHAR(128) NOT NULL,
-        [Kind] NVARCHAR(24) NOT NULL,
-        [StartOffsetMs] FLOAT NOT NULL DEFAULT 0,
-        [DurationMs] FLOAT NOT NULL,
-        [AttributesJson] NVARCHAR(MAX) NULL,
-        [CreatedAt] DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME()
-    );
-END
-GO
-
--- 3. SQL Query Fingerprints & Diagnostics
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Queries' AND schema_id = SCHEMA_ID('opentrace'))
-BEGIN
-    CREATE TABLE [opentrace].[Queries] (
-        [Id] UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
-        [TraceId] UNIQUEIDENTIFIER NOT NULL FOREIGN KEY REFERENCES [opentrace].[Traces]([Id]) ON DELETE CASCADE,
-        [SqlStatement] NVARCHAR(MAX) NOT NULL,
-        [Fingerprint] NVARCHAR(512) NOT NULL,
-        [ParametersJson] NVARCHAR(MAX) NULL,
-        [DurationMs] FLOAT NOT NULL,
-        [RowsAffected] INT NULL DEFAULT 0,
-        [LogicalReads] BIGINT NULL DEFAULT 0,
-        [PhysicalReads] BIGINT NULL DEFAULT 0,
-        [IsSlow] BIT NOT NULL DEFAULT 0,
-        [DuplicateCount] INT NOT NULL DEFAULT 1,
-        [CallSite] NVARCHAR(256) NULL,
-        [CreatedAt] DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME()
-    );
-END
-GO
-
--- 4. Correlated Telemetry Logs (SpurTrace Stream)
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'TelemetryLogs' AND schema_id = SCHEMA_ID('opentrace'))
-BEGIN
-    CREATE TABLE [opentrace].[TelemetryLogs] (
-        [Id] UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
-        [TraceId] UNIQUEIDENTIFIER NULL FOREIGN KEY REFERENCES [opentrace].[Traces]([Id]) ON DELETE SET NULL,
-        [ServiceName] NVARCHAR(64) NOT NULL DEFAULT 'MES-API',
-        [Level] NVARCHAR(16) NOT NULL DEFAULT 'INFO',
-        [Message] NVARCHAR(MAX) NOT NULL,
-        [Caller] NVARCHAR(256) NULL,
-        [AttributesJson] NVARCHAR(MAX) NULL,
-        [Timestamp] DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME()
-    );
-END
-GO
-
--- 5. Deployment & Incident Annotations (SpurTrace Timeline)
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'Annotations' AND schema_id = SCHEMA_ID('opentrace'))
-BEGIN
-    CREATE TABLE [opentrace].[Annotations] (
-        [Id] UNIQUEIDENTIFIER NOT NULL PRIMARY KEY DEFAULT NEWID(),
-        [Title] NVARCHAR(128) NOT NULL,
-        [Text] NVARCHAR(MAX) NULL,
-        [Tags] NVARCHAR(256) NULL,
-        [Category] NVARCHAR(32) NOT NULL DEFAULT 'deployment',
-        [EpochMs] BIGINT NOT NULL,
-        [CreatedAt] DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME()
-    );
-END
-GO
-
--- Optimized Performance Indexes
-CREATE NONCLUSTERED INDEX [IX_Traces_CreatedAt] ON [opentrace].[Traces] ([CreatedAt] DESC);
-CREATE NONCLUSTERED INDEX [IX_Traces_StatusCode_Duration] ON [opentrace].[Traces] ([StatusCode], [DurationMs] DESC);
-CREATE NONCLUSTERED INDEX [IX_Spans_TraceId] ON [opentrace].[Spans] ([TraceId]);
-CREATE NONCLUSTERED INDEX [IX_Queries_TraceId] ON [opentrace].[Queries] ([TraceId]);
-CREATE NONCLUSTERED INDEX [IX_Logs_TraceId_Time] ON [opentrace].[TelemetryLogs] ([TraceId], [Timestamp] DESC);
-CREATE NONCLUSTERED INDEX [IX_Annotations_Epoch] ON [opentrace].[Annotations] ([EpochMs] DESC);`;
+  CREATE INDEX idx_sys_traces_app_created
+    ON dbo.sys_traces (app_name, created_at DESC) ON ps_sys_traces_created_at(created_at);
+  CREATE INDEX idx_sys_traces_status_created
+    ON dbo.sys_traces (status_code, created_at DESC) ON ps_sys_traces_created_at(created_at);
+  CREATE INDEX idx_sys_traces_duration
+    ON dbo.sys_traces (duration_ms DESC, created_at) ON ps_sys_traces_created_at(created_at);
+END;`;
 
     case "mysql":
       return `-- ===================================================================
--- SpurTrace APM Schema for MySQL (Priority #3)
--- Version-Agnostic · CHAR(36) UUID Primary Keys · InnoDB UTF8MB4
--- SpurTrace Enterprise Telemetry & Distributed Observability Architecture
+-- SpurTrace Unified APM Schema for MySQL 8.0+ (Priority #3)
+-- Native JSON Types · Composite Primary Key · Zero Write Amplification
 -- ===================================================================
-
--- 1. HTTP & RPC Traces
-CREATE TABLE IF NOT EXISTS \`opentrace_traces\` (
-    \`id\` CHAR(36) NOT NULL PRIMARY KEY,
-    \`app_name\` VARCHAR(64) NOT NULL DEFAULT 'MES-API',
-    \`environment\` VARCHAR(32) NOT NULL DEFAULT 'production',
-    \`route\` VARCHAR(256) NOT NULL,
-    \`method\` VARCHAR(16) NOT NULL,
-    \`status_code\` INT NOT NULL,
-    \`duration_ms\` DOUBLE NOT NULL,
-    \`sql_duration_ms\` DOUBLE NOT NULL DEFAULT 0,
-    \`sql_count\` INT NOT NULL DEFAULT 0,
-    \`client_ip\` VARCHAR(45) DEFAULT '127.0.0.1',
-    \`user_id\` VARCHAR(64) NULL,
-    \`metadata\` JSON NULL,
-    \`created_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    INDEX \`idx_traces_created_at\` (\`created_at\` DESC),
-    INDEX \`idx_traces_status_perf\` (\`status_code\`, \`duration_ms\` DESC)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 2. Distributed Spans Waterfall
-CREATE TABLE IF NOT EXISTS \`opentrace_spans\` (
-    \`id\` CHAR(36) NOT NULL PRIMARY KEY,
-    \`trace_id\` CHAR(36) NOT NULL,
-    \`parent_span_id\` CHAR(36) NULL,
-    \`name\` VARCHAR(128) NOT NULL,
-    \`kind\` VARCHAR(24) NOT NULL,
-    \`start_offset_ms\` DOUBLE NOT NULL DEFAULT 0,
-    \`duration_ms\` DOUBLE NOT NULL,
-    \`attributes\` JSON NULL,
-    \`created_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    INDEX \`idx_spans_trace\` (\`trace_id\`),
-    CONSTRAINT \`fk_spans_trace\` FOREIGN KEY (\`trace_id\`) REFERENCES \`opentrace_traces\` (\`id\`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 3. SQL Query Fingerprints & Diagnostics
-CREATE TABLE IF NOT EXISTS \`opentrace_queries\` (
-    \`id\` CHAR(36) NOT NULL PRIMARY KEY,
-    \`trace_id\` CHAR(36) NOT NULL,
-    \`sql_statement\` MEDIUMTEXT NOT NULL,
-    \`fingerprint\` VARCHAR(512) NOT NULL,
-    \`parameters\` JSON NULL,
-    \`duration_ms\` DOUBLE NOT NULL,
-    \`rows_affected\` INT DEFAULT 0,
-    \`logical_reads\` BIGINT DEFAULT 0,
-    \`physical_reads\` BIGINT DEFAULT 0,
-    \`is_slow\` TINYINT(1) NOT NULL DEFAULT 0,
-    \`duplicate_count\` INT NOT NULL DEFAULT 1,
-    \`call_site\` VARCHAR(256) NULL,
-    \`created_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    INDEX \`idx_queries_trace\` (\`trace_id\`),
-    INDEX \`idx_queries_slow\` (\`duration_ms\` DESC),
-    CONSTRAINT \`fk_queries_trace\` FOREIGN KEY (\`trace_id\`) REFERENCES \`opentrace_traces\` (\`id\`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 4. Correlated Telemetry Logs (SpurTrace Stream)
-CREATE TABLE IF NOT EXISTS \`opentrace_telemetry_logs\` (
-    \`id\` CHAR(36) NOT NULL PRIMARY KEY,
-    \`trace_id\` CHAR(36) NULL,
-    \`service_name\` VARCHAR(64) NOT NULL DEFAULT 'MES-API',
-    \`level\` VARCHAR(16) NOT NULL DEFAULT 'INFO',
-    \`message\` MEDIUMTEXT NOT NULL,
-    \`caller\` VARCHAR(256) NULL,
-    \`attributes\` JSON NULL,
-    \`timestamp\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    INDEX \`idx_logs_trace_level\` (\`trace_id\`, \`level\`, \`timestamp\` DESC),
-    CONSTRAINT \`fk_logs_trace\` FOREIGN KEY (\`trace_id\`) REFERENCES \`opentrace_traces\` (\`id\`) ON DELETE SET NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- 5. Deployment & Incident Annotations (SpurTrace Timeline)
-CREATE TABLE IF NOT EXISTS \`opentrace_annotations\` (
-    \`id\` CHAR(36) NOT NULL PRIMARY KEY,
-    \`title\` VARCHAR(128) NOT NULL,
-    \`text\` TEXT NULL,
-    \`tags\` VARCHAR(256) NULL,
-    \`category\` VARCHAR(32) NOT NULL DEFAULT 'deployment',
-    \`epoch_ms\` BIGINT NOT NULL,
-    \`created_at\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    INDEX \`idx_annotations_epoch\` (\`epoch_ms\` DESC)
+CREATE TABLE IF NOT EXISTS sys_traces (
+  trace_id VARCHAR(64) NOT NULL,
+  app_name VARCHAR(160) NOT NULL,
+  method VARCHAR(12) NOT NULL,
+  route VARCHAR(1024) NOT NULL,
+  status_code SMALLINT NOT NULL,
+  duration_ms DOUBLE NOT NULL,
+  created_at DATETIME(3) NOT NULL,
+  sample_reason VARCHAR(12) NOT NULL,
+  exception_json JSON NULL,
+  spans_json JSON NOT NULL,
+  sql_calls_json JSON NOT NULL,
+  breadcrumbs_json JSON NOT NULL,
+  PRIMARY KEY (trace_id, created_at),
+  INDEX idx_sys_traces_app_created (app_name, created_at DESC),
+  INDEX idx_sys_traces_status_created (status_code, created_at DESC),
+  INDEX idx_sys_traces_duration (duration_ms DESC)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;`;
 
     case "sqlite":
       return `-- ===================================================================
--- SpurTrace APM Schema for SQLite (Priority #4)
--- Version-Agnostic · TEXT UUID Primary Keys · High-Performance WAL
--- SpurTrace Enterprise Telemetry & Distributed Observability Architecture
+-- SpurTrace Unified APM Schema for SQLite (Priority #4)
+-- Write-Ahead Logging (WAL) · Non-Blocking Background Worker
 -- ===================================================================
 PRAGMA journal_mode = WAL;
-PRAGMA foreign_keys = ON;
 PRAGMA synchronous = NORMAL;
+PRAGMA busy_timeout = 5000;
 
--- 1. HTTP & RPC Traces
-CREATE TABLE IF NOT EXISTS opentrace_traces (
-    id TEXT NOT NULL PRIMARY KEY,
-    app_name TEXT NOT NULL DEFAULT 'MES-API',
-    environment TEXT NOT NULL DEFAULT 'production',
-    route TEXT NOT NULL,
-    method TEXT NOT NULL,
-    status_code INTEGER NOT NULL,
-    duration_ms REAL NOT NULL,
-    sql_duration_ms REAL NOT NULL DEFAULT 0,
-    sql_count INTEGER NOT NULL DEFAULT 0,
-    client_ip TEXT DEFAULT '127.0.0.1',
-    user_id TEXT NULL,
-    metadata TEXT DEFAULT '{}',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS sys_traces (
+  trace_id TEXT NOT NULL,
+  app_name TEXT NOT NULL,
+  method TEXT NOT NULL,
+  route TEXT NOT NULL,
+  status_code INTEGER NOT NULL,
+  duration_ms REAL NOT NULL,
+  created_at TEXT NOT NULL,
+  sample_reason TEXT NOT NULL,
+  exception_json TEXT,
+  spans_json TEXT NOT NULL,
+  sql_calls_json TEXT NOT NULL,
+  breadcrumbs_json TEXT NOT NULL,
+  PRIMARY KEY (trace_id, created_at)
 );
 
--- 2. Distributed Spans Waterfall
-CREATE TABLE IF NOT EXISTS opentrace_spans (
-    id TEXT NOT NULL PRIMARY KEY,
-    trace_id TEXT NOT NULL,
-    parent_span_id TEXT NULL,
-    name TEXT NOT NULL,
-    kind TEXT NOT NULL,
-    start_offset_ms REAL NOT NULL DEFAULT 0,
-    duration_ms REAL NOT NULL,
-    attributes TEXT DEFAULT '{}',
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (trace_id) REFERENCES opentrace_traces (id) ON DELETE CASCADE
-);
-
--- 3. SQL Query Fingerprints & Diagnostics
-CREATE TABLE IF NOT EXISTS opentrace_queries (
-    id TEXT NOT NULL PRIMARY KEY,
-    trace_id TEXT NOT NULL,
-    sql_statement TEXT NOT NULL,
-    fingerprint TEXT NOT NULL,
-    parameters TEXT NULL,
-    duration_ms REAL NOT NULL,
-    rows_affected INTEGER DEFAULT 0,
-    logical_reads INTEGER DEFAULT 0,
-    physical_reads INTEGER DEFAULT 0,
-    is_slow INTEGER NOT NULL DEFAULT 0,
-    duplicate_count INTEGER NOT NULL DEFAULT 1,
-    call_site TEXT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (trace_id) REFERENCES opentrace_traces (id) ON DELETE CASCADE
-);
-
--- 4. Correlated Telemetry Logs (SpurTrace Stream)
-CREATE TABLE IF NOT EXISTS opentrace_telemetry_logs (
-    id TEXT NOT NULL PRIMARY KEY,
-    trace_id TEXT NULL,
-    service_name TEXT NOT NULL DEFAULT 'MES-API',
-    level TEXT NOT NULL DEFAULT 'INFO',
-    message TEXT NOT NULL,
-    caller TEXT NULL,
-    attributes TEXT DEFAULT '{}',
-    timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (trace_id) REFERENCES opentrace_traces (id) ON DELETE SET NULL
-);
-
--- 5. Deployment & Incident Annotations (SpurTrace Timeline)
-CREATE TABLE IF NOT EXISTS opentrace_annotations (
-    id TEXT NOT NULL PRIMARY KEY,
-    title TEXT NOT NULL,
-    text TEXT NULL,
-    tags TEXT NULL,
-    category TEXT NOT NULL DEFAULT 'deployment',
-    epoch_ms INTEGER NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-);
-
--- Optimized Performance Indexes
-CREATE INDEX IF NOT EXISTS idx_traces_created ON opentrace_traces (created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_traces_perf ON opentrace_traces (status_code, duration_ms DESC);
-CREATE INDEX IF NOT EXISTS idx_spans_trace ON opentrace_spans (trace_id);
-CREATE INDEX IF NOT EXISTS idx_queries_trace ON opentrace_queries (trace_id);
-CREATE INDEX IF NOT EXISTS idx_logs_trace ON opentrace_telemetry_logs (trace_id, level, timestamp DESC);
-CREATE INDEX IF NOT EXISTS idx_annotations_epoch ON opentrace_annotations (epoch_ms DESC);`;
+CREATE INDEX IF NOT EXISTS idx_sys_traces_app_created ON sys_traces (app_name, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sys_traces_status_created ON sys_traces (status_code, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_sys_traces_duration ON sys_traces (duration_ms DESC);`;
   }
 }
 
