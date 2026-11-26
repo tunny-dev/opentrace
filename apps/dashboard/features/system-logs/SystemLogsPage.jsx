@@ -19,6 +19,7 @@ const TAB_SLUG_MAP = {
   routes: 'routes',
   raw: 'stream',
   stream: 'stream',
+  logs: 'stream',
   client: 'client',
 };
 
@@ -27,6 +28,7 @@ const SLUG_TAB_MAP = {
   routes: 'routes',
   stream: 'raw',
   raw: 'raw',
+  logs: 'raw',
   client: 'client',
 };
 import { systemLogsService } from '@/services/system-logs.service';
@@ -52,18 +54,56 @@ export function SystemLogsPage() {
   const { resolvedTheme, toggleTheme } = useTheme();
 
   // URL-driven active tab synchronization
-  const activeTab = useMemo(() => {
+  const initialTab = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      const lastSeg = pathname.split('/').filter(Boolean).pop();
+      if (lastSeg && SLUG_TAB_MAP[lastSeg]) {
+        return SLUG_TAB_MAP[lastSeg];
+      }
+    }
     if (tab && SLUG_TAB_MAP[tab]) {
       return SLUG_TAB_MAP[tab];
     }
-    if (searchParams.get('tab') === 'client') return 'client';
+    const qTab = searchParams?.get('tab');
+    if (qTab && SLUG_TAB_MAP[qTab]) return SLUG_TAB_MAP[qTab];
+    if (qTab === 'client') return 'client';
     return 'waterfall';
   }, [tab, searchParams]);
 
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    if (initialTab && initialTab !== activeTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window === 'undefined') return;
+      const pathname = window.location.pathname;
+      const lastSeg = pathname.split('/').filter(Boolean).pop();
+      if (lastSeg && SLUG_TAB_MAP[lastSeg]) {
+        setActiveTab(SLUG_TAB_MAP[lastSeg]);
+      } else {
+        setActiveTab('waterfall');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
     const slug = TAB_SLUG_MAP[newTab] || 'traces';
-    const targetPath = slug === 'traces' ? '/system-logs' : `/system-logs/${slug}`;
-    navigate(targetPath);
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      const isTelemetry = pathname.startsWith('/telemetry');
+      const base = isTelemetry ? '/telemetry/system-logs' : '/system-logs';
+      const targetPath = slug === 'traces' ? base : `${base}/${slug}`;
+      window.history.pushState(null, '', targetPath);
+    }
   };
 
   const [mounted, setMounted] = useState(true);
@@ -97,10 +137,26 @@ export function SystemLogsPage() {
   const [inspectTrace, setInspectTrace] = useState(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  // Set browser tab title
+  // Set browser tab title & Verify Telemetry Authentication
   useEffect(() => {
     const prevTitle = document.title;
     document.title = 'SpurTrace | System Trace Explorer';
+
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/telemetry/auth/me');
+        if (!res.ok) {
+          if (typeof window !== 'undefined') {
+            const isTelemetry = window.location.pathname.startsWith('/telemetry');
+            window.location.href = isTelemetry ? '/telemetry/login' : '/login';
+          }
+        }
+      } catch {
+        // ignore network error
+      }
+    }
+    checkAuth();
+
     return () => {
       document.title = prevTitle;
     };
@@ -187,10 +243,14 @@ export function SystemLogsPage() {
     setPage(1);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/telemetry/auth/logout', { method: 'POST' });
+    } catch { }
     systemLogsService.clearAuth();
     if (typeof window !== 'undefined') {
-      window.location.href = '/telemetry/login';
+      const isTelemetry = window.location.pathname.startsWith('/telemetry');
+      window.location.href = isTelemetry ? '/telemetry/login' : '/login';
     }
   };
 
@@ -254,27 +314,23 @@ export function SystemLogsPage() {
           onAutoRefreshChange={setAutoRefreshInterval}
           resolvedTheme={resolvedTheme}
           toggleTheme={toggleTheme}
-          isSubPage={activeTab === 'raw'}
-          isLogMode={activeTab === 'raw'}
         />
 
         <div className="w-full px-4 py-4 sm:px-6 space-y-3.5">
-          {activeTab !== 'raw' && <TraceSummaryCards summary={summary} />}
+          <TraceSummaryCards summary={summary} />
 
-          {activeTab !== 'raw' && (
-            <TraceTimelineChart
-              traces={traces}
-              timeline={timeline}
-              onSelectBucket={(bucket) => {
-                if (bucket?.time) {
-                  setSearch(bucket.time);
-                  setPage(1);
-                }
-              }}
-            />
-          )}
+          <TraceTimelineChart
+            traces={traces}
+            timeline={timeline}
+            onSelectBucket={(bucket) => {
+              if (bucket?.time) {
+                setSearch(bucket.time);
+                setPage(1);
+              }
+            }}
+          />
 
-          {activeTab !== 'raw' && (search ||
+          {(search ||
             traceIdFilter ||
             onlyErrors ||
             onlySlow ||

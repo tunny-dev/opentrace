@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import PropTypes from 'prop-types';
-import { NavLink, useLocation } from 'react-router-dom';
+import { useState, useEffect } from "react";
+import { useForm, useWatch } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import PropTypes from "prop-types";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   Search,
   RefreshCw,
@@ -16,13 +16,13 @@ import {
   AlertCircle,
   ExternalLink,
   Zap,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { TimeRangePicker } from '@/features/system-logs/components/TimeRangePicker';
-import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
-import { cn } from '@/core/utils/utils';
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { TimeRangePicker } from "@/features/system-logs/components/TimeRangePicker";
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+import { cn } from "@/core/utils/utils";
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -33,22 +33,22 @@ import {
   AlertDialogFooter,
   AlertDialogAction,
   AlertDialogCancel,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectTrigger,
   SelectValue,
   SelectContent,
   SelectItem,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 
 export function TraceFilterToolbar({
   dates = [],
   timeRange,
   onChangeTimeRange,
-  search = '',
+  search = "",
   onSearchChange,
-  traceIdFilter = '',
+  traceIdFilter = "",
   onTraceIdFilterChange,
   onlyErrors = false,
   onOnlyErrorsChange,
@@ -68,53 +68,53 @@ export function TraceFilterToolbar({
   onLogout,
   autoRefreshInterval = 0,
   onAutoRefreshChange,
-  resolvedTheme = 'dark',
+  resolvedTheme = "dark",
   toggleTheme,
   isSubPage = false,
 }) {
   const location = useLocation();
   const isSystemLogsActive =
-    location.pathname === '/system-logs' ||
-    location.pathname === '/system/logs' ||
+    location.pathname === "/system-logs" ||
+    location.pathname === "/system/logs" ||
     /^\/system(-logs)?\/(traces|routes|stream|raw|client)/.test(location.pathname);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const queryForm = useForm({
     resolver: zodResolver(z.object({ query: z.string().trim() })),
-    defaultValues: { query: search || traceIdFilter || '' },
+    defaultValues: { query: search || traceIdFilter || "" },
   });
-  const queryDraft = useWatch({ control: queryForm.control, name: 'query' });
+  const queryDraft = useWatch({ control: queryForm.control, name: "query" });
   const resetQuery = queryForm.reset;
 
   useEffect(() => {
-    resetQuery({ query: search || traceIdFilter || '' });
+    resetQuery({ query: search || traceIdFilter || "" });
   }, [resetQuery, search, traceIdFilter]);
 
   const executeQuery = ({ query }) => {
-    if (typeof onSearchChange === 'function') {
+    if (typeof onSearchChange === "function") {
       onSearchChange(query);
     }
     if (/^[a-fA-F0-9]{32}$/.test(query)) {
-      if (typeof onTraceIdFilterChange === 'function') onTraceIdFilterChange(query);
-    } else if (typeof onTraceIdFilterChange === 'function') {
-      onTraceIdFilterChange('');
+      if (typeof onTraceIdFilterChange === "function") onTraceIdFilterChange(query);
+    } else if (typeof onTraceIdFilterChange === "function") {
+      onTraceIdFilterChange("");
     }
-    if (typeof onRefresh === 'function') onRefresh();
+    if (typeof onRefresh === "function") onRefresh();
   };
   const handleExecuteQuery = queryForm.handleSubmit(executeQuery);
 
   const handleClearQuery = () => {
-    queryForm.reset({ query: '' });
-    if (typeof onSearchChange === 'function') {
-      onSearchChange('');
+    queryForm.reset({ query: "" });
+    if (typeof onSearchChange === "function") {
+      onSearchChange("");
     }
-    if (typeof onTraceIdFilterChange === 'function') onTraceIdFilterChange('');
-    if (typeof onRefresh === 'function') onRefresh();
+    if (typeof onTraceIdFilterChange === "function") onTraceIdFilterChange("");
+    if (typeof onRefresh === "function") onRefresh();
   };
 
   const quickFilters = [
     {
-      id: 'all',
-      label: 'All Logs',
+      id: "all",
+      label: "All Logs",
       query: '{layer="all"}',
       active: !onlyErrors && !onlySlow && !onlySql && !onlyInfo && !onlyWarn,
       onClick: () => {
@@ -126,47 +126,47 @@ export function TraceFilterToolbar({
       },
     },
     {
-      id: 'sql',
+      id: "sql",
       label: '{layer="SQL"}',
       query: '{layer="database_sql"}',
       active: !!onlySql,
-      color: 'text-[#73bf69] border-[#73bf69]/40 bg-[#73bf69]/10 hover:bg-[#73bf69]/20',
+      color: "text-[#73bf69] border-[#73bf69]/40 bg-[#73bf69]/10 hover:bg-[#73bf69]/20",
       onClick: () => {
         if (onOnlySqlChange) onOnlySqlChange(!onlySql);
       },
     },
     {
-      id: 'slow',
-      label: '{duration ≥ 1s}',
-      query: '{latency>=1000ms}',
+      id: "slow",
+      label: "{duration ≥ 1s}",
+      query: "{latency>=1000ms}",
       active: onlySlow,
-      color: 'text-[#faad14] border-[#faad14]/40 bg-[#faad14]/10 hover:bg-[#faad14]/20',
+      color: "text-[#faad14] border-[#faad14]/40 bg-[#faad14]/10 hover:bg-[#faad14]/20",
       onClick: () => onOnlySlowChange(!onlySlow),
     },
     {
-      id: 'error',
+      id: "error",
       label: '{level="error"}',
-      query: '{status>=400 | has_error}',
+      query: "{status>=400 | has_error}",
       active: onlyErrors,
-      color: 'text-[#f2495c] border-[#f2495c]/40 bg-[#f2495c]/10 hover:bg-[#f2495c]/20',
+      color: "text-[#f2495c] border-[#f2495c]/40 bg-[#f2495c]/10 hover:bg-[#f2495c]/20",
       onClick: () => onOnlyErrorsChange(!onlyErrors),
     },
     {
-      id: 'warn',
+      id: "warn",
       label: '{level="warn"}',
       query: '{level="warning"}',
       active: !!onlyWarn,
-      color: 'text-[#f2994a] border-[#f2994a]/40 bg-[#f2994a]/10 hover:bg-[#f2994a]/20',
+      color: "text-[#f2994a] border-[#f2994a]/40 bg-[#f2994a]/10 hover:bg-[#f2994a]/20",
       onClick: () => {
         if (onOnlyWarnChange) onOnlyWarnChange(!onlyWarn);
       },
     },
     {
-      id: 'info',
+      id: "info",
       label: '{level="info"}',
       query: '{level="information"}',
       active: !!onlyInfo,
-      color: 'text-[#5794f2] border-[#5794f2]/40 bg-[#5794f2]/10 hover:bg-[#5794f2]/20',
+      color: "text-[#5794f2] border-[#5794f2]/40 bg-[#5794f2]/10 hover:bg-[#5794f2]/20",
       onClick: () => {
         if (onOnlyInfoChange) onOnlyInfoChange(!onlyInfo);
       },
@@ -182,22 +182,16 @@ export function TraceFilterToolbar({
               <div className="flex h-7 w-7 items-center justify-center rounded bg-emerald-600 text-white shadow-sm">
                 <Activity className="h-4 w-4" />
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="tracking-tight hidden sm:inline font-bold">SpurTrace</span>
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                  System Logs
-                </span>
-              </div>
             </div>
 
             <nav className="flex items-center gap-1 bg-slate-100 dark:bg-[#111217] p-0.5 rounded-lg border border-slate-200 dark:border-[#2c323f]">
               <NavLink
                 to="/system-logs"
                 className={cn(
-                  'px-2.5 py-1 text-xs font-medium rounded transition flex items-center gap-1.5',
+                  "px-2.5 py-1 text-xs font-medium rounded transition flex items-center gap-1.5",
                   isSystemLogsActive
-                    ? 'bg-white dark:bg-[#22252b] text-[#3274d9] dark:text-[#5794f2] shadow-xs font-semibold'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    ? "bg-white dark:bg-[#22252b] text-[#3274d9] dark:text-[#5794f2] shadow-xs font-semibold"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                 )}
               >
                 <Layers className="h-3.5 w-3.5" />
@@ -207,10 +201,10 @@ export function TraceFilterToolbar({
                 to="/system-logs/sql"
                 className={({ isActive }) =>
                   cn(
-                    'px-2.5 py-1 text-xs font-medium rounded transition flex items-center gap-1.5',
+                    "px-2.5 py-1 text-xs font-medium rounded transition flex items-center gap-1.5",
                     isActive
-                      ? 'bg-white dark:bg-[#22252b] text-[#3274d9] dark:text-[#5794f2] shadow-xs font-semibold'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                      ? "bg-white dark:bg-[#22252b] text-[#3274d9] dark:text-[#5794f2] shadow-xs font-semibold"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                   )
                 }
               >
@@ -221,10 +215,10 @@ export function TraceFilterToolbar({
                 to="/system-logs/errors"
                 className={({ isActive }) =>
                   cn(
-                    'px-2.5 py-1 text-xs font-medium rounded transition flex items-center gap-1.5',
+                    "px-2.5 py-1 text-xs font-medium rounded transition flex items-center gap-1.5",
                     isActive
-                      ? 'bg-white dark:bg-[#22252b] text-[#3274d9] dark:text-[#5794f2] shadow-xs font-semibold'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                      ? "bg-white dark:bg-[#22252b] text-[#3274d9] dark:text-[#5794f2] shadow-xs font-semibold"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                   )
                 }
               >
@@ -235,10 +229,10 @@ export function TraceFilterToolbar({
                 to="/system-logs/health"
                 className={({ isActive }) =>
                   cn(
-                    'px-2.5 py-1 text-xs font-medium rounded transition flex items-center gap-1.5',
+                    "px-2.5 py-1 text-xs font-medium rounded transition flex items-center gap-1.5",
                     isActive
-                      ? 'bg-white dark:bg-[#22252b] text-[#3274d9] dark:text-[#5794f2] shadow-xs font-semibold'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                      ? "bg-white dark:bg-[#22252b] text-[#3274d9] dark:text-[#5794f2] shadow-xs font-semibold"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
                   )
                 }
               >
@@ -297,7 +291,7 @@ export function TraceFilterToolbar({
                   disabled={loading}
                   className="h-8 px-3.5 bg-[#3274d9] hover:bg-[#2463eb] text-white font-medium text-xs rounded shadow-sm flex items-center gap-1.5 shrink-0 cursor-pointer transition active:scale-95 disabled:opacity-60"
                 >
-                  <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
                   <span>Run query</span>
                 </Button>
               </TooltipTrigger>
@@ -308,7 +302,7 @@ export function TraceFilterToolbar({
               <div className="flex items-center gap-1.5 rounded border dark:border-[#2c323f] border-slate-300 dark:bg-[#111217] bg-slate-50 px-2 py-0.5 text-xs">
                 <span
                   className={`h-2 w-2 rounded-full ${
-                    autoRefreshInterval > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'
+                    autoRefreshInterval > 0 ? "bg-emerald-400 animate-pulse" : "bg-slate-500"
                   }`}
                 />
                 <span className="text-[11px] dark:text-[#8e94a0] text-slate-500">Live:</span>
@@ -361,7 +355,7 @@ export function TraceFilterToolbar({
                     onClick={toggleTheme}
                     className="h-8 w-8 p-0 rounded dark:border-[#2c323f] border-slate-300 dark:bg-[#111217] bg-slate-50 dark:text-[#8e94a0] text-slate-700 hover:text-slate-900 dark:hover:text-white"
                   >
-                    {resolvedTheme === 'dark' ? (
+                    {resolvedTheme === "dark" ? (
                       <Sun className="h-3.5 w-3.5 text-amber-400" />
                     ) : (
                       <Moon className="h-3.5 w-3.5 text-blue-600" />
@@ -369,7 +363,7 @@ export function TraceFilterToolbar({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {resolvedTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+                  {resolvedTheme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
                 </TooltipContent>
               </Tooltip>
             )}
@@ -435,8 +429,8 @@ export function TraceFilterToolbar({
                   type="button"
                   className={`rounded px-2.5 py-0.5 text-xs font-sans transition border cursor-pointer ${
                     p.active
-                      ? p.color || 'bg-[#3274d9]/20 text-[#5794f2] border-[#3274d9] font-medium'
-                      : 'dark:bg-[#111217] bg-slate-50 dark:text-[#8e94a0] text-slate-600 dark:border-[#2c323f] border-slate-300 hover:dark:text-white hover:dark:bg-[#22252b]'
+                      ? p.color || "bg-[#3274d9]/20 text-[#5794f2] border-[#3274d9] font-medium"
+                      : "dark:bg-[#111217] bg-slate-50 dark:text-[#8e94a0] text-slate-600 dark:border-[#2c323f] border-slate-300 hover:dark:text-white hover:dark:bg-[#22252b]"
                   }`}
                 >
                   {p.label}
@@ -461,7 +455,7 @@ export function TraceFilterToolbar({
                   id="trace-query-filter"
                   type="text"
                   aria-invalid={Boolean(queryForm.formState.errors.query)}
-                  {...queryForm.register('query')}
+                  {...queryForm.register("query")}
                   placeholder="Text to find (SQL query, parameters, URL path, WO, Model, Exception, or Trace ID)..."
                   className="pl-8 pr-20 h-7 text-xs font-sans dark:bg-[#111217] bg-slate-50 dark:border-[#2c323f] border-slate-300 dark:text-white text-slate-900 placeholder:text-slate-500 focus-visible:border-[#3274d9] rounded"
                 />

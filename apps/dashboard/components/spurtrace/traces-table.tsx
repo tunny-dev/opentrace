@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
 import { CopyButton } from "@/components/ui/copy-button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/spurtrace/format-duration";
 
@@ -93,33 +94,6 @@ const QUICK_FILTERS: DataTableQuickFilter<DemoTrace>[] = [
 
 const INITIAL_SORTING = [{ id: "duration", desc: true }];
 const INITIAL_COLUMN_VISIBILITY = { index: false, service: false };
-
-function Waterfall({ trace }: { trace: DemoTrace }) {
-  const total = Math.max(
-    trace.duration,
-    ...trace.spans.map((span) => span.start + span.duration),
-    1
-  );
-  return (
-    <div
-      className="relative h-2 w-28 overflow-hidden rounded-full bg-muted"
-      role="img"
-      aria-label={`${trace.spans.length} spans over ${formatDuration(trace.duration)}`}
-      title={`${trace.spans.length} spans · ${formatDuration(trace.duration)}`}
-    >
-      {trace.spans.map((span, index) => (
-        <span
-          key={`${span.name}-${index}`}
-          className={cn("absolute inset-y-0 rounded-full opacity-85", SPAN_COLOR[span.kind])}
-          style={{
-            left: `${(span.start / total) * 100}%`,
-            width: `${Math.max((span.duration / total) * 100, 2)}%`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
 
 export function TracesTable({
   traces,
@@ -277,13 +251,6 @@ export function TracesTable({
             </span>
           );
         },
-      },
-      {
-        id: "waterfall",
-        header: "Waterfall",
-        enableSorting: false,
-        meta: { label: "Waterfall" },
-        cell: ({ row }) => <Waterfall trace={row.original} />,
       },
       {
         id: "sql",

@@ -38,15 +38,21 @@
 
 ## 🛠 Quickstart for .NET 8
 
-### Step 1: Add `SpurTraceExtensions.cs`
-Copy `SpurTraceExtensions.cs` into your project under `Extensions/SpurTraceExtensions.cs`.
+### Step 1: Reference `SpurTrace.AspNetCore.dll` (or Project)
 
-Ensure your `.csproj` includes the required packages:
+Thêm tham chiếu `SpurTrace.AspNetCore.dll` vào file `.csproj`:
 ```xml
 <ItemGroup>
-  <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.*" />
-  <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.*" />
-  <PackageReference Include="Microsoft.Data.SqlClient" Version="5.*" />
+  <Reference Include="SpurTrace.AspNetCore">
+    <HintPath>libs\SpurTrace.AspNetCore.dll</HintPath>
+  </Reference>
+</ItemGroup>
+```
+
+Hoặc nếu dùng Project Reference trong nội bộ:
+```xml
+<ItemGroup>
+  <ProjectReference Include="..\packages\spurtrace-net\SpurTrace.AspNetCore.csproj" />
 </ItemGroup>
 ```
 
@@ -54,138 +60,54 @@ Ensure your `.csproj` includes the required packages:
 
 ### Step 2: Database Setup
 
-SpurTrace supports both **SQL Server** and **SQLite**. By default, `AutoCreateTables = true` will automatically provision the schema and default admin user on application startup.
+SpurTrace hỗ trợ cấu hình cực kỳ linh hoạt về Database và Quản lý Retention Log:
 
-#### SQL Server DDL (Manual Provisioning Alternative)
-If your DBA requires manual migration execution:
-```sql
--- 1. Create Dedicated Schema
-IF NOT EXISTS (SELECT * FROM sys.schemas WHERE name = 'spurtrace')
-    EXEC('CREATE SCHEMA spurtrace');
-GO
-
--- 2. Telemetry Traces Table
-IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'spurtrace.traces') AND type in (N'U'))
-BEGIN
-    CREATE TABLE spurtrace.traces (
-        id NVARCHAR(64) PRIMARY KEY,
-        trace_id NVARCHAR(64) NOT NULL,
-        route NVARCHAR(256) NOT NULL,
-        method NVARCHAR(16) NOT NULL,
-        status_code INT NOT NULL,
-        duration_ms FLOAT NOT NULL,
-        created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME(),
-        payload NVARCHAR(MAX) NULL
-    );
-    CREATE INDEX IX_spurtrace_traces_created ON spurtrace.traces (created_at DESC);
-    CREATE INDEX IX_spurtrace_traces_trace_id ON spurtrace.traces (trace_id);
-    CREATE INDEX IX_spurtrace_traces_route ON spurtrace.traces (route);
-    CREATE INDEX IX_spurtrace_traces_status ON spurtrace.traces (status_code);
-    CREATE INDEX IX_spurtrace_traces_duration ON spurtrace.traces (duration_ms DESC);
-END
-GO
-
--- 3. Users Table (RBAC)
-IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'spurtrace.users') AND type in (N'U'))
-BEGIN
-    CREATE TABLE spurtrace.users (
-        id NVARCHAR(64) PRIMARY KEY,
-        username NVARCHAR(64) NOT NULL UNIQUE,
-        password_hash NVARCHAR(256) NOT NULL,
-        password_salt NVARCHAR(128) NOT NULL,
-        display_name NVARCHAR(128) NOT NULL,
-        email NVARCHAR(128) NOT NULL,
-        role NVARCHAR(32) NOT NULL DEFAULT 'Viewer',
-        is_active BIT NOT NULL DEFAULT 1,
-        created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
-    );
-END
-GO
-
--- 4. Dynamic Settings Table
-IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'spurtrace.settings') AND type in (N'U'))
-BEGIN
-    CREATE TABLE spurtrace.settings (
-        [key] NVARCHAR(64) PRIMARY KEY,
-        [value] NVARCHAR(MAX) NULL,
-        category NVARCHAR(32) NOT NULL DEFAULT 'telemetry',
-        description NVARCHAR(256) NULL,
-        updated_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
-    );
-END
-GO
-
--- 5. Alert Rules & Incident History Tables
-IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'spurtrace.alert_rules') AND type in (N'U'))
-BEGIN
-    CREATE TABLE spurtrace.alert_rules (
-        id NVARCHAR(64) PRIMARY KEY,
-        name NVARCHAR(128) NOT NULL,
-        metric NVARCHAR(64) NOT NULL,
-        condition NVARCHAR(16) NOT NULL,
-        threshold FLOAT NOT NULL,
-        unit NVARCHAR(16) NOT NULL DEFAULT 'ms',
-        channel NVARCHAR(32) NOT NULL DEFAULT 'email',
-        severity NVARCHAR(16) NOT NULL DEFAULT 'warning',
-        enabled BIT NOT NULL DEFAULT 1,
-        created_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
-    );
-END
-GO
-
-IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'spurtrace.alert_history') AND type in (N'U'))
-BEGIN
-    CREATE TABLE spurtrace.alert_history (
-        id NVARCHAR(64) PRIMARY KEY,
-        rule_id NVARCHAR(64) NOT NULL,
-        rule_name NVARCHAR(128) NOT NULL,
-        severity NVARCHAR(16) NOT NULL,
-        message NVARCHAR(MAX) NOT NULL,
-        triggered_at DATETIME2 NOT NULL DEFAULT SYSUTCDATETIME()
-    );
-    CREATE INDEX IX_spurtrace_alerts_triggered ON spurtrace.alert_history (triggered_at DESC);
-END
-GO
-```
+1. **Tự động tạo bảng (`options.AutoCreateTables = true`)**:
+   - Mặc định là `true`. Khi ứng dụng start, SpurTrace sẽ tự kiểm tra và khởi tạo schema `spurtrace`, các bảng (`traces`, `users`, `settings`, `alert_rules`, `alert_history`) và indexes nếu chưa tồn tại.
+2. **Chạy script thủ công (`options.AutoCreateTables = false`)**:
+   - Thích hợp cho môi trường Production của doanh nghiệp khi DBA không cấp quyền DDL cho app.
+   - Chạy trực tiếp file script: [sdks/dotnet/schema/sqlserver.sql](file:///d:/TunnyProject/opentrace/sdks/dotnet/schema/sqlserver.sql)
+3. **Cấu hình Xóa / Dọn dẹp Log (`AutoCleanLogs` & `RetentionDays`)**:
+   - `AutoCleanLogs = true`: Tự động xóa trace cũ hơn số ngày quy định (mỗi 6 tiếng chạy 1 lần).
+   - `AutoCleanLogs = false`: **TẮT HOÀN TOÀN** dọn dẹp, không bao giờ xóa bất kỳ bản ghi log nào. *(Lưu ý: `AutoCleanLogs` là công tắc chính. Nếu `AutoCleanLogs = false`, dù `RetentionDays` có đặt là 60 hay bất kỳ số nào thì hệ thống vẫn KHÔNG XÓA).*
+   - `RetentionDays = 30`: Số ngày lưu log. Nếu cấu hình `<= 0` (hoặc `-1`), hệ thống sẽ giữ log vĩnh viễn.
 
 ---
 
 ### Step 3: Register in `Program.cs`
 
-Open `Program.cs` and add the following configuration:
+Mở file `Program.cs` và đăng ký:
 
 ```csharp
-using EMS.Extensions; // Or your custom namespace
+using SpurTrace.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Register SpurTrace Services
+// 1. Đăng ký dịch vụ SpurTrace APM
 builder.Services.AddSpurTrace(options =>
 {
-    // Application display name (defaults to Entry Assembly name if omitted)
     options.AppName = "Senao EMS";
-    
-    // Thresholds
-    options.SlowRequestThresholdMs = 500.0;  // Requests > 500ms tagged as SLOW
-    options.SlowQueryThresholdMs = 250.0;    // SQL > 250ms tagged as SLOW
-    options.SampleRateSuccess = 1.0;         // 100% ingestion (or e.g. 0.20 for 20% head-sampling)
-    
-    // Storage Engine (SqlServer or Sqlite)
     options.StorageType = SpurTraceStorageType.SqlServer;
     options.ConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
     
-    // Auto-migrate schema on startup
-    options.AutoCreateTables = true;
-    options.RequireAuth = true;
+    // Tùy biến tạo bảng
+    options.AutoCreateTables = true; // Set false nếu DBA đã chạy script sqlserver.sql
+
+    // Tùy biến xóa log
+    options.AutoCleanLogs = true;    // Set false để lưu trữ vĩnh viễn, không bao giờ xóa
+    options.RetentionDays = 30;      // Set <= 0 để tắt xóa log
+
+    // Ngưỡng hiệu năng & lấy mẫu (Sampling & Thresholds)
+    options.SlowRequestThresholdMs = 500.0;  // Ngưỡng request chậm (ms)
+    options.SlowQueryThresholdMs = 250.0;    // Ngưỡng SQL query chậm (ms)
+    options.SampleRateSuccess = 0.5;         // Lấy mẫu 50% request thành công (Lỗi & Chậm luôn lưu 100%)
 });
 
 // 2. Register EF Core Interceptor in DbContext
-builder.Services.AddDbContext<ApplicationDbContext>((sp, db) =>
+builder.Services.AddDbContextPool<ApplicationDbContext>(options =>
 {
-    db.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")!);
-    
-    // Attach SpurTrace Database Profiler
-    db.AddInterceptors(sp.GetRequiredService<SpurTraceDbInterceptor>());
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")!);
+    options.AddInterceptors(new SpurTraceDbInterceptor());
 });
 
 var app = builder.Build();
@@ -336,10 +258,25 @@ SpurTrace comes with built-in Role-Based Access Control (RBAC):
 - **Trace ID Linking**: Click any query's Trace ID badge to jump directly into the full request waterfall where the query was executed.
 - **Interactive Runner**: Test parameterized SQL queries directly in the browser sandbox.
 
-### Automated Alerts & SMTP Notifications
-- **Metric Triggers**: Configure alerts for `p95_latency`, `error_rate`, `slow_sql_count`.
-- **SMTP Gateway**: Configure host, port, username, password, SSL, and recipient list in **Settings -> Email Notifications**.
-- **Incident History**: Logs all triggered alerts with severity (`Critical`, `Warning`, `Info`).
+### Automated Alerts & Email Notifications (Port 25 vs 587, Outlook & Templates)
+- **Email Gateway Architecture**:
+  - **Port 587 (Office 365 / Outlook / Gmail)**: Uses secure `STARTTLS`. Requires sender email account and an *App Password* (Mật khẩu ứng dụng) if the company tenant enforces Multi-Factor Authentication (MFA).
+  - **Port 25 (On-premise Internal Relay)**: Designed for factory/MES intranet networks with whitelisted server IPs. Does *not* require SSL or passwords.
+- **Dynamic Email Templates**:
+  - Pre-built templates stored in DB (`spurtrace.email_templates`):
+    - `Alert_Critical`: Urgent red card for 5xx errors & Exception crashes with 1-click button to view the Trace Waterfall.
+    - `Alert_SlowQuery`: Orange card for slow queries & N+1 loops with 1-click button to run in SQL Studio.
+    - `Alert_Digest`: Periodic health & latency percentile summary.
+  - Supported token placeholders: `{{AlertTitle}}`, `{{Severity}}`, `{{ServiceName}}`, `{{Endpoint}}`, `{{DurationMs}}`, `{{TraceId}}`, `{{Timestamp}}`, `{{ErrorMessage}}`, `{{SqlSnippet}}`, `{{TraceUrl}}`.
+- **Incident History**: Logs all triggered alerts with severity (`Critical`, `Warning`, `Info`) and links back to the originating Trace ID.
+
+### Database Schema, Audit Columns & TraceId Ordering
+- **Trace ID Ordering**: In `spurtrace.traces`, `trace_id` is guaranteed to be the **very first column** in the table DDL and acts as the primary index.
+- **Audit Columns**: All SpurTrace operational tables (`traces`, `users`, `settings`, `alert_rules`, `alert_history`, `email_templates`) include standardized audit metadata:
+  - `created_at DATETIME2 NOT NULL DEFAULT GETUTCDATE()`
+  - `updated_at DATETIME2 NULL`
+  - `created_by NVARCHAR(100) NULL DEFAULT 'System'`
+  - `updated_by NVARCHAR(100) NULL`
 
 ### Dynamic Settings & Database Backups
 - Adjust thresholds (`Slow Query (ms)`, `Slow Request (ms)`, `Sample Rate`) at runtime without restarting your application.

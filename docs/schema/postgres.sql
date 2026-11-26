@@ -11,6 +11,9 @@ CREATE TABLE IF NOT EXISTS sys_traces (
   spans_json JSONB NOT NULL DEFAULT '[]'::jsonb,
   sql_calls_json JSONB NOT NULL DEFAULT '[]'::jsonb,
   breadcrumbs_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  updated_at TIMESTAMPTZ,
+  created_by VARCHAR(100) DEFAULT 'System',
+  updated_by VARCHAR(100),
   PRIMARY KEY (trace_id, created_at)
 ) PARTITION BY RANGE (created_at);
 

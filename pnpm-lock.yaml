@@ -13,7 +13,7 @@ importers:
         version: 5.3.0(supports-color@7.2.0)
       spurtrace:
         specifier: workspace:*
-        version: link:packages/spurtrace
+        version: link:sdks/nodejs
     devDependencies:
       '@types/express':
         specifier: ^5.0.6
@@ -107,7 +107,7 @@ importers:
         version: 2.0.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       spurtrace:
         specifier: workspace:*
-        version: link:../../packages/spurtrace
+        version: link:../../sdks/nodejs
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.4.0
@@ -219,7 +219,7 @@ importers:
         specifier: 5.7.3
         version: 5.7.3
 
-  packages/spurtrace:
+  sdks/nodejs:
     devDependencies:
       '@types/node':
         specifier: ^24.0.0

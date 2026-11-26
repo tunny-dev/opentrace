@@ -409,13 +409,19 @@ export class AppModule implements NestModule {
           </p>
           <CodeBlock
             filename="Program.cs (.NET MVC)"
-            code={`// 1. Register SpurTrace with Auto-Migration
+            code={`// 1. Register SpurTrace with Auto-Migration & Retention Policy
 builder.Services.AddSpurTrace(options =>
 {
     options.AppName = "MyMvcApp";
     options.StorageType = SpurTraceStorageType.SqlServer; // or SQLite
     options.ConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
-    options.AutoCreateTables = true; // Auto-creates sys_traces in your DB on boot!
+    
+    // Database schema & table provisioning
+    options.AutoCreateTables = true; // Auto-creates schema & tables in your DB on boot (set false for DBA scripts)
+
+    // Retention & log cleanup policy
+    options.AutoCleanLogs = true;    // Master switch: set false to retain logs forever (never delete)
+    options.RetentionDays = 30;      // Number of days to retain (set <= 0 to disable purge)
 });
 
 var app = builder.Build();
@@ -935,7 +941,14 @@ builder.Services.AddSpurTrace(options =>
     options.AppName = "MES-Production-API";
     options.StorageType = SpurTraceStorageType.SqlServer;
     options.ConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
-    options.AutoCreateTables = true; // Auto-creates dbo.sys_traces if not exists
+    
+    // Auto provisioning
+    options.AutoCreateTables = true; // Set false if using sdks/dotnet/schema/sqlserver.sql
+
+    // Retention policy
+    options.AutoCleanLogs = true;    // Master switch: set false to NEVER delete traces
+    options.RetentionDays = 30;      // Days to keep (set <= 0 to keep forever)
+
     options.SampleRateSuccess = 0.2; // 20% healthy requests, 100% errors/slow
     options.SlowRequestThresholdMs = 500;
     options.SlowQueryThresholdMs = 250;
@@ -1466,6 +1479,7 @@ const instance = mountSpurTrace(container, {
       { id: "responsive-laptop", title: "5. Responsive Layout for 14-Inch Laptops", level: 2 },
       { id: "sql-studio", title: "6. Inlined SQL Studio & Diagnostics", level: 2 },
       { id: "rbac-profiles", title: "7. RBAC Roles & User Profiles (Admin, Engineer, Viewer)", level: 2 },
+      { id: "alert-template-studio", title: "8. Alert Policy & Dynamic Email Template Studio", level: 2 },
     ],
     content: (
       <div className="space-y-6">
@@ -1616,6 +1630,39 @@ const instance = mountSpurTrace(container, {
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <h2 id="alert-template-studio" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
+          8. Alert Policy &amp; Dynamic Email Template Studio (/telemetry/alerts/new)
+        </h2>
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
+          SpurTrace provides a dedicated Alert Policy Studio allowing engineers to configure multi-metric threshold triggers, recipient notification lists, and live transactional email rendering:
+        </p>
+        <div className="space-y-3">
+          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-900/40 text-xs space-y-2">
+            <p className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">
+              Responsive Wide-Screen Layout &amp; Live Preview Toggle
+            </p>
+            <p className="text-zinc-600 dark:text-zinc-400">
+              The studio features a spacious, clean form layout that maximizes viewport ergonomics on large displays. The <strong>Live Email Preview</strong> is toggleable via the <code className="font-mono text-emerald-600 dark:text-emerald-400">👁️ Xem trước Email (Live Preview)</code> button, rendering desktop, mobile, and raw HTML inspect modes side-by-side with live iframe sandboxing.
+            </p>
+          </div>
+          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-900/40 text-xs space-y-2">
+            <p className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">
+              Dynamic Email Templates from Database
+            </p>
+            <p className="text-zinc-600 dark:text-zinc-400">
+              Email templates are dynamically retrieved from the host database (<code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">spurtrace.email_templates</code>) through <code className="font-mono text-xs bg-muted px-1 py-0.5 rounded">GET /api/telemetry/email-templates</code>. Organizations can define and reuse company-branded email designs across multiple alert policies.
+            </p>
+          </div>
+          <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 p-4 bg-zinc-50 dark:bg-zinc-900/40 text-xs space-y-2">
+            <p className="font-semibold text-zinc-900 dark:text-zinc-100 text-sm">
+              Standardized UUID Identifier Generation
+            </p>
+            <p className="text-zinc-600 dark:text-zinc-400">
+              All alert policy entities, trigger logs, and trace spans use standard UUID v4 identifiers (<code className="font-mono">Guid.NewGuid().ToString()</code> in C# and <code className="font-mono">crypto.randomUUID()</code> in the UI), guaranteeing global uniqueness across distributed nodes and database shards.
+            </p>
+          </div>
         </div>
       </div>
     ),
@@ -1812,6 +1859,27 @@ const instance = mountSpurTrace(container, {
                 <td className="p-2.5 font-mono">TEXT NOT NULL</td>
                 <td className="p-2.5">Correlated logging events and checkpoints occurring during the trace</td>
               </tr>
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">updated_at</td>
+                <td className="p-2.5 font-mono">TIMESTAMPTZ</td>
+                <td className="p-2.5 font-mono">DATETIME2</td>
+                <td className="p-2.5 font-mono">TEXT</td>
+                <td className="p-2.5">Audit update timestamp (NULL on initial insert)</td>
+              </tr>
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">created_by</td>
+                <td className="p-2.5 font-mono">VARCHAR(100)</td>
+                <td className="p-2.5 font-mono">NVARCHAR(100)</td>
+                <td className="p-2.5 font-mono">TEXT</td>
+                <td className="p-2.5">Audit creator identifier (defaults to &apos;System&apos;)</td>
+              </tr>
+              <tr>
+                <td className="p-2.5 font-mono font-semibold text-emerald-600 dark:text-emerald-400">updated_by</td>
+                <td className="p-2.5 font-mono">VARCHAR(100)</td>
+                <td className="p-2.5 font-mono">NVARCHAR(100)</td>
+                <td className="p-2.5 font-mono">TEXT</td>
+                <td className="p-2.5">Audit modifier identifier (NULL on initial insert)</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -1892,7 +1960,6 @@ CREATE INDEX IF NOT EXISTS idx_sys_traces_duration ON sys_traces (duration_ms DE
           code={`IF OBJECT_ID(N'dbo.sys_traces', N'U') IS NULL
 BEGIN
   CREATE TABLE dbo.sys_traces (
-    created_at datetime2(3) NOT NULL,
     trace_id nvarchar(64) NOT NULL,
     app_name nvarchar(160) NOT NULL,
     method varchar(12) NOT NULL,
@@ -1904,7 +1971,11 @@ BEGIN
     spans_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_spans DEFAULT N'[]',
     sql_calls_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_sql DEFAULT N'[]',
     breadcrumbs_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_breadcrumbs DEFAULT N'[]',
-    CONSTRAINT pk_sys_traces PRIMARY KEY CLUSTERED (created_at, trace_id),
+    created_at datetime2(3) NOT NULL DEFAULT GETUTCDATE(),
+    updated_at datetime2 NULL,
+    created_by nvarchar(100) NULL DEFAULT 'System',
+    updated_by nvarchar(100) NULL,
+    CONSTRAINT pk_sys_traces PRIMARY KEY CLUSTERED (trace_id),
     CONSTRAINT ck_sys_traces_spans_json CHECK (ISJSON(spans_json) = 1),
     CONSTRAINT ck_sys_traces_sql_json CHECK (ISJSON(sql_calls_json) = 1),
     CONSTRAINT ck_sys_traces_breadcrumbs_json CHECK (ISJSON(breadcrumbs_json) = 1)
@@ -2111,7 +2182,6 @@ END \$\$;`}
           code={`IF OBJECT_ID(N'dbo.sys_traces', N'U') IS NULL
 BEGIN
   CREATE TABLE dbo.sys_traces (
-    created_at datetime2(3) NOT NULL,
     trace_id nvarchar(64) NOT NULL,
     app_name nvarchar(160) NOT NULL,
     method varchar(12) NOT NULL,
@@ -2123,7 +2193,11 @@ BEGIN
     spans_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_spans DEFAULT N'[]',
     sql_calls_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_sql DEFAULT N'[]',
     breadcrumbs_json nvarchar(max) NOT NULL CONSTRAINT df_sys_traces_breadcrumbs DEFAULT N'[]',
-    CONSTRAINT pk_sys_traces PRIMARY KEY CLUSTERED (created_at, trace_id),
+    created_at datetime2(3) NOT NULL DEFAULT GETUTCDATE(),
+    updated_at datetime2 NULL,
+    created_by nvarchar(100) NULL DEFAULT 'System',
+    updated_by nvarchar(100) NULL,
+    CONSTRAINT pk_sys_traces PRIMARY KEY CLUSTERED (trace_id),
     CONSTRAINT ck_sys_traces_spans_json CHECK (ISJSON(spans_json) = 1),
     CONSTRAINT ck_sys_traces_sql_json CHECK (ISJSON(sql_calls_json) = 1),
     CONSTRAINT ck_sys_traces_breadcrumbs_json CHECK (ISJSON(breadcrumbs_json) = 1)
@@ -2138,6 +2212,9 @@ END;`}
         <h2 id="mssql-retention" className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 pt-4">
           4. SQL Server Partition Switching &amp; Retention
         </h2>
+        <Callout type="warning" title="Master Switch Rule: AutoCleanLogs vs RetentionDays">
+          <strong>AutoCleanLogs</strong> acts as the master safety switch. If <code className="font-mono">AutoCleanLogs = false</code>, SpurTrace will <strong>NEVER</strong> delete or purge any records from <code className="font-mono">spurtrace.traces</code>, even if <code className="font-mono">RetentionDays = 60</code> or any positive number. Both <code className="font-mono">AutoCleanLogs == true</code> AND <code className="font-mono">RetentionDays &gt; 0</code> must be satisfied for automated background cleanup to run.
+        </Callout>
         <p className="text-sm text-zinc-700 dark:text-zinc-300 leading-relaxed">
           To purge traces older than your retention window (e.g. 14 days) in high-throughput SQL Server environments without causing table lock escalation:
         </p>
@@ -2369,10 +2446,52 @@ END;`}
                 <td className="p-3 font-sans">SQL queries exceeding this duration trigger a warning breadcrumb.</td>
               </tr>
               <tr>
+                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">requireAuth</td>
+                <td className="p-3 text-cyan-600 dark:text-cyan-400">boolean</td>
+                <td className="p-3">true</td>
+                <td className="p-3 font-sans">Enforce dedicated SpurTrace Telemetry authentication (independent of host app login). Protects /telemetry and API routes.</td>
+              </tr>
+              <tr>
+                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">ignoredPaths</td>
+                <td className="p-3 text-cyan-600 dark:text-cyan-400">List&lt;string&gt;</td>
+                <td className="p-3">["/telemetry", "/swagger", "/health", "/metrics", ...]</td>
+                <td className="p-3 font-sans">List of path prefixes excluded from trace and SQL ingestion to avoid self-profiling or log flooding.</td>
+              </tr>
+              <tr>
+                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">ignoredExtensions</td>
+                <td className="p-3 text-cyan-600 dark:text-cyan-400">List&lt;string&gt;</td>
+                <td className="p-3">[".css", ".js", ".png", ".ico", ".woff2", ...]</td>
+                <td className="p-3 font-sans">Static asset file extensions automatically bypassed from APM recording.</td>
+              </tr>
+              <tr>
+                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">shouldIgnore</td>
+                <td className="p-3 text-cyan-600 dark:text-cyan-400">Func&lt;HttpContext, bool&gt;</td>
+                <td className="p-3">null</td>
+                <td className="p-3 font-sans">Custom predicate lambda. Return true to skip tracing for any specific request (e.g. by header, ip, or tenant).</td>
+              </tr>
+              <tr>
+                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">timeZoneId</td>
+                <td className="p-3 text-cyan-600 dark:text-cyan-400">string</td>
+                <td className="p-3">"SE Asia Standard Time"</td>
+                <td className="p-3 font-sans">Timezone used for localized UI formatting (+07:00). All underlying DB tables strictly store UTC (ISO-8601).</td>
+              </tr>
+              <tr>
+                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">autoCreateTables</td>
+                <td className="p-3 text-cyan-600 dark:text-cyan-400">boolean</td>
+                <td className="p-3">true</td>
+                <td className="p-3 font-sans">Auto-creates schema, tables and indexes on application boot. Set false for strict DBA-controlled production environments.</td>
+              </tr>
+              <tr>
+                <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">autoCleanLogs</td>
+                <td className="p-3 text-cyan-600 dark:text-cyan-400">boolean</td>
+                <td className="p-3">true</td>
+                <td className="p-3 font-sans">Master switch for background cleanup. Set false to retain logs forever (never deletes, even if retentionDays is set).</td>
+              </tr>
+              <tr>
                 <td className="p-3 font-bold text-zinc-900 dark:text-zinc-100">retentionDays</td>
                 <td className="p-3 text-cyan-600 dark:text-cyan-400">number</td>
-                <td className="p-3">7</td>
-                <td className="p-3 font-sans">Number of days to keep traces before automated rolling cleanup.</td>
+                <td className="p-3">30</td>
+                <td className="p-3 font-sans">Number of days to keep traces before rolling cleanup (applies only when autoCleanLogs = true). Set &lt;= 0 to disable purge.</td>
               </tr>
             </tbody>
           </table>

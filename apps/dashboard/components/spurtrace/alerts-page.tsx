@@ -45,17 +45,18 @@ export function AlertsPageContent({ role }: { role: UserRole }) {
     const errTraces = filteredTraces.filter((t) => t.status >= 500 || t.exception);
     if (errTraces.length > 0) {
       const latestErr = errTraces[0];
-      const minsAgo = Math.max(
-        1,
-        Math.floor((now - new Date(latestErr.createdAt).getTime()) / 60000)
-      );
+      const dateVal = latestErr.createdAt || (latestErr as any).timestamp;
+      const parsedTime = dateVal ? new Date(dateVal).getTime() : NaN;
+      const minsAgo = !isNaN(parsedTime)
+        ? Math.max(1, Math.floor((now - parsedTime) / 60000))
+        : 2;
       incidents.push({
         id: `inc_err_${latestErr.id}`,
         ruleName: "[CRITICAL] MES HTTP 500 & Unhandled Exceptions",
         ruleNameKey: "alerts.seed.rule1",
         severity: "critical",
         minutesAgo: Math.min(minsAgo, 1440),
-        channels: ["email", "teams", "inApp"],
+        channels: ["email", "inApp"],
         details: { key: "alerts.log.seedException" },
       });
     }
@@ -64,17 +65,18 @@ export function AlertsPageContent({ role }: { role: UserRole }) {
     const slowTraces = filteredTraces.filter((t) => t.duration >= 300);
     if (slowTraces.length > 0) {
       const latestSlow = slowTraces[0];
-      const minsAgo = Math.max(
-        1,
-        Math.floor((now - new Date(latestSlow.createdAt).getTime()) / 60000)
-      );
+      const dateVal = latestSlow.createdAt || (latestSlow as any).timestamp;
+      const parsedTime = dateVal ? new Date(dateVal).getTime() : NaN;
+      const minsAgo = !isNaN(parsedTime)
+        ? Math.max(1, Math.floor((now - parsedTime) / 60000))
+        : 5;
       incidents.push({
         id: `inc_slow_${latestSlow.id}`,
         ruleName: "[WARNING] High Latency Spike P95 (> 300ms)",
         ruleNameKey: "alerts.seed.rule2",
         severity: "warning",
         minutesAgo: Math.min(minsAgo, 1440),
-        channels: ["inApp", "teams"],
+        channels: ["inApp", "email"],
         details: { key: "alerts.log.seedSlowSql", metric: "slow_sql", threshold: 300, unit: "ms" },
       });
     }
@@ -102,7 +104,11 @@ export function AlertsPageContent({ role }: { role: UserRole }) {
               unit: r.unit,
               enabled: r.isEnabled,
               severity: r.severity,
-              channels: Array.isArray(r.channels) ? r.channels : ["email", "inApp"],
+              channels: Array.isArray(r.channels)
+                ? r.channels
+                : typeof r.channels === "string"
+                  ? r.channels.split(",").map((s: string) => s.trim()).filter(Boolean)
+                  : ["email", "inApp"],
             }))
           );
         }
@@ -253,17 +259,18 @@ export function AlertsPageContent({ role }: { role: UserRole }) {
             <span>{t("alerts.factoryPresets")}</span>
           </Button>
 
-          <Button
-            type="button"
-            size="sm"
-            className="bg-emerald-700 text-white hover:bg-emerald-600 disabled:opacity-50"
-            onClick={() => setIsAddRuleOpen(true)}
-            disabled={!isAdmin}
-            title={isAdmin ? undefined : t("alerts.adminOnly")}
-          >
-            <Plus className="size-3.5" aria-hidden="true" />
-            <span>{t("alerts.addRule")}</span>
-          </Button>
+          <Link href="/alerts/new">
+            <Button
+              type="button"
+              size="sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold disabled:opacity-50"
+              disabled={!isAdmin}
+              title={isAdmin ? undefined : t("alerts.adminOnly")}
+            >
+              <Plus className="size-3.5" aria-hidden="true" />
+              <span>Tạo chính sách (Kèm xem trước Mail)</span>
+            </Button>
+          </Link>
         </div>
       </div>
 

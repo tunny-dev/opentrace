@@ -6,7 +6,7 @@ console.log("=== Building SpurTrace Static Next.js Dashboard Bundle ===")
 
 const dashboardDir = resolve("apps/dashboard")
 const outDir = resolve("apps/dashboard/out")
-const targetDir = resolve("packages/spurtrace/dist/dashboard-ui")
+const targetDir = resolve("sdks/nodejs/dist/dashboard-ui")
 const apiDir = resolve("apps/dashboard/app/api")
 
 if (existsSync(outDir)) {
@@ -65,18 +65,12 @@ try {
   }
 }
 
-console.log("2. Copying static bundle to packages/spurtrace/dist/dashboard-ui...")
+// 2. Copy static bundle to spurtrace Node.js SDK
+console.log("2. Copying static bundle to sdks/nodejs/dist/dashboard-ui...")
 if (!existsSync(targetDir)) {
   mkdirSync(targetDir, { recursive: true })
 }
-
 cpSync(outDir, targetDir, { recursive: true })
-
-const opentraceTarget = resolve("packages/opentrace/dist/dashboard-ui")
-if (!existsSync(opentraceTarget)) {
-  mkdirSync(opentraceTarget, { recursive: true })
-}
-cpSync(outDir, opentraceTarget, { recursive: true })
 
 const emsWwwroot = resolve("D:/Senao/EMS/EMS/wwwroot/telemetry")
 if (existsSync("D:/Senao/EMS/EMS/wwwroot")) {

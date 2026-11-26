@@ -9,7 +9,6 @@ import {
   Copy,
   Check,
   ExternalLink,
-  FileText,
   Search,
   Terminal,
   X,
@@ -19,6 +18,7 @@ import {
   AlertTriangle,
   Info,
   Flame,
+  TableIcon,
 } from "lucide-react";
 import type { DemoLog } from "@/lib/spurtrace/demo-logs";
 import { Button } from "@/components/ui/button";
@@ -250,13 +250,20 @@ export function LogStreamTab({
             )}
           >
             <Radio
-              className={cn("size-3.5", liveTail ? "animate-pulse text-emerald-500" : "text-muted-foreground")}
+              className={cn(
+                "size-3.5",
+                liveTail ? "animate-pulse text-emerald-500" : "text-muted-foreground"
+              )}
             />
             <span>{liveTail ? "Live Tail: ON" : "Live Tail: OFF"}</span>
           </Button>
 
           {/* View Mode Switch */}
-          <div className="log-view-switch flex rounded-lg border border-border bg-muted/40 p-0.5" role="group" aria-label="Log view mode">
+          <div
+            className="log-view-switch flex rounded-lg border border-border bg-muted/40 p-0.5"
+            role="group"
+            aria-label="Log view mode"
+          >
             <Button
               type="button"
               variant="ghost"
@@ -286,7 +293,7 @@ export function LogStreamTab({
               aria-pressed={viewMode === "table"}
               onClick={() => setViewMode("table")}
             >
-              <FileText className="size-3.5 text-sky-500" aria-hidden="true" />
+              <TableIcon className="size-3.5 text-sky-500" aria-hidden="true" />
               Bảng Chi tiết
             </Button>
           </div>
@@ -298,7 +305,9 @@ export function LogStreamTab({
         <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-muted/40 border border-border/50">
           <Activity className="size-4 text-emerald-500 shrink-0" />
           <div className="min-w-0">
-            <div className="text-[10px] uppercase font-semibold text-muted-foreground">Tổng số Logs</div>
+            <div className="text-[10px] uppercase font-semibold text-muted-foreground">
+              Tổng số Logs
+            </div>
             <div className="text-sm font-bold text-foreground font-mono">{stats.total}</div>
           </div>
         </div>
@@ -306,9 +315,14 @@ export function LogStreamTab({
         <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-muted/40 border border-border/50">
           <Info className="size-4 text-sky-500 shrink-0" />
           <div className="min-w-0">
-            <div className="text-[10px] uppercase font-semibold text-muted-foreground">Thông tin (Info)</div>
+            <div className="text-[10px] uppercase font-semibold text-muted-foreground">
+              Thông tin (Info)
+            </div>
             <div className="text-sm font-bold text-sky-600 dark:text-sky-400 font-mono">
-              {stats.info} <span className="text-[10px] text-muted-foreground font-sans font-normal">({stats.total ? Math.round((stats.info / stats.total) * 100) : 0}%)</span>
+              {stats.info}{" "}
+              <span className="text-[10px] text-muted-foreground font-sans font-normal">
+                ({stats.total ? Math.round((stats.info / stats.total) * 100) : 0}%)
+              </span>
             </div>
           </div>
         </div>
@@ -316,9 +330,14 @@ export function LogStreamTab({
         <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-muted/40 border border-border/50">
           <AlertTriangle className="size-4 text-amber-500 shrink-0" />
           <div className="min-w-0">
-            <div className="text-[10px] uppercase font-semibold text-muted-foreground">Cảnh báo (Warn)</div>
+            <div className="text-[10px] uppercase font-semibold text-muted-foreground">
+              Cảnh báo (Warn)
+            </div>
             <div className="text-sm font-bold text-amber-600 dark:text-amber-400 font-mono">
-              {stats.warn} <span className="text-[10px] text-muted-foreground font-sans font-normal">({stats.total ? Math.round((stats.warn / stats.total) * 100) : 0}%)</span>
+              {stats.warn}{" "}
+              <span className="text-[10px] text-muted-foreground font-sans font-normal">
+                ({stats.total ? Math.round((stats.warn / stats.total) * 100) : 0}%)
+              </span>
             </div>
           </div>
         </div>
@@ -326,9 +345,14 @@ export function LogStreamTab({
         <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-muted/40 border border-border/50">
           <Flame className="size-4 text-rose-500 shrink-0" />
           <div className="min-w-0">
-            <div className="text-[10px] uppercase font-semibold text-muted-foreground">Lỗi (Errors)</div>
+            <div className="text-[10px] uppercase font-semibold text-muted-foreground">
+              Lỗi (Errors)
+            </div>
             <div className="text-sm font-bold text-rose-600 dark:text-rose-400 font-mono">
-              {stats.error} <span className="text-[10px] text-muted-foreground font-sans font-normal">({stats.total ? Math.round((stats.error / stats.total) * 100) : 0}%)</span>
+              {stats.error}{" "}
+              <span className="text-[10px] text-muted-foreground font-sans font-normal">
+                ({stats.total ? Math.round((stats.error / stats.total) * 100) : 0}%)
+              </span>
             </div>
           </div>
         </div>
@@ -336,16 +360,24 @@ export function LogStreamTab({
         <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-muted/40 border border-border/50">
           <Database className="size-4 text-emerald-500 shrink-0" />
           <div className="min-w-0">
-            <div className="text-[10px] uppercase font-semibold text-muted-foreground">Truy vấn SQL</div>
-            <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 font-mono">{stats.sql}</div>
+            <div className="text-[10px] uppercase font-semibold text-muted-foreground">
+              Truy vấn SQL
+            </div>
+            <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+              {stats.sql}
+            </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2.5 px-3 py-1.5 rounded-md bg-muted/40 border border-border/50">
           <Clock className="size-4 text-amber-500 shrink-0" />
           <div className="min-w-0">
-            <div className="text-[10px] uppercase font-semibold text-muted-foreground">Chậm (Slow ≥1s)</div>
-            <div className="text-sm font-bold text-amber-600 dark:text-amber-400 font-mono">{stats.slow}</div>
+            <div className="text-[10px] uppercase font-semibold text-muted-foreground">
+              Chậm (Slow ≥1s)
+            </div>
+            <div className="text-sm font-bold text-amber-600 dark:text-amber-400 font-mono">
+              {stats.slow}
+            </div>
           </div>
         </div>
       </div>
@@ -353,7 +385,11 @@ export function LogStreamTab({
       {/* Main Stream Container */}
       <section className="panel-card logs-panel rounded-lg border border-border bg-card p-3 shadow-2xs flex flex-col gap-3">
         {/* Quick Filter Pill Buttons with Live Counters */}
-        <div className="logs-filter-bar flex items-center gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Quick log filters">
+        <div
+          className="logs-filter-bar flex items-center gap-1.5 overflow-x-auto pb-1"
+          role="group"
+          aria-label="Quick log filters"
+        >
           {quickFilters.map((filter) => {
             const isActive = quickFilter === filter.id;
             return (
@@ -390,7 +426,10 @@ export function LogStreamTab({
         {/* Toolbar: Search input, Sort order, Line wrapping dropdown */}
         <div className="logs-toolbar flex flex-col md:flex-row md:items-center justify-between gap-2.5 pt-1 border-t border-border/50">
           <div className="logs-search flex items-center gap-1.5 relative flex-1 max-w-md">
-            <Search aria-hidden="true" className="size-4 shrink-0 text-muted-foreground absolute left-2.5 pointer-events-none" />
+            <Search
+              aria-hidden="true"
+              className="size-4 shrink-0 text-muted-foreground absolute left-2.5 pointer-events-none"
+            />
             <Input
               type="text"
               value={search}
@@ -453,7 +492,10 @@ export function LogStreamTab({
                     Ngắt dòng tự động (Line wrap)
                   </SelectItem>
                   {viewMode === "terminal" && (
-                    <SelectItem value="pretty" className="text-xs cursor-pointer font-medium text-emerald-600 dark:text-emerald-400">
+                    <SelectItem
+                      value="pretty"
+                      className="text-xs cursor-pointer font-medium text-emerald-600 dark:text-emerald-400"
+                    >
                       Prettify JSON (Làm đẹp)
                     </SelectItem>
                   )}
@@ -461,7 +503,7 @@ export function LogStreamTab({
               </Select>
             </div>
 
-            <div className="px-2.5 py-1 rounded bg-muted/50 border border-border text-[11px] font-mono font-semibold text-muted-foreground select-none">
+            <div className="h-8 inline-flex items-center px-3 rounded-md bg-muted/60 border border-border text-[11px] font-mono font-semibold text-muted-foreground select-none">
               {visibleLogs.length} DÒNG LOGS
             </div>
           </div>
@@ -471,7 +513,7 @@ export function LogStreamTab({
         {viewMode === "terminal" ? (
           <div className="rounded-lg border border-border overflow-x-auto bg-[#0d1117] text-[#c9d1d9] shadow-inner font-mono text-xs">
             {/* Terminal Header */}
-            <div className="flex items-center gap-3 border-b border-[#30363d] bg-[#161b22] px-3.5 py-2 font-mono text-[11px] uppercase font-bold text-[#8b949e] tracking-wider select-none min-w-[1080px]">
+            <div className="flex items-center gap-3 border-b border-border bg-muted/60 px-3.5 py-2 font-mono text-[11px] uppercase font-bold text-muted-foreground tracking-wider select-none min-w-[1080px]">
               <span className="w-5 shrink-0 text-center">#</span>
               <span className="w-[170px] shrink-0 text-left">Thời gian (UTC)</span>
               <span className="w-[76px] shrink-0 text-center">Cấp độ</span>
@@ -490,7 +532,10 @@ export function LogStreamTab({
               {visibleLogs.map((log, idx) => {
                 const isExpanded = expandedLogId === log.id;
                 return (
-                  <div key={log.id} className="flex flex-col group hover:bg-[#161b22]/70 transition-colors">
+                  <div
+                    key={log.id}
+                    className="flex flex-col group hover:bg-[#161b22]/70 transition-colors"
+                  >
                     <div
                       className="flex items-center gap-3 px-3.5 py-2 min-w-[1080px] cursor-pointer"
                       onClick={() => setExpandedLogId(isExpanded ? null : log.id)}
@@ -507,7 +552,10 @@ export function LogStreamTab({
                         )}
                       </button>
 
-                      <time className="w-[170px] shrink-0 text-left text-[#8b949e] select-all tabular-nums text-[11px]" dateTime={log.timestamp}>
+                      <time
+                        className="w-[170px] shrink-0 text-left text-[#8b949e] select-all tabular-nums text-[11px]"
+                        dateTime={log.timestamp}
+                      >
                         {formatTimestamp(log.timestamp)}
                       </time>
 
@@ -672,8 +720,12 @@ export function LogStreamTab({
                       </button>
                     </td>
                     <td className="p-2.5 text-left">
-                      <div className="font-semibold text-foreground text-xs font-sans">{log.source}</div>
-                      <small className="text-[10px] text-muted-foreground font-mono">{log.layer}</small>
+                      <div className="font-semibold text-foreground text-xs font-sans">
+                        {log.source}
+                      </div>
+                      <small className="text-[10px] text-muted-foreground font-mono">
+                        {log.layer}
+                      </small>
                     </td>
                     <td
                       className={cn(
@@ -703,7 +755,10 @@ export function LogStreamTab({
                 ))}
                 {visibleLogs.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="logs-empty text-center p-8 text-muted-foreground font-sans text-xs">
+                    <td
+                      colSpan={7}
+                      className="logs-empty text-center p-8 text-muted-foreground font-sans text-xs"
+                    >
                       Không tìm thấy dòng log nào khớp với bộ lọc hiện tại.
                     </td>
                   </tr>

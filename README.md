@@ -23,8 +23,27 @@
 
 | Guide | Description |
 |---|---|
-| **[Setup & Integration Guide](file:///d:/TunnyProject/opentrace/spurtrace/SETUP_GUIDE.md)** | Step-by-step instructions for integrating SpurTrace into .NET 8 (ASP.NET Core MVC, Web API, EF Core) and Node.js. |
-| **[Architecture & Design Specifications](file:///d:/TunnyProject/opentrace/spurtrace/ARCHITECTURE.md)** | Detailed data flow, storage schema, tail sampling, and embedded SPA distribution blueprints. |
+| **[Setup & Integration Guide](file:///d:/TunnyProject/opentrace/docs/SETUP_GUIDE.md)** | Step-by-step instructions for integrating SpurTrace into .NET 8 and Node.js. |
+| **[SpurTrace.AspNetCore (.NET 8 SDK)](file:///d:/TunnyProject/opentrace/sdks/dotnet/README.md)** | Deep dive into the .NET 8 library, Dapper queries, AutoCreateTables & AutoCleanLogs configuration. |
+| **[Architecture & Design Specifications](file:///d:/TunnyProject/opentrace/docs/ARCHITECTURE.md)** | Detailed data flow, storage schema, tail sampling, and embedded SPA distribution blueprints. |
+| **[SQL Server DDL Script](file:///d:/TunnyProject/opentrace/sdks/dotnet/schema/sqlserver.sql)** | Complete SQL Server DDL migration script for manual provisioning (`AutoCreateTables = false`). |
+
+---
+
+## 📂 Repository Structure
+
+```
+d:\TunnyProject\opentrace\
+├── apps/                    # Toàn bộ ứng dụng giao diện & demo
+│   ├── dashboard/           # Next.js 16 Web Dashboard UI (TanStack Table v8, Shadcn UI)
+│   ├── docs/                # Next.js Documentation Site
+│   └── demo/                # Server Express demo
+├── sdks/                    # Toàn bộ SOURCE CODE thư viện lõi
+│   ├── dotnet/              # .NET 8.0 ASP.NET Core Library (Dapper, EF Core Interceptors)
+│   └── nodejs/              # Node.js / TypeScript SDK & middleware
+├── docs/                    # Tài liệu kiến trúc & Setup guides
+└── scripts/                 # Monorepo build scripts (dashboard bundler, icon generator)
+```
 
 ---
 
@@ -32,24 +51,28 @@
 
 ### 1. Register Services in `Program.cs`
 ```csharp
-using EMS.Extensions;
+using SpurTrace.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register SpurTrace
+// Register SpurTrace APM
 builder.Services.AddSpurTrace(options =>
 {
-    options.AppName = "Senao EMS";
+    options.AppName = "Senao-EMS";
     options.StorageType = SpurTraceStorageType.SqlServer;
     options.ConnectionString = builder.Configuration.GetConnectionString("DefaultConnection")!;
-    options.AutoCreateTables = true;
+    
+    // Tùy biến tạo bảng & dọn dẹp log linh hoạt
+    options.AutoCreateTables = true; // true: tự tạo bảng; false: chạy script schema/sqlserver.sql
+    options.AutoCleanLogs = true;    // true: tự động xóa log cũ; false: giữ log vĩnh viễn
+    options.RetentionDays = 30;      // Số ngày lưu trữ (<= 0 để lưu vĩnh viễn)
 });
 
 // Hook EF Core Interceptor
-builder.Services.AddDbContext<ApplicationDbContext>((sp, db) =>
+builder.Services.AddDbContextPool<ApplicationDbContext>(options =>
 {
-    db.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")!);
-    db.AddInterceptors(sp.GetRequiredService<SpurTraceDbInterceptor>());
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")!);
+    options.AddInterceptors(new SpurTraceDbInterceptor());
 });
 
 var app = builder.Build();

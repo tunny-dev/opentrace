@@ -4016,9 +4016,9 @@ small {
   display: inline-flex;
   gap: 3px;
   padding: 3px;
-  border: 1px solid #292b30;
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: #111214;
+  background: var(--muted);
 }
 
 .log-view-switch button {
@@ -4030,15 +4030,17 @@ small {
   border: 1px solid transparent;
   border-radius: 4px;
   background: transparent;
-  color: #848993;
+  color: var(--muted-foreground);
   font-size: 8px;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .log-view-switch button.is-active {
-  border-color: #34363c;
-  background: #202226;
-  color: #dfe1e6;
+  border-color: var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .log-view-switch svg {
@@ -4053,51 +4055,55 @@ small {
 
 .logs-filter-bar {
   display: flex;
-  gap: 5px;
+  gap: 6px;
   overflow-x: auto;
-  padding: 9px 11px;
-  border-bottom: 1px solid #24262b;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
   scrollbar-width: thin;
 }
 
 .logs-filter-bar button {
   flex: 0 0 auto;
-  min-height: 22px;
-  padding: 0 7px;
-  border: 1px solid #2d3035;
-  border-radius: 4px;
-  background: #151619;
-  color: #8b9099;
-  font: 7px var(--font-manrope), sans-serif;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  font-size: 11px;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .logs-filter-bar button:hover {
-  border-color: #41444a;
-  color: #d5d8de;
+  border-color: var(--border);
+  background: var(--accent);
+  color: var(--foreground);
 }
 
 .logs-filter-bar button.is-active {
-  border-color: #405743;
-  background: #1b261d;
-  color: #bde2b1;
+  border-color: rgba(16, 185, 129, 0.4);
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  font-weight: 600;
 }
 
 .logs-toolbar {
   display: flex;
-  min-height: 42px;
+  min-height: 44px;
   align-items: center;
   gap: 8px;
-  padding: 0 11px;
-  border-bottom: 1px solid #24262b;
-  background: #101113;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
 }
 
 .logs-search {
   display: flex;
-  width: min(330px, 34%);
-  min-width: 180px;
-  height: 28px;
+  width: min(360px, 40%);
+  min-width: 200px;
+  height: 32px;
   align-items: center;
   gap: 6px;
   padding: 0 8px;
@@ -4107,9 +4113,9 @@ small {
 }
 
 .logs-search svg {
-  width: 13px;
-  height: 13px;
-  flex: 0 0 13px;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
   color: var(--muted-foreground);
 }
 
@@ -4129,7 +4135,7 @@ small {
 .logs-toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-left: auto;
 }
 
@@ -4449,8 +4455,8 @@ html.light .log-payload {
 
 .logs-data-table thead {
   height: 30px;
-  border-bottom: 1px solid #25272c;
-  color: #747983;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
   font: 7px var(--font-manrope), sans-serif;
   letter-spacing: .09em;
 }
@@ -4467,7 +4473,7 @@ html.light .log-payload {
 
 .logs-data-table tbody tr {
   height: 40px;
-  border-bottom: 1px solid #202226;
+  border-bottom: 1px solid var(--border);
 }
 
 .logs-data-table tbody tr:hover {

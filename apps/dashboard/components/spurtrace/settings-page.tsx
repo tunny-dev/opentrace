@@ -11,7 +11,6 @@ import {
   EyeOff,
   FileCode,
   HardDrive,
-  KeyRound,
   Lock,
   Mail,
   Network,
@@ -19,7 +18,6 @@ import {
   Save,
   Send,
   Server,
-  ShieldAlert,
   ShieldCheck,
   Sliders,
   Zap,
@@ -53,6 +51,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { CopyButton } from "@/components/ui/copy-button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import type { UserRole } from "./user-profile-menu";
 import {
   getEngineDdl,
@@ -61,11 +67,105 @@ import {
   DB_ENGINE_MAP,
 } from "@/lib/spurtrace/sql-helpers";
 
+export interface EmailTemplateItem {
+  id: string;
+  name: string;
+  subject: string;
+  bodyHtml: string;
+  isDefault: boolean;
+  createdAt?: string;
+}
+
+export const DEFAULT_EMAIL_TEMPLATES: EmailTemplateItem[] = [
+  {
+    id: "Alert_Critical",
+    name: "Alert_Critical (Khẩn cấp 5xx/Crash)",
+    subject: "[SpurTrace CRITICAL] Sự cố nghiêm trọng trên {{ServiceName}}: {{AlertTitle}}",
+    bodyHtml: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #fee2e2; border-radius: 8px; overflow: hidden;">
+  <div style="background-color: #ef4444; color: white; padding: 16px 20px;">
+    <h2 style="margin: 0; font-size: 18px;">[KHẨN CẤP] {{AlertTitle}}</h2>
+    <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.9;">Phát hiện lúc {{Timestamp}} trên dịch vụ {{ServiceName}}</p>
+  </div>
+  <div style="padding: 20px; background-color: #ffffff; color: #1f2937;">
+    <p><strong>Endpoint:</strong> <code>{{Endpoint}}</code></p>
+    <p><strong>Độ trễ:</strong> {{DurationMs}} ms</p>
+    <p><strong>Trace ID:</strong> <code>{{TraceId}}</code></p>
+    <p><strong>Chi tiết lỗi:</strong></p>
+    <pre style="background: #f3f4f6; padding: 12px; border-radius: 6px; font-size: 11px; overflow-x: auto; color: #b91c1c;">{{ErrorMessage}}</pre>
+    <div style="margin-top: 20px;">
+      <a href="{{TraceUrl}}" style="background-color: #ef4444; color: white; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-block;">Xem Sơ Đồ Waterfall Trace</a>
+    </div>
+  </div>
+</div>`,
+    isDefault: true,
+  },
+  {
+    id: "Alert_SlowQuery",
+    name: "Alert_SlowQuery (Truy vấn SQL chậm / N+1)",
+    subject: "[SpurTrace WARNING] Cảnh báo truy vấn chậm trên {{ServiceName}}: {{AlertTitle}}",
+    bodyHtml: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #fef3c7; border-radius: 8px; overflow: hidden;">
+  <div style="background-color: #f59e0b; color: white; padding: 16px 20px;">
+    <h2 style="margin: 0; font-size: 18px;">[CẢNH BÁO] {{AlertTitle}}</h2>
+    <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.9;">Phát hiện lúc {{Timestamp}} trên dịch vụ {{ServiceName}}</p>
+  </div>
+  <div style="padding: 20px; background-color: #ffffff; color: #1f2937;">
+    <p><strong>Endpoint:</strong> <code>{{Endpoint}}</code></p>
+    <p><strong>Thời gian thực thi:</strong> {{DurationMs}} ms</p>
+    <p><strong>Trace ID:</strong> <code>{{TraceId}}</code></p>
+    <p><strong>Câu lệnh SQL:</strong></p>
+    <pre style="background: #f8fafc; padding: 12px; border-radius: 6px; font-size: 11px; overflow-x: auto; color: #334155; border: 1px solid #e2e8f0;">{{SqlSnippet}}</pre>
+    <div style="margin-top: 20px;">
+      <a href="{{TraceUrl}}" style="background-color: #f59e0b; color: white; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-block;">Mở Trực Tiếp Trong SQL Studio</a>
+    </div>
+  </div>
+</div>`,
+    isDefault: false,
+  },
+  {
+    id: "Alert_Digest",
+    name: "Alert_Digest (Báo cáo tổng hợp định kỳ)",
+    subject: "[SpurTrace REPORT] Báo cáo tình trạng vận hành {{ServiceName}}",
+    bodyHtml: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e0f2fe; border-radius: 8px; overflow: hidden;">
+  <div style="background-color: #0284c7; color: white; padding: 16px 20px;">
+    <h2 style="margin: 0; font-size: 18px;">BÁO CÁO TỔNG HỢP HIỆU NĂNG HỆ THỐNG</h2>
+    <p style="margin: 4px 0 0 0; font-size: 12px; opacity: 0.9;">Dịch vụ {{ServiceName}} · Xuất lúc {{Timestamp}}</p>
+  </div>
+  <div style="padding: 20px; background-color: #ffffff; color: #1f2937;">
+    <p>Hệ thống SpurTrace tự động ghi nhận tình trạng hoạt động trong chu kỳ vừa qua.</p>
+    <div style="margin-top: 20px;">
+      <a href="{{TraceUrl}}" style="background-color: #0284c7; color: white; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-size: 13px; font-weight: bold; display: inline-block;">Truy Cập SpurTrace Dashboard</a>
+    </div>
+  </div>
+</div>`,
+    isDefault: false,
+  },
+];
+
 export function SettingsPage({ role }: { role: UserRole }) {
   const isAdmin = role === "Admin";
   const { dict, locale, setLocale } = useI18n();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+
+  // Email & Outlook Gateway states
+  const [emailProvider, setEmailProvider] = useState<"outlook" | "relay">("outlook");
+  const [smtpHost, setSmtpHost] = useState("smtp.office365.com");
+  const [smtpPort, setSmtpPort] = useState("587");
+  const [smtpUser, setSmtpUser] = useState("tunny.truong@senao.com");
+  const [smtpPass, setSmtpPass] = useState("");
+  const [showSmtpPass, setShowSmtpPass] = useState(false);
+  const [enableSsl, setEnableSsl] = useState(true);
+  const [recipientEmails, setRecipientEmails] = useState("tunny.truong@senao.com");
+  const [sendingTestAlert, setSendingTestAlert] = useState(false);
+  const [alertTestResult, setAlertTestResult] = useState<string | null>(null);
+
+  // Templates state
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplateItem[]>(DEFAULT_EMAIL_TEMPLATES);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("Alert_Critical");
+  const [editingTemplate, setEditingTemplate] = useState<EmailTemplateItem | null>(null);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+  const [previewTemplate, setPreviewTemplate] = useState<EmailTemplateItem | null>(null);
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -76,6 +176,9 @@ export function SettingsPage({ role }: { role: UserRole }) {
         if (data.smtp_host) setSmtpHost(data.smtp_host);
         if (data.smtp_port) setSmtpPort(data.smtp_port);
         if (data.smtp_user) setSmtpUser(data.smtp_user);
+        if (data.smtp_pass) setSmtpPass(data.smtp_pass);
+        if (data.email_provider) setEmailProvider(data.email_provider as any);
+        if (data.selected_template_id) setSelectedTemplateId(data.selected_template_id);
         if (data.alert_email_to) setRecipientEmails(data.alert_email_to);
         if (data.slow_query_threshold_ms) setSlowSqlThreshold(data.slow_query_threshold_ms);
         if (data.slow_request_threshold_ms) setSlowTraceThreshold(data.slow_request_threshold_ms);
@@ -91,6 +194,24 @@ export function SettingsPage({ role }: { role: UserRole }) {
         if (data.backup_schedule) setAutoBackupSchedule(data.backup_schedule);
       })
       .catch(() => {});
+
+    fetch("/api/telemetry/settings/email-templates")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setEmailTemplates(data.map((t: any) => ({
+            id: t.id,
+            name: t.name,
+            subject: t.subject,
+            bodyHtml: t.body_html || t.bodyHtml || "",
+            isDefault: Boolean(t.is_default || t.isDefault),
+            createdAt: t.created_at,
+          })));
+          const def = data.find((t: any) => t.is_default || t.isDefault);
+          if (def) setSelectedTemplateId(def.id);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const isDark = mounted ? theme === "dark" : true;
@@ -99,20 +220,8 @@ export function SettingsPage({ role }: { role: UserRole }) {
 
   // Active Tab: General is default in Settings
   const [activeTab, setActiveTab] = useState<
-    "general" | "email" | "db" | "ingestion" | "users" | "security"
+    "general" | "email" | "db" | "ingestion" | "users"
   >("general");
-
-  // Email & Outlook Gateway states
-  const [emailProvider, setEmailProvider] = useState<"outlook" | "smtp" | "sendgrid">("outlook");
-  const [smtpHost, setSmtpHost] = useState("smtp.office365.com");
-  const [smtpPort, setSmtpPort] = useState("587");
-  const [smtpUser, setSmtpUser] = useState("alerts@example.com");
-  const [recipientEmails, setRecipientEmails] = useState("devops@example.com, alerts@example.com");
-  const [teamsWebhook, setTeamsWebhook] = useState(
-    "https://outlook.office.com/webhook/alerts-channel"
-  );
-  const [sendingTestAlert, setSendingTestAlert] = useState(false);
-  const [alertTestResult, setAlertTestResult] = useState<string | null>(null);
 
   // Database Management states
   const [dbMode, setDbMode] = useState<"dedicated" | "shared">("shared");
@@ -183,12 +292,6 @@ export function SettingsPage({ role }: { role: UserRole }) {
   const [sampleRate, setSampleRate] = useState(10);
   const [ignoredPaths, setIgnoredPaths] = useState("/healthz, /favicon.ico, /metrics, /ping");
 
-  // Security states
-  const [sensitiveWords, setSensitiveWords] = useState(
-    "password, token, secret, cccd, credit_card, api_key, authorization"
-  );
-  const [showKey, setShowKey] = useState(false);
-  const [copiedKey, setCopiedKey] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -204,6 +307,7 @@ export function SettingsPage({ role }: { role: UserRole }) {
           smtpHost,
           smtpPort,
           smtpUser,
+          smtpPass,
           recipient: recipientEmails.split(",")[0].trim(),
         }),
       });
@@ -298,6 +402,87 @@ export function SettingsPage({ role }: { role: UserRole }) {
     setTimeout(() => setCopiedDdl(false), 2000);
   }
 
+  // Template preview & storage handlers
+  function renderTemplatePreview(html: string) {
+    const sampleMap: Record<string, string> = {
+      "{{AlertTitle}}": "Độ trễ P95 vượt ngưỡng (> 500ms)",
+      "{{Severity}}": "CRITICAL",
+      "{{ServiceName}}": "Senao-EMS (Production)",
+      "{{Endpoint}}": "GET /api/dashboard/issuance-cost",
+      "{{DurationMs}}": "1,420",
+      "{{TraceId}}": "c15523bd02bb28db716b97cb8749f7b1",
+      "{{Timestamp}}": new Date().toLocaleString("vi-VN"),
+      "{{ErrorMessage}}": "System.TimeoutException: Execution Timeout Expired. Operation cancelled by database engine.",
+      "{{SqlSnippet}}": "SELECT ISNULL(SUM(TotalAmount), 0) FROM Ems.BulkIssuances WHERE Status = 2",
+      "{{TraceUrl}}": "http://10.1.60.56:5000/telemetry/traces?trace=c15523bd02bb28db716b97cb8749f7b1",
+    };
+    let output = html || "";
+    Object.entries(sampleMap).forEach(([token, val]) => {
+      output = output.replaceAll(token, val);
+    });
+    return output;
+  }
+
+  async function handleSaveTemplate(tpl: EmailTemplateItem) {
+    setSavingTemplate(true);
+    try {
+      const res = await fetch("/api/telemetry/settings/email-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: tpl.id,
+          name: tpl.name,
+          subject: tpl.subject,
+          bodyHtml: tpl.bodyHtml,
+          isDefault: tpl.isDefault,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        toast.success(`Đã lưu mẫu email "${tpl.name}" vào cơ sở dữ liệu!`);
+        setEmailTemplates((prev) => {
+          const idx = prev.findIndex((t) => t.id === tpl.id);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = tpl;
+            return next;
+          }
+          return [...prev, tpl];
+        });
+        if (tpl.isDefault) {
+          setSelectedTemplateId(tpl.id);
+        }
+        setIsTemplateModalOpen(false);
+        setEditingTemplate(null);
+      } else {
+        toast.error(data.message || "Không thể lưu mẫu email.");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setSavingTemplate(false);
+    }
+  }
+
+  async function handleDeleteTemplate(id: string) {
+    if (!confirm("Bạn có chắc chắn muốn xóa mẫu email này không?")) return;
+    try {
+      const res = await fetch(`/api/telemetry/settings/email-templates/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        toast.success("Đã xóa mẫu email khỏi cơ sở dữ liệu!");
+        setEmailTemplates((prev) => prev.filter((t) => t.id !== id));
+        if (selectedTemplateId === id) setSelectedTemplateId("Alert_Critical");
+      } else {
+        toast.error(data.message || "Không thể xóa mẫu email.");
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  }
+
   // Save Settings to live backend database
   async function handleSave(e: FormEvent) {
     e.preventDefault();
@@ -311,6 +496,9 @@ export function SettingsPage({ role }: { role: UserRole }) {
           smtp_host: smtpHost,
           smtp_port: smtpPort,
           smtp_user: smtpUser,
+          smtp_pass: smtpPass,
+          email_provider: emailProvider,
+          selected_template_id: selectedTemplateId,
           alert_email_to: recipientEmails,
           slow_query_threshold_ms: slowSqlThreshold,
           slow_request_threshold_ms: slowTraceThreshold,
@@ -550,21 +738,6 @@ export function SettingsPage({ role }: { role: UserRole }) {
           <Users className="h-3.5 w-3.5" />
           <span>Tài khoản & Phân quyền</span>
         </Button>
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-            activeTab === "security"
-              ? "bg-(--ot-panel) text-purple-600 dark:text-purple-400 border border-purple-500/30 shadow-xs"
-              : "text-(--ot-muted) hover:text-(--ot-text) hover:bg-(--ot-panel-raised)"
-          }`}
-          onClick={() => setActiveTab("security")}
-        >
-          <ShieldAlert className="h-3.5 w-3.5" />
-          <span>{dict.settings.tabSecurity}</span>
-        </Button>
       </div>
 
       <form onSubmit={handleSave} className="flex flex-col gap-5">
@@ -724,18 +897,31 @@ export function SettingsPage({ role }: { role: UserRole }) {
                   </Label>
                   <Select
                     value={emailProvider}
-                    onValueChange={(val) => setEmailProvider((val as any) ?? "outlook")}
+                    onValueChange={(val) => {
+                      const provider = (val as "outlook" | "relay") ?? "outlook";
+                      setEmailProvider(provider);
+                      if (provider === "outlook") {
+                        setSmtpHost("smtp.office365.com");
+                        setSmtpPort("587");
+                        setEnableSsl(true);
+                      } else {
+                        setSmtpHost("mail.senao.com");
+                        setSmtpPort("25");
+                        setEnableSsl(false);
+                      }
+                    }}
                     disabled={!isAdmin}
                   >
                     <SelectTrigger className="w-full h-8 bg-(--ot-panel) border border-(--ot-border) rounded-md px-2 text-xs text-(--ot-text)">
-                      <SelectValue />
+                      <SelectValue placeholder="Chọn dịch vụ gửi thư" />
                     </SelectTrigger>
                     <SelectContent className="bg-popover border-border text-popover-foreground text-xs shadow-md">
                       <SelectItem value="outlook">
-                        Microsoft Outlook / Office 365 (STARTTLS Port 587)
+                        Microsoft Outlook / Office 365 (Port 587 - STARTTLS)
                       </SelectItem>
-                      <SelectItem value="smtp">Custom Enterprise Internal SMTP Server</SelectItem>
-                      <SelectItem value="sendgrid">SendGrid / Cloud Relay API</SelectItem>
+                      <SelectItem value="relay">
+                        Máy chủ chuyển tiếp nội bộ / On-premise Relay (Port 25 - No Auth)
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -775,7 +961,43 @@ export function SettingsPage({ role }: { role: UserRole }) {
                   />
                 </div>
 
-                <div>
+                {emailProvider === "outlook" || smtpPort === "587" ? (
+                  <div>
+                    <Label className="block text-[11px] font-medium text-(--ot-muted) mb-1">
+                      Mật khẩu SMTP / App Password (Office 365)
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        type={showSmtpPass ? "text" : "password"}
+                        value={smtpPass}
+                        onChange={(e) => setSmtpPass(e.target.value)}
+                        placeholder="Nhập mật khẩu hoặc App Password O365..."
+                        disabled={!isAdmin}
+                        className="w-full h-8 bg-(--ot-panel) border border-(--ot-border) rounded-md pl-2.5 pr-8 text-xs text-(--ot-text) outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSmtpPass((v) => !v)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                        title={showSmtpPass ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
+                      >
+                        {showSmtpPass ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <Label className="block text-[11px] font-medium text-(--ot-muted) mb-1">
+                      Xác thực SMTP (Port 25)
+                    </Label>
+                    <div className="flex items-center gap-2 h-8 px-2.5 rounded-md bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-400 text-xs">
+                      <Check className="size-3.5 shrink-0" />
+                      <span>Xác thực qua IP Whitelist nội bộ · Không cần mật khẩu</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="sm:col-span-2">
                   <Label className="block text-[11px] font-medium text-(--ot-muted) mb-1">
                     Default Alert Recipients (Comma-separated)
                   </Label>
@@ -789,22 +1011,183 @@ export function SettingsPage({ role }: { role: UserRole }) {
                 </div>
               </div>
 
-              {/* Microsoft Teams Webhook */}
-              <div className="pt-3 border-t border-(--ot-border) flex flex-col gap-1.5">
-                <Label className="text-[11px] font-medium text-(--ot-muted)">
-                  Microsoft Teams / Slack Incoming Webhook
-                </Label>
-                <Input
-                  type="text"
-                  value={teamsWebhook}
-                  onChange={(e) => setTeamsWebhook(e.target.value)}
-                  disabled={!isAdmin}
-                  className="w-full h-8 bg-(--ot-panel) border border-(--ot-border) rounded-md px-2.5 text-xs text-(--ot-muted) outline-none"
-                />
-                <small className="text-[10px] text-(--ot-muted)">
-                  Formatted adaptive cards and critical alert notifications will be dispatched to
-                  this channel in real-time.
-                </small>
+              {/* Port & Authentication Explanation */}
+              <div className="p-3 rounded-md bg-muted/40 border border-border text-xs text-muted-foreground flex flex-col gap-1.5 font-sans">
+                <strong className="text-foreground text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+                  Hướng dẫn cấu hình cổng gửi thư (Port 25 vs Port 587)
+                </strong>
+                <p className="text-[11px] leading-relaxed">
+                  • <strong>Port 587 (Khuyến nghị cho Outlook / Office 365)</strong>: Sử dụng mã hóa STARTTLS an toàn. Yêu cầu nhập tài khoản email người gửi và <em>Mật khẩu ứng dụng (App Password)</em> nếu tài khoản công ty bật xác thực 2 bước (MFA).
+                </p>
+                <p className="text-[11px] leading-relaxed">
+                  • <strong>Port 25 (Máy chủ chuyển tiếp mạng nội bộ / On-premise Relay)</strong>: Dành cho mạng nội bộ nhà máy (Senao Intranet) đã whitelist IP của server. <em>Không cần nhập mật khẩu</em> và không cần SSL.
+                </p>
+              </div>
+
+              {/* Email Template Selector & Customizer */}
+              <div className="pt-3 border-t border-(--ot-border) flex flex-col gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <Label className="text-xs font-semibold text-foreground">
+                      Mẫu Email Cảnh báo (Alert Templates)
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Linh hoạt lựa chọn mẫu sẵn có hoặc tùy biến tạo mẫu HTML mới lưu trực tiếp trong cơ sở dữ liệu.
+                    </p>
+                  </div>
+                  {isAdmin && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1.5 border-dashed border-emerald-500/50 hover:border-emerald-500 hover:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 self-start sm:self-auto cursor-pointer"
+                      onClick={() => {
+                        setEditingTemplate({
+                          id: `tpl_${Date.now().toString(36)}`,
+                          name: "Mẫu cảnh báo tùy chỉnh",
+                          subject: "[SpurTrace Alert] Cảnh báo trên {{ServiceName}}: {{AlertTitle}}",
+                          bodyHtml: `<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+  <div style="background-color: #0f172a; color: white; padding: 16px 20px;">
+    <h2 style="margin: 0; font-size: 16px;">{{AlertTitle}}</h2>
+    <p style="margin: 4px 0 0; font-size: 12px; color: #94a3b8;">Dịch vụ: {{ServiceName}}</p>
+  </div>
+  <div style="padding: 20px; background-color: #ffffff; color: #1e293b;">
+    <p><strong>Endpoint:</strong> <code>{{Endpoint}}</code></p>
+    <p><strong>Thời gian:</strong> {{DurationMs}} ms</p>
+    <p><strong>Mã Trace:</strong> <code>{{TraceId}}</code></p>
+    <div style="margin-top: 16px;">
+      <a href="{{TraceUrl}}" style="background: #10b981; color: white; padding: 8px 16px; border-radius: 4px; text-decoration: none; font-size: 12px; font-weight: bold;">Xem chi tiết sự cố</a>
+    </div>
+  </div>
+</div>`,
+                          isDefault: false,
+                        });
+                        setIsTemplateModalOpen(true);
+                      }}
+                    >
+                      <Plus className="size-3.5" />
+                      <span>Thêm mẫu tùy chỉnh</span>
+                    </Button>
+                  )}
+                </div>
+
+                {/* Templates Interactive Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {emailTemplates.map((tpl) => {
+                    const isSelected = selectedTemplateId === tpl.id;
+                    return (
+                      <div
+                        key={tpl.id}
+                        onClick={() => setSelectedTemplateId(tpl.id)}
+                        className={`p-3 rounded-lg border flex flex-col justify-between transition-all cursor-pointer ${
+                          isSelected
+                            ? "border-emerald-500 bg-emerald-50/80 dark:bg-emerald-500/10 shadow-xs ring-1 ring-emerald-500/40"
+                            : "border-border bg-card/60 hover:border-border hover:bg-card/90"
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-1.5 gap-1.5">
+                            <span className="font-semibold text-xs text-foreground truncate" title={tpl.name}>
+                              {tpl.name}
+                            </span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {tpl.isDefault && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400 font-bold uppercase">
+                                  Mặc định
+                                </span>
+                              )}
+                              {isSelected && (
+                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-emerald-500/25 text-emerald-700 dark:text-emerald-300 font-bold uppercase inline-flex items-center gap-0.5">
+                                  <Check className="size-2.5" /> Áp dụng
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed" title={tpl.subject}>
+                            {tpl.subject}
+                          </p>
+                        </div>
+
+                        {/* Action buttons inside card */}
+                        <div className="flex items-center justify-between gap-1.5 pt-3 mt-2 border-t border-border/50">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPreviewTemplate(tpl);
+                            }}
+                            className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground font-medium py-1 px-1.5 rounded hover:bg-muted/60 transition-colors"
+                          >
+                            <Eye className="size-3" />
+                            <span>Xem trước</span>
+                          </button>
+
+                          <div className="flex items-center gap-1">
+                            {isAdmin && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setEditingTemplate({ ...tpl });
+                                  setIsTemplateModalOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1 text-[11px] text-sky-600 dark:text-sky-400 hover:text-sky-700 font-medium py-1 px-1.5 rounded hover:bg-sky-500/10 transition-colors"
+                                title="Chỉnh sửa nội dung mẫu"
+                              >
+                                <Edit3 className="size-3" />
+                                <span>Sửa</span>
+                              </button>
+                            )}
+
+                            {isAdmin && !tpl.isDefault && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteTemplate(tpl.id);
+                                }}
+                                className="text-muted-foreground hover:text-rose-500 p-1 rounded hover:bg-rose-500/10 transition-colors"
+                                title="Xóa mẫu này"
+                              >
+                                <Trash2 className="size-3" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="rounded-md bg-muted/30 border border-border/60 p-2.5 text-[11px] text-muted-foreground">
+                  <span className="font-semibold text-foreground mr-1.5">Biến template hỗ trợ:</span>
+                  {[
+                    "{{AlertTitle}}",
+                    "{{Severity}}",
+                    "{{ServiceName}}",
+                    "{{Endpoint}}",
+                    "{{DurationMs}}",
+                    "{{TraceId}}",
+                    "{{Timestamp}}",
+                    "{{ErrorMessage}}",
+                    "{{SqlSnippet}}",
+                    "{{TraceUrl}}",
+                  ].map((token) => (
+                    <button
+                      key={token}
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(token);
+                        toast.success(`Đã sao chép ${token}`);
+                      }}
+                      className="inline-block text-emerald-600 dark:text-emerald-400 mr-2 hover:underline font-mono cursor-pointer"
+                      title="Click để copy biến"
+                    >
+                      {token}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Test Email Dispatch Button */}
@@ -1716,109 +2099,6 @@ export function SettingsPage({ role }: { role: UserRole }) {
           </div>
         )}
 
-        {/* TAB 5: SECURITY & API KEYS */}
-        {activeTab === "security" && (
-          <div className="flex flex-col gap-4">
-            <section className="panel-card settings-section-card">
-              <header className="settings-section-header">
-                <div className="settings-header-icon">
-                  <ShieldAlert />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-(--ot-text)">
-                    Security & Data Masking
-                  </h3>
-                  <p className="text-xs text-(--ot-muted)">
-                    Sanitize sensitive query arguments and protect secrets in logs.
-                  </p>
-                </div>
-              </header>
-
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-[11px] font-medium text-(--ot-muted)">
-                  Sensitive Parameter Keywords
-                </Label>
-                <Input
-                  type="text"
-                  value={sensitiveWords}
-                  onChange={(e) => setSensitiveWords(e.target.value)}
-                  disabled={!isAdmin}
-                  className="h-8 bg-(--ot-panel) border border-(--ot-border) rounded-md px-2.5 text-xs text-(--ot-muted) outline-none"
-                />
-                <small className="text-[10px] text-(--ot-muted)">
-                  Any SQL bind parameter or log key matching these words is masked as ********* in
-                  Viewer mode.
-                </small>
-              </div>
-            </section>
-
-            <section className="panel-card settings-section-card">
-              <header className="settings-section-header">
-                <div className="settings-header-icon">
-                  <KeyRound />
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-(--ot-text)">
-                    Collector Ingestion API Keys
-                  </h3>
-                  <p className="text-xs text-(--ot-muted)">
-                    Credentials required by backend middlewares to send traces.
-                  </p>
-                </div>
-              </header>
-
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-[11px] font-medium text-(--ot-muted)">
-                  Production API Secret Key
-                </Label>
-                <div className="flex items-center justify-between h-9 bg-(--ot-panel) border border-(--ot-border) rounded-md px-3">
-                  <code className="text-xs text-emerald-600 dark:text-emerald-400">
-                    {showKey
-                      ? "ot_live_sec_99a8b17f309d44e88102ca"
-                      : "ot_live_sec_99a8b1••••••••••••••••••••"}
-                  </code>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      className="p-1 text-(--ot-muted) hover:text-(--ot-text) cursor-pointer"
-                      onClick={() => setShowKey(!showKey)}
-                    >
-                      {showKey ? (
-                        <EyeOff className="h-3.5 w-3.5" />
-                      ) : (
-                        <Eye className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      className="p-1 text-(--ot-muted) hover:text-(--ot-text) cursor-pointer"
-                      onClick={() => {
-                        navigator.clipboard?.writeText("ot_live_sec_99a8b17f309d44e88102ca");
-                        setCopiedKey(true);
-                        toast.success("API Secret Key copied to clipboard");
-                        setTimeout(() => setCopiedKey(false), 1800);
-                      }}
-                    >
-                      {copiedKey ? (
-                        <Check className="h-3.5 w-3.5 text-emerald-500" />
-                      ) : (
-                        <Copy className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                  </div>
-                </div>
-                <small className="text-[10px] text-(--ot-muted)">
-                  Pass via header: <code>Authorization: Bearer ot_live_sec_...</code>
-                </small>
-              </div>
-            </section>
-          </div>
-        )}
-
         {/* Form Footer Save Button */}
         <footer className="flex items-center justify-end gap-3 pt-2">
           {savedSuccess && (
@@ -1847,6 +2127,214 @@ export function SettingsPage({ role }: { role: UserRole }) {
           </Button>
         </footer>
       </form>
+
+      {/* MODAL 1: EDIT / CREATE EMAIL TEMPLATE */}
+      {isTemplateModalOpen && editingTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-(--ot-panel) border border-(--ot-border) rounded-xl shadow-2xl w-full max-w-2xl p-5 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-(--ot-border) pb-3">
+              <h4 className="text-sm font-semibold text-(--ot-text) flex items-center gap-2">
+                <Mail className="h-4 w-4 text-emerald-500" />
+                <span>
+                  {emailTemplates.some((t) => t.id === editingTemplate.id)
+                    ? `Chỉnh sửa mẫu email: ${editingTemplate.name}`
+                    : "Tạo mẫu email cảnh báo mới"}
+                </span>
+              </h4>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setIsTemplateModalOpen(false);
+                  setEditingTemplate(null);
+                }}
+                className="h-6 w-6 p-0 text-(--ot-muted)"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="flex flex-col gap-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1">
+                  <Label className="text-[11px] font-medium text-(--ot-muted)">Tên mẫu *</Label>
+                  <Input
+                    type="text"
+                    value={editingTemplate.name}
+                    onChange={(e) =>
+                      setEditingTemplate((prev) => (prev ? { ...prev, name: e.target.value } : null))
+                    }
+                    placeholder="VD: Alert_HighMemory, Alert_Custom..."
+                    className="h-8 text-xs bg-(--ot-panel) border-(--ot-border)"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <Label className="text-[11px] font-medium text-(--ot-muted)">Mã định danh ID</Label>
+                  <Input
+                    type="text"
+                    value={editingTemplate.id}
+                    disabled
+                    className="h-8 text-xs font-mono bg-muted/40 border-(--ot-border) opacity-70"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <Label className="text-[11px] font-medium text-(--ot-muted)">Tiêu đề Email (Subject) *</Label>
+                <Input
+                  type="text"
+                  value={editingTemplate.subject}
+                  onChange={(e) =>
+                    setEditingTemplate((prev) => (prev ? { ...prev, subject: e.target.value } : null))
+                  }
+                  placeholder="[SpurTrace Alert] {{Severity}} trên {{ServiceName}}: {{AlertTitle}}"
+                  className="h-8 text-xs bg-(--ot-panel) border-(--ot-border)"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-[11px] font-medium text-(--ot-muted)">Nội dung HTML (Body) *</Label>
+                  <span className="text-[10px] text-muted-foreground">Click biến bên dưới để chèn vào mã:</span>
+                </div>
+
+                {/* Quick token insertion buttons */}
+                <div className="flex flex-wrap gap-1 p-1.5 rounded-md bg-muted/40 border border-border/60 text-[10px]">
+                  {[
+                    "{{AlertTitle}}",
+                    "{{Severity}}",
+                    "{{ServiceName}}",
+                    "{{Endpoint}}",
+                    "{{DurationMs}}",
+                    "{{TraceId}}",
+                    "{{Timestamp}}",
+                    "{{ErrorMessage}}",
+                    "{{SqlSnippet}}",
+                    "{{TraceUrl}}",
+                  ].map((token) => (
+                    <button
+                      key={token}
+                      type="button"
+                      onClick={() => {
+                        setEditingTemplate((prev) => {
+                          if (!prev) return null;
+                          return { ...prev, bodyHtml: prev.bodyHtml + token };
+                        });
+                        toast.success(`Đã chèn ${token}`);
+                      }}
+                      className="px-1.5 py-0.5 rounded bg-card hover:bg-emerald-500/15 hover:text-emerald-600 dark:hover:text-emerald-400 border border-border/60 text-muted-foreground font-mono transition-colors cursor-pointer"
+                    >
+                      + {token}
+                    </button>
+                  ))}
+                </div>
+
+                <textarea
+                  value={editingTemplate.bodyHtml}
+                  onChange={(e) =>
+                    setEditingTemplate((prev) => (prev ? { ...prev, bodyHtml: e.target.value } : null))
+                  }
+                  rows={10}
+                  className="w-full p-2.5 rounded-md bg-slate-950 text-slate-100 font-mono text-xs border border-border/60 outline-none focus:ring-1 focus:ring-emerald-500 resize-y leading-relaxed"
+                  placeholder="Nhập mã HTML của email cảnh báo..."
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="checkbox"
+                  id="tpl-is-default"
+                  checked={editingTemplate.isDefault}
+                  onChange={(e) =>
+                    setEditingTemplate((prev) => (prev ? { ...prev, isDefault: e.target.checked } : null))
+                  }
+                  className="rounded border-border"
+                />
+                <label htmlFor="tpl-is-default" className="text-xs text-foreground font-medium cursor-pointer">
+                  Đặt làm mẫu email mặc định cho toàn hệ thống
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-(--ot-border)">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsTemplateModalOpen(false);
+                    setEditingTemplate(null);
+                  }}
+                  className="text-xs"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={savingTemplate || !editingTemplate.name.trim() || !editingTemplate.subject.trim()}
+                  onClick={() => handleSaveTemplate(editingTemplate)}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs flex items-center gap-1.5 cursor-pointer"
+                >
+                  {savingTemplate && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  <span>Lưu vào Cơ sở dữ liệu</span>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: PREVIEW EMAIL TEMPLATE */}
+      {previewTemplate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-(--ot-panel) border border-(--ot-border) rounded-xl shadow-2xl w-full max-w-2xl p-5 flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh]">
+            <div className="flex items-center justify-between border-b border-(--ot-border) pb-3">
+              <div>
+                <h4 className="text-sm font-semibold text-(--ot-text) flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-emerald-500" />
+                  <span>Xem trước mẫu: {previewTemplate.name}</span>
+                </h4>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Tiêu đề gửi: <strong>{renderTemplatePreview(previewTemplate.subject)}</strong>
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => setPreviewTemplate(null)}
+                className="h-6 w-6 p-0 text-(--ot-muted)"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="border border-border/80 rounded-lg overflow-hidden bg-white text-slate-900 p-4 max-h-[60vh] overflow-y-auto">
+              <div
+                dangerouslySetInnerHTML={{
+                  __html: renderTemplatePreview(previewTemplate.bodyHtml),
+                }}
+              />
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-(--ot-border)">
+              <span className="text-[11px] text-muted-foreground">
+                Giao diện hiển thị với các token mẫu đã được điền tự động.
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setPreviewTemplate(null)}
+                className="text-xs"
+              >
+                Đóng
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

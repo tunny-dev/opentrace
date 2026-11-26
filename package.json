@@ -10,14 +10,15 @@
     "dev:docs": "pnpm --filter spurtrace-docs dev",
     "build": "pnpm --filter spurtrace-dashboard build && pnpm --filter spurtrace-docs build",
     "build:spurtrace": "pnpm --filter spurtrace build",
+    "build:spurtrace-net": "dotnet build ../SpurTrace.AspNetCore/SpurTrace.AspNetCore.csproj -c Release && powershell -Command \"Copy-Item ../SpurTrace.AspNetCore/bin/Release/net8.0/SpurTrace.AspNetCore.dll D:/Senao/EMS/EMS/libs/ -Force\"",
     "build:dashboard": "pnpm --filter spurtrace-dashboard build",
     "build:docs": "pnpm --filter spurtrace-docs build",
     "bundle:ui": "node scripts/build-dashboard-bundle.mjs",
     "package": "node scripts/build-dashboard-bundle.mjs && pnpm --filter spurtrace build",
-    "demo": "pnpm --filter spurtrace build && node --experimental-strip-types examples/server.ts",
-    "test:smoke": "pnpm --filter spurtrace build && node --experimental-strip-types examples/smoke-test.ts",
+    "demo": "pnpm --filter spurtrace build && node --experimental-strip-types apps/demo/server.ts",
+    "test:smoke": "pnpm --filter spurtrace build && node --experimental-strip-types apps/demo/smoke-test.ts",
     "lint": "pnpm --filter spurtrace-dashboard lint",
-    "format": "prettier --write \"apps/**/*.{ts,tsx}\" \"packages/**/*.{ts,tsx}\" \"examples/**/*.{ts,tsx}\""
+    "format": "prettier --write \"apps/**/*.{ts,tsx}\" \"sdks/**/*.{ts,tsx}\""
   },
   "dependencies": {
     "express": "^5.3.0",

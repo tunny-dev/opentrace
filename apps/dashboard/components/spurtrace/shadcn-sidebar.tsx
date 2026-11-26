@@ -76,7 +76,7 @@ export function SpurTraceShadcnSidebar({
     { href: "/traces", label: dict.common.traces, icon: Activity },
     { href: "/errors", label: dict.common.errors, icon: AlertTriangle },
     { href: "/alerts", label: dict.common.alerts, icon: Bell },
-    { href: "/logs", label: dict.common.logs, icon: FileText },
+    { href: "/system-logs", label: dict.common.logs, icon: FileText },
   ];
 
   const platformItems = [
@@ -135,9 +135,8 @@ export function SpurTraceShadcnSidebar({
                       isActive={isActive}
                       tooltip={item.label}
                       onClick={(e) => {
-                        e.preventDefault();
-                        if (!isActive) {
-                          router.push(item.href);
+                        if (isActive) {
+                          e.preventDefault();
                         }
                       }}
                       className={`h-10 rounded-xl text-sm font-medium transition-colors group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center ${
@@ -174,9 +173,8 @@ export function SpurTraceShadcnSidebar({
                       isActive={isActive}
                       tooltip={item.label}
                       onClick={(e) => {
-                        e.preventDefault();
-                        if (!isActive) {
-                          router.push(item.href);
+                        if (isActive) {
+                          e.preventDefault();
                         }
                       }}
                       className={`h-10 rounded-xl text-sm font-medium transition-colors group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center ${
