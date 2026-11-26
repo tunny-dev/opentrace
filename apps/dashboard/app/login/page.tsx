@@ -11,7 +11,13 @@ export default function LoginRoute() {
 
   function handleLogin(role: UserRole, user: string) {
     authLogin(user, role);
-    router.push("/");
+    if (typeof window !== "undefined") {
+      const isTelemetry = window.location.pathname.startsWith("/telemetry");
+      const target = isTelemetry ? "/telemetry/system-logs" : "/system-logs";
+      window.location.href = target;
+    } else {
+      router.push("/system-logs");
+    }
   }
 
   return <LoginPage onLogin={handleLogin} />;

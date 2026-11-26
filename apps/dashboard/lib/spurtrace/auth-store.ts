@@ -21,20 +21,42 @@ interface AuthState {
 }
 
 const defaultUser: UserProfile = {
-  id: "usr_alex_kim",
-  name: "Alex Kim",
-  email: "alex.kim@spurtrace.dev",
-  avatar: "AK",
+  id: "usr_admin",
+  name: "Administrator",
+  email: "admin@senao.com",
+  avatar: "AD",
   role: "Admin",
   lastLogin: new Date().toISOString(),
 };
 
+function getInitialAuth(): { isAuthenticated: boolean; user: UserProfile; token: string | null } {
+  if (typeof window === "undefined") {
+    return { isAuthenticated: false, user: defaultUser, token: null };
+  }
+  try {
+    const raw = localStorage.getItem("opentrace_auth_session");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.state?.isAuthenticated) {
+        return {
+          isAuthenticated: true,
+          user: parsed.state.user || defaultUser,
+          token: parsed.state.token || null,
+        };
+      }
+    }
+  } catch {}
+  return { isAuthenticated: false, user: defaultUser, token: null };
+}
+
+const initialAuth = getInitialAuth();
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
-      isAuthenticated: true,
-      user: defaultUser,
-      token: "ot_session_tok_99a8b17f309d44e88102ca",
+      isAuthenticated: initialAuth.isAuthenticated,
+      user: initialAuth.user,
+      token: initialAuth.token,
 
       login: (email: string, role: UserRole = "Admin") => {
         set({
@@ -55,6 +77,9 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           token: null,
         });
+        if (typeof window !== "undefined") {
+          fetch("/api/telemetry/auth/logout", { method: "POST" }).catch(() => {});
+        }
       },
 
       setRole: (role: UserRole) => {

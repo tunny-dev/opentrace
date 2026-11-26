@@ -99,7 +99,7 @@ export function SystemLogsPage() {
   // Set browser tab title
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = 'MES APM & System Trace Explorer | CIMDEV';
+    document.title = 'SpurTrace | System Trace Explorer';
     return () => {
       document.title = prevTitle;
     };
@@ -203,8 +203,9 @@ export function SystemLogsPage() {
 
   const handleLogout = () => {
     systemLogsService.clearAuth();
-    setIsAuthenticated(false);
-    setShowAuthModal(true);
+    if (typeof window !== 'undefined') {
+      window.location.href = '/telemetry/login';
+    }
   };
 
   const handleOpenInspect = (trace) => {

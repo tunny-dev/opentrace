@@ -16,7 +16,7 @@ export function SqlAnalyticsPage() {
 
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = 'SQL Performance Hub | MES APM';
+    document.title = 'SpurTrace | SQL Performance Hub';
     return () => {
       document.title = prevTitle;
     };
@@ -150,13 +150,24 @@ export function SqlAnalyticsPage() {
                   studioQuery.query ||
                   studioQuery.rawSql ||
                   '',
-                paramsJson:
-                  studioQuery.paramsJson ||
-                  (typeof studioQuery.parameters === 'string'
-                    ? studioQuery.parameters
-                    : studioQuery.parameters
-                      ? JSON.stringify(studioQuery.parameters, null, 2)
-                      : ''),
+                paramsJson: (() => {
+                  let p = studioQuery.paramsJson || studioQuery.parameters || {};
+                  if (typeof p === 'string' && p.trim()) {
+                    try { p = JSON.parse(p); } catch { p = {}; }
+                  }
+                  if (!p || typeof p !== 'object') p = {};
+                  const sql = studioQuery.sql || studioQuery.sampleSql || studioQuery.query || studioQuery.rawSql || '';
+                  const matches = sql.match(/@([a-zA-Z0-9_]+)/g);
+                  if (matches) {
+                    matches.forEach((m) => {
+                      const pName = m.substring(1);
+                      if (!(pName in p) && !(`@${pName}` in p)) {
+                        p[pName] = pName.toLowerCase().includes('lang') ? 'zh-TW' : '';
+                      }
+                    });
+                  }
+                  return JSON.stringify(p, null, 2);
+                })(),
                 durationMs: Math.round(
                   Number(
                     studioQuery.durationMs ||

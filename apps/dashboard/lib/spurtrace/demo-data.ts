@@ -18,7 +18,7 @@ export interface DemoQuery {
 }
 
 export type DemoEnvironment = "production" | "staging" | "development";
-export type DemoService = "MES-API" | "Order-Service" | "Inventory-Worker";
+export type DemoService = "MES-API" | "Order-Service" | "Inventory-Worker" | "MES-Production" | (string & {});
 
 export interface DemoTrace {
   id: string;

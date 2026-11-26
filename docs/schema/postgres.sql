@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS sys_traces (
-  trace_id UUID NOT NULL,
+  trace_id VARCHAR(64) NOT NULL,
   app_name TEXT NOT NULL,
   method VARCHAR(12) NOT NULL,
   route TEXT NOT NULL,
@@ -7,10 +7,13 @@ CREATE TABLE IF NOT EXISTS sys_traces (
   duration_ms DOUBLE PRECISION NOT NULL,
   created_at TIMESTAMPTZ NOT NULL,
   sample_reason VARCHAR(12) NOT NULL,
-  exception JSONB,
-  spans JSONB NOT NULL DEFAULT '[]'::jsonb,
-  sql_calls JSONB NOT NULL DEFAULT '[]'::jsonb,
-  breadcrumbs JSONB NOT NULL DEFAULT '[]'::jsonb,
+  exception_json JSONB,
+  spans_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  sql_calls_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  breadcrumbs_json JSONB NOT NULL DEFAULT '[]'::jsonb,
+  updated_at TIMESTAMPTZ,
+  created_by VARCHAR(100) DEFAULT 'System',
+  updated_by VARCHAR(100),
   PRIMARY KEY (trace_id, created_at)
 ) PARTITION BY RANGE (created_at);
 

@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const isExport = process.env.NEXT_EXPORT === "true"
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || (isExport ? "/_telemetry" : "")
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH || (isExport ? "/telemetry" : "")
 
 const nextConfig = {
   output: isExport ? "export" : undefined,

@@ -178,6 +178,54 @@ export function DataTable<TData>({
   const searchRef = React.useRef<HTMLInputElement>(null);
   const lastSelectedId = React.useRef<string | null>(null);
 
+  // Synchronize initial filters from URL Query String on mount
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const qSearch = params.get("search");
+    if (qSearch) setSearch(qSearch);
+    const qLimit = params.get("limit");
+    if (qLimit && !isNaN(Number(qLimit))) {
+      setPagination((prev) => ({ ...prev, pageSize: Number(qLimit) }));
+    }
+    const qQuick = params.get("quick");
+    if (qQuick) setActiveQuickFilter(qQuick);
+  }, []);
+
+  // Sync state changes back to URL without reloading the page
+  const isInitialMount = React.useRef(true);
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    const url = new URL(window.location.href);
+    if (search.trim()) {
+      url.searchParams.set("search", search.trim());
+    } else {
+      url.searchParams.delete("search");
+    }
+
+    if (pagination.pageSize !== initialPageSize) {
+      url.searchParams.set("limit", String(pagination.pageSize));
+    } else {
+      url.searchParams.delete("limit");
+    }
+
+    if (activeQuickFilter !== "all") {
+      url.searchParams.set("quick", activeQuickFilter);
+    } else {
+      url.searchParams.delete("quick");
+    }
+
+    try {
+      if (url.toString() !== window.location.href) {
+        window.history.replaceState(window.history.state, "", url.toString());
+      }
+    } catch {}
+  }, [search, pagination.pageSize, activeQuickFilter, initialPageSize]);
+
   const resetPage = React.useCallback(
     () => setPagination((prev) => (prev.pageIndex === 0 ? prev : { ...prev, pageIndex: 0 })),
     []
@@ -674,19 +722,25 @@ export function DataTable<TData>({
             className="h-7 w-full rounded-md border border-(--ot-border) bg-background pr-8 pl-8 text-xs text-foreground shadow-2xs outline-none transition-[border-color,box-shadow] placeholder:text-muted-foreground focus-visible:border-emerald-500/60 focus-visible:ring-2 focus-visible:ring-emerald-500/20 [&::-webkit-search-cancel-button]:hidden"
           />
           {search ? (
-            <Button
-              variant="ghost"
-              size="icon-xs"
+            <button
               type="button"
-              onClick={() => {
+              onMouseDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                updateSearch("");
+                searchRef.current?.focus();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 updateSearch("");
                 searchRef.current?.focus();
               }}
               aria-label={t("table.clearSearch")}
-              className="absolute top-1/2 right-1.5 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground p-0"
+              className="absolute top-1/2 right-1.5 z-10 flex size-5 -translate-y-1/2 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-muted hover:text-foreground p-0 border-0 bg-transparent outline-none"
             >
               <X className="size-3" />
-            </Button>
+            </button>
           ) : (
             <kbd className="pointer-events-none absolute top-1/2 right-2 hidden h-4 -translate-y-1/2 items-center rounded border border-(--ot-border) bg-muted/50 px-1 font-mono text-[10px] text-muted-foreground sm:flex">
               /

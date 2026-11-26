@@ -19,6 +19,7 @@ const TAB_SLUG_MAP = {
   routes: 'routes',
   raw: 'stream',
   stream: 'stream',
+  logs: 'stream',
   client: 'client',
 };
 
@@ -27,11 +28,11 @@ const SLUG_TAB_MAP = {
   routes: 'routes',
   stream: 'raw',
   raw: 'raw',
+  logs: 'raw',
   client: 'client',
 };
 import { systemLogsService } from '@/services/system-logs.service';
 import { useSystemLogDates, useSystemLogTraces } from '@/hooks/useSystemLogs';
-import { CimdevAuthModal } from '@/features/system-logs/components/CimdevAuthModal';
 import { TraceFilterToolbar } from '@/features/system-logs/components/TraceFilterToolbar';
 import { TraceSummaryCards } from '@/features/system-logs/components/TraceSummaryCards';
 import { TraceTimelineChart } from '@/features/system-logs/components/TraceTimelineChart';
@@ -53,44 +54,59 @@ export function SystemLogsPage() {
   const { resolvedTheme, toggleTheme } = useTheme();
 
   // URL-driven active tab synchronization
-  const activeTab = useMemo(() => {
+  const initialTab = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      const lastSeg = pathname.split('/').filter(Boolean).pop();
+      if (lastSeg && SLUG_TAB_MAP[lastSeg]) {
+        return SLUG_TAB_MAP[lastSeg];
+      }
+    }
     if (tab && SLUG_TAB_MAP[tab]) {
       return SLUG_TAB_MAP[tab];
     }
-    if (searchParams.get('tab') === 'client') return 'client';
+    const qTab = searchParams?.get('tab');
+    if (qTab && SLUG_TAB_MAP[qTab]) return SLUG_TAB_MAP[qTab];
+    if (qTab === 'client') return 'client';
     return 'waterfall';
   }, [tab, searchParams]);
 
-  const handleTabChange = (newTab) => {
-    const slug = TAB_SLUG_MAP[newTab] || 'traces';
-    const targetPath = slug === 'traces' ? '/system-logs' : `/system-logs/${slug}`;
-    navigate(targetPath);
-  };
-
-  const [mounted, setMounted] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const authQuery = useQuery({
-    queryKey: ['system-logs', 'auth-session'],
-    queryFn: async () => {
-      const response = await fetch('/api/system-logs/auth', { cache: 'no-store' });
-      const result = await response.json();
-      if (!response.ok && response.status !== 401) {
-        throw new Error(result.error || 'Could not verify system logs session.');
-      }
-      return result.authenticated === true;
-    },
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
-    if (authQuery.isPending) return;
-    const authed = authQuery.data === true;
-    setMounted(true);
-    setIsAuthenticated(authed);
-    setShowAuthModal(!authed);
-  }, [authQuery.data, authQuery.isPending]);
+    if (initialTab && initialTab !== activeTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window === 'undefined') return;
+      const pathname = window.location.pathname;
+      const lastSeg = pathname.split('/').filter(Boolean).pop();
+      if (lastSeg && SLUG_TAB_MAP[lastSeg]) {
+        setActiveTab(SLUG_TAB_MAP[lastSeg]);
+      } else {
+        setActiveTab('waterfall');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleTabChange = (newTab) => {
+    setActiveTab(newTab);
+    const slug = TAB_SLUG_MAP[newTab] || 'traces';
+    if (typeof window !== 'undefined') {
+      const pathname = window.location.pathname;
+      const isTelemetry = pathname.startsWith('/telemetry');
+      const base = isTelemetry ? '/telemetry/system-logs' : '/system-logs';
+      const targetPath = slug === 'traces' ? base : `${base}/${slug}`;
+      window.history.pushState(null, '', targetPath);
+    }
+  };
+
+  const [mounted, setMounted] = useState(true);
 
   const [selectedDate, setSelectedDate] = useState('');
   const [timeRange, setTimeRange] = useState({
@@ -121,10 +137,26 @@ export function SystemLogsPage() {
   const [inspectTrace, setInspectTrace] = useState(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
 
-  // Set browser tab title
+  // Set browser tab title & Verify Telemetry Authentication
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = 'MES APM & System Trace Explorer | CIMDEV';
+    document.title = 'SpurTrace | System Trace Explorer';
+
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/telemetry/auth/me');
+        if (!res.ok) {
+          if (typeof window !== 'undefined') {
+            const isTelemetry = window.location.pathname.startsWith('/telemetry');
+            window.location.href = isTelemetry ? '/telemetry/login' : '/login';
+          }
+        }
+      } catch {
+        // ignore network error
+      }
+    }
+    checkAuth();
+
     return () => {
       document.title = prevTitle;
     };
@@ -136,7 +168,7 @@ export function SystemLogsPage() {
     refetch: refetchDates,
     error: datesError,
   } = useSystemLogDates({
-    enabled: isAuthenticated,
+    enabled: true,
   });
 
   // Set initial selected date once dates are loaded
@@ -167,18 +199,8 @@ export function SystemLogsPage() {
     page,
     pageSize,
     autoRefreshInterval,
-    enabled: isAuthenticated,
+    enabled: true,
   });
-
-  // Handle 401 unauthorized
-  useEffect(() => {
-    if (datesError?.message === 'UNAUTHORIZED' || tracesError?.message === 'UNAUTHORIZED') {
-      systemLogsService.clearAuth();
-      setIsAuthenticated(false);
-      setShowAuthModal(true);
-      authQuery.refetch();
-    }
-  }, [datesError, tracesError, authQuery.refetch]);
 
   const traces = tracesData?.traces || [];
   const timeline = tracesData?.timeline || [];
@@ -221,33 +243,15 @@ export function SystemLogsPage() {
     setPage(1);
   };
 
-  // Auth Handlers
-  const handleAuthSuccess = async (u, p) => {
-    const response = await fetch('/api/system-logs/auth', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: u, password: p }),
-    });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Authentication failed.');
-    const session = await authQuery.refetch();
-    if (session.error || session.data !== true) {
-      throw session.error || new Error('Could not verify the system logs session.');
-    }
-
-    systemLogsService.setStoredAuth(u, p);
-    setIsAuthenticated(true);
-    setShowAuthModal(false);
-    await refetchDates();
-    refetchTraces();
-  };
-
   const handleLogout = async () => {
-    await fetch('/api/system-logs/auth', { method: 'DELETE' });
-    await authQuery.refetch();
+    try {
+      await fetch('/api/telemetry/auth/logout', { method: 'POST' });
+    } catch { }
     systemLogsService.clearAuth();
-    setIsAuthenticated(false);
-    setShowAuthModal(true);
+    if (typeof window !== 'undefined') {
+      const isTelemetry = window.location.pathname.startsWith('/telemetry');
+      window.location.href = isTelemetry ? '/telemetry/login' : '/login';
+    }
   };
 
   const handleOpenInspect = (trace) => {
@@ -266,7 +270,6 @@ export function SystemLogsPage() {
   return (
     <TooltipProvider delayDuration={150}>
       <div className="min-h-screen w-full dark:bg-[#111217] bg-[#f4f5f7] dark:text-[#f4f5f7] text-slate-800 transition-colors">
-        <CimdevAuthModal isOpen={showAuthModal} onSuccess={handleAuthSuccess} />
 
         <TraceFilterToolbar
           dates={dates}
@@ -311,27 +314,23 @@ export function SystemLogsPage() {
           onAutoRefreshChange={setAutoRefreshInterval}
           resolvedTheme={resolvedTheme}
           toggleTheme={toggleTheme}
-          isSubPage={activeTab === 'raw'}
-          isLogMode={activeTab === 'raw'}
         />
 
         <div className="w-full px-4 py-4 sm:px-6 space-y-3.5">
-          {activeTab !== 'raw' && <TraceSummaryCards summary={summary} />}
+          <TraceSummaryCards summary={summary} />
 
-          {activeTab !== 'raw' && (
-            <TraceTimelineChart
-              traces={traces}
-              timeline={timeline}
-              onSelectBucket={(bucket) => {
-                if (bucket?.time) {
-                  setSearch(bucket.time);
-                  setPage(1);
-                }
-              }}
-            />
-          )}
+          <TraceTimelineChart
+            traces={traces}
+            timeline={timeline}
+            onSelectBucket={(bucket) => {
+              if (bucket?.time) {
+                setSearch(bucket.time);
+                setPage(1);
+              }
+            }}
+          />
 
-          {activeTab !== 'raw' && (search ||
+          {(search ||
             traceIdFilter ||
             onlyErrors ||
             onlySlow ||

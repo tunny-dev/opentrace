@@ -6,7 +6,7 @@ import { useTelemetry } from "@/lib/spurtrace/telemetry-context";
 import { useI18n } from "@/lib/i18n/i18n-context";
 
 export default function TracesPage() {
-  const { filteredTraces, openTrace, liveStream } = useTelemetry();
+  const { filteredTraces, openTrace, liveStream, refreshing } = useTelemetry();
   const { dict } = useI18n();
 
   return (
@@ -31,6 +31,7 @@ export default function TracesPage() {
         section="traces"
         onSelect={openTrace}
         liveStream={liveStream}
+        isLoading={refreshing}
       />
     </div>
   );

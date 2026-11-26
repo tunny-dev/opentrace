@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Activity,
   AlertTriangle,
@@ -15,10 +15,11 @@ import {
   Settings2,
   ShieldCheck,
   TerminalSquare,
-  UserRound,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n/i18n-context";
+import { useAuthStore } from "@/lib/spurtrace/auth-store";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -56,14 +57,26 @@ export function SpurTraceShadcnSidebar({
   onSignOut?: () => void;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const { dict, locale, setLocale } = useI18n();
+  const { user: authUser } = useAuthStore();
+  const userName = authUser?.name || "Administrator";
+  const userEmail = authUser?.email || "admin@senao.com";
+  const userInitials = (
+    userName
+      .trim()
+      .split(" ")
+      .filter(Boolean)
+      .map((w) => w[0])
+      .join("")
+      .slice(0, 2) || "AD"
+  ).toUpperCase();
   const observabilityItems = [
     { href: "/", label: dict.common.overview, icon: Gauge },
     { href: "/traces", label: dict.common.traces, icon: Activity },
     { href: "/errors", label: dict.common.errors, icon: AlertTriangle },
-    { href: "/sql", label: dict.common.sql, icon: Database },
     { href: "/alerts", label: dict.common.alerts, icon: Bell },
-    { href: "/logs", label: dict.common.logs, icon: FileText },
+    { href: "/system-logs", label: dict.common.logs, icon: FileText },
   ];
 
   const platformItems = [
@@ -73,10 +86,16 @@ export function SpurTraceShadcnSidebar({
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
-      <SidebarHeader className="h-14 w-full shrink-0 justify-center border-b border-(--ot-border) px-3 py-0 group-data-[collapsible=icon]:px-0 sm:h-16">
+      <SidebarHeader className="h-14 w-full shrink-0 justify-center border-b border-(--ot-border) px-3 py-0 group-data-[collapsible=icon]:px-0">
         <Link
           href="/"
           aria-label="Home"
+          onClick={(e) => {
+            e.preventDefault();
+            if (pathname !== "/") {
+              router.push("/");
+            }
+          }}
           className="flex h-full w-full min-w-0 items-center gap-2.5 rounded-md outline-none group-data-[collapsible=icon]:justify-center"
         >
           <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400">
@@ -116,7 +135,9 @@ export function SpurTraceShadcnSidebar({
                       isActive={isActive}
                       tooltip={item.label}
                       onClick={(e) => {
-                        if (isActive) e.preventDefault();
+                        if (isActive) {
+                          e.preventDefault();
+                        }
                       }}
                       className={`h-10 rounded-xl text-sm font-medium transition-colors group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center ${
                         isActive
@@ -152,7 +173,9 @@ export function SpurTraceShadcnSidebar({
                       isActive={isActive}
                       tooltip={item.label}
                       onClick={(e) => {
-                        if (isActive) e.preventDefault();
+                        if (isActive) {
+                          e.preventDefault();
+                        }
                       }}
                       className={`h-10 rounded-xl text-sm font-medium transition-colors group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center ${
                         isActive
@@ -174,17 +197,6 @@ export function SpurTraceShadcnSidebar({
       </SidebarContent>
 
       <SidebarFooter className="w-full p-2 gap-1.5 border-t border-sidebar-border group-data-[collapsible=icon]:p-1.5">
-        <div className="rounded-lg border border-(--ot-border) bg-(--ot-panel-raised) p-2.5 group-data-[collapsible=icon]:hidden mb-1">
-          <div className="flex justify-between text-[9px] text-(--ot-muted) font-semibold mb-1">
-            <span>{dict.sidebar.ingestionLabel || "INGESTION"}</span>
-            <span className="text-emerald-700 dark:text-emerald-400 font-bold">72%</span>
-          </div>
-          <div className="h-1.5 w-full bg-slate-200 dark:bg-muted rounded-full overflow-hidden">
-            <div className="h-full bg-emerald-500 rounded-full" style={{ width: "72%" }} />
-          </div>
-          <p className="text-[9px] text-(--ot-muted) mt-1">72k of 100k events</p>
-        </div>
-
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -192,22 +204,24 @@ export function SpurTraceShadcnSidebar({
                 type="button"
                 variant="ghost"
                 className="flex h-10 w-full cursor-pointer items-center justify-start gap-2.5 rounded-xl px-1 font-normal text-sidebar-foreground transition-colors hover:bg-sidebar-accent group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0"
-                aria-label={`${dict.sidebar.signedInAs} Alex Kim, ${role}`}
+                aria-label={`${dict.sidebar.signedInAs} ${userName}, ${role}`}
               >
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/15 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
-                  AK
+                  {userInitials}
                 </div>
                 <div className="grid min-w-0 flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
-                  <span className="truncate font-medium text-sidebar-foreground">Alex Kim</span>
+                  <span className="truncate font-medium text-sidebar-foreground">{userName}</span>
                   <span className="truncate text-xs text-muted-foreground">
-                    alex.kim@spurtrace.dev
+                    {userEmail}
                   </span>
                 </div>
                 <span
                   className={`ml-auto shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold group-data-[collapsible=icon]:hidden ${
                     role === "Admin"
                       ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                      : "bg-sky-500/15 text-sky-600 dark:text-sky-400"
+                      : role === "Engineer"
+                        ? "bg-sky-500/15 text-sky-600 dark:text-sky-400"
+                        : "bg-slate-500/15 text-slate-600 dark:text-slate-400"
                   }`}
                 >
                   {role}
@@ -224,48 +238,16 @@ export function SpurTraceShadcnSidebar({
           >
             <DropdownMenuGroup>
               <DropdownMenuLabel className="px-3 py-2 font-normal">
-                <span className="block text-sm font-medium text-popover-foreground">Alex Kim</span>
-                <span className="block truncate text-xs text-muted-foreground">
-                  alex.kim@spurtrace.dev
+                <div className="flex items-center justify-between gap-2">
+                  <span className="block text-sm font-semibold text-popover-foreground">{userName}</span>
+                  <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                    {role}
+                  </Badge>
+                </div>
+                <span className="block truncate text-xs text-muted-foreground mt-0.5">
+                  {userEmail}
                 </span>
               </DropdownMenuLabel>
-            </DropdownMenuGroup>
-
-            <DropdownMenuSeparator />
-
-            <DropdownMenuGroup>
-              <DropdownMenuLabel>{dict.sidebar.roleSwitching}</DropdownMenuLabel>
-              <DropdownMenuRadioGroup
-                value={role}
-                onValueChange={(value) => {
-                  if (value === "Admin" || value === "Viewer") onRoleChange(value);
-                }}
-              >
-                <DropdownMenuRadioItem
-                  value="Admin"
-                  className="min-h-12 cursor-pointer rounded-xl py-2 pl-3 pr-8"
-                >
-                  <ShieldCheck className="text-emerald-500" />
-                  <span className="flex flex-col gap-0.5">
-                    <span className="font-medium">{dict.common.admin}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {dict.sidebar.adminDesc || "Full SQL & settings access"}
-                    </span>
-                  </span>
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem
-                  value="Viewer"
-                  className="min-h-12 cursor-pointer rounded-xl py-2 pl-3 pr-8"
-                >
-                  <UserRound className="text-sky-500" />
-                  <span className="flex flex-col gap-0.5">
-                    <span className="font-medium">{dict.common.viewer}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {dict.sidebar.viewerDesc || "Masked runtime values"}
-                    </span>
-                  </span>
-                </DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
             </DropdownMenuGroup>
 
             <DropdownMenuSeparator />

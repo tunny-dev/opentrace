@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Copy, Pause, Play, Send, Trash2 } from "lucide-react";
+import { Copy, Eye, Pause, Pencil, Play, Send, Trash2 } from "lucide-react";
 
 import {
   DataTable,
@@ -153,6 +153,29 @@ export function AlertRulesTable({
         meta: { label: t("alerts.col.channels") },
         cell: ({ row }) => <ChannelChips channels={enabledChannels(row.original.channels)} />,
       },
+      {
+        id: "recipients",
+        header: "Email nhận",
+        enableSorting: false,
+        meta: { label: "Email người nhận" },
+        cell: ({ row }) => {
+          const rec = row.original.recipients;
+          if (!rec) return <span className="text-[11px] text-muted-foreground">-</span>;
+          const list = rec.split(",").map((s) => s.trim()).filter(Boolean);
+          return (
+            <div className="flex flex-col gap-0.5 max-w-[180px]">
+              <span className="text-xs font-mono text-sky-600 dark:text-sky-400 truncate" title={rec}>
+                {list[0]}
+              </span>
+              {list.length > 1 && (
+                <span className="text-[10px] text-muted-foreground">
+                  +{list.length - 1} email khác
+                </span>
+              )}
+            </div>
+          );
+        },
+      },
     ],
     [t, isAdmin, onToggle]
   );
@@ -242,6 +265,13 @@ export function AlertRulesTable({
 
   const rowActions = React.useCallback(
     (rule: AlertRule, ctx: DataTableActionContext): DataTableRowAction[] => [
+      {
+        label: "Sửa & Xem trước Mail",
+        icon: <Pencil />,
+        onSelect: () => {
+          window.location.href = `/telemetry/alerts/new?edit=${rule.id}`;
+        },
+      },
       {
         label: t("alerts.action.testTrigger"),
         icon: <Send />,

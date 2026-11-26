@@ -5,13 +5,18 @@ import {
   Activity,
   ArrowDown,
   ArrowUp,
+  ChevronLeft,
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Database,
   Search,
   Sparkles,
+  X,
   Zap,
 } from "lucide-react";
 import type { DemoTrace } from "@/lib/spurtrace/demo-data";
+import { useTelemetry } from "@/lib/spurtrace/telemetry-context";
 import {
   aggregateQueries,
   type AggregatedQuery,
@@ -31,7 +36,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { CopyButton } from "@/components/ui/copy-button";
 import { cn } from "@/lib/utils";
+import { formatDuration } from "@/lib/spurtrace/format-duration";
 
 const statementTypes: Array<StatementType | "ALL"> = [
   "ALL",
@@ -42,19 +49,18 @@ const statementTypes: Array<StatementType | "ALL"> = [
   "OTHER",
 ];
 
-function formatDuration(value: number) {
-  return value >= 1000
-    ? `${(value / 1000).toFixed(2)} s`
-    : `${value.toFixed(value < 10 ? 1 : 0)} ms`;
-}
-
 export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: UserRole }) {
+  const { openTraceFromLog } = useTelemetry();
   const [search, setSearch] = useState("");
   const [statementFilter, setStatementFilter] = useState<StatementType | "ALL">("ALL");
   const [sortByImpact, setSortByImpact] = useState(true);
   const [selectedQuery, setSelectedQuery] = useState<AggregatedQuery | null>(null);
   const [studioOpen, setStudioOpen] = useState(false);
   const [studioInitialQuery, setStudioInitialQuery] = useState<StudioQueryItem | null>(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const closeStudio = () => {
     setStudioOpen(false);
@@ -66,7 +72,7 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
       queries
         .filter((query) => statementFilter === "ALL" || query.statementType === statementFilter)
         .filter((query) =>
-          `${query.template} ${query.routes.join(" ")} ${query.callSite}`
+          `${query.template} ${query.routes.join(" ")} ${query.callSite} ${query.sampleTraceId || ""}`
             .toLowerCase()
             .includes(search.trim().toLowerCase())
         )
@@ -75,6 +81,17 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
         ),
     [queries, statementFilter, search, sortByImpact]
   );
+
+  const totalPages = Math.max(1, Math.ceil(visibleQueries.length / pageSize));
+  const paginatedQueries = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return visibleQueries.slice(start, start + pageSize);
+  }, [visibleQueries, currentPage, pageSize]);
+
+  // Reset to page 1 on search or filter change
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [search, statementFilter]);
 
   const totalCalls = useMemo(
     () => queries.reduce((total, query) => total + query.totalCalls, 0),
@@ -90,12 +107,27 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
   );
   const studioQueries = useMemo<StudioQueryItem[]>(
     () =>
-      visibleQueries.slice(0, 5).map((q, i) => ({
-        id: `prof_${i}`,
-        sql: q.template,
-        paramsJson: { id: i + 1, factory: "VN", status: "completed" },
-        durationMs: Math.round(q.avgLatencyMs),
-      })),
+      visibleQueries.slice(0, 5).map((q, i) => {
+        const fullSql = q.sampleQuery || q.template;
+        let params: Record<string, any> = {};
+        if ((q as any).parameters && typeof (q as any).parameters === "object" && Object.keys((q as any).parameters).length > 0) {
+          params = (q as any).parameters;
+        } else {
+          const matches = fullSql.match(/@([a-zA-Z0-9_]+)/g);
+          if (matches) {
+            matches.forEach((m) => {
+              const pName = m.substring(1);
+              if (!(pName in params)) params[pName] = "";
+            });
+          }
+        }
+        return {
+          id: `prof_${i}`,
+          sql: fullSql,
+          paramsJson: params,
+          durationMs: Math.round(q.avgLatencyMs),
+        };
+      }),
     [visibleQueries]
   );
   const studioModalQueries = useMemo(
@@ -104,9 +136,17 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
   );
 
   function handleOpenStudioWithSql(sql: string) {
+    let params: Record<string, any> = {};
+    const matches = sql.match(/@([a-zA-Z0-9_]+)/g);
+    if (matches) {
+      matches.forEach((m) => {
+        const pName = m.substring(1);
+        if (!(pName in params)) params[pName] = "";
+      });
+    }
     setStudioInitialQuery({
       sql,
-      paramsJson: { id: 1, factory: "VN", status: "completed" },
+      paramsJson: params,
       durationMs: 45,
     });
     setStudioOpen(true);
@@ -209,7 +249,7 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
               </SelectContent>
             </Select>
 
-            <Label className="sql-search flex items-center cursor-pointer">
+            <div className="sql-search flex items-center relative">
               <Search aria-hidden="true" />
               <Input
                 aria-label="Search query fingerprints"
@@ -217,9 +257,28 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search SQL or route…"
-                className="font-sans border-0 bg-transparent focus-visible:ring-0 shadow-none h-7"
+                className="font-sans border-0 bg-transparent focus-visible:ring-0 shadow-none h-7 pr-6"
               />
-            </Label>
+              {search && (
+                <button
+                  type="button"
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSearch("");
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSearch("");
+                  }}
+                  aria-label="Clear search"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 flex size-4 cursor-pointer items-center justify-center text-muted-foreground hover:text-foreground"
+                >
+                  <X className="size-3" />
+                </button>
+              )}
+            </div>
           </div>
         </header>
 
@@ -229,6 +288,9 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
               <tr>
                 <th scope="col" className="w-12 font-sans">
                   STT
+                </th>
+                <th scope="col" className="w-36 font-sans">
+                  TRACE ID
                 </th>
                 <th scope="col" className="font-sans">
                   QUERY TEMPLATE
@@ -267,7 +329,7 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
               </tr>
             </thead>
             <tbody>
-              {visibleQueries.map((query, idx) => (
+              {paginatedQueries.map((query, idx) => (
                 <tr
                   key={query.fingerprint}
                   tabIndex={0}
@@ -277,32 +339,52 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
                   className="cursor-pointer"
                 >
                   <td className="text-[11px] tabular-nums text-(--ot-muted) font-sans">
-                    {idx + 1}
+                    {(currentPage - 1) * pageSize + idx + 1}
+                  </td>
+                  <td onClick={(e) => e.stopPropagation()} className="w-36">
+                    {query.sampleTraceId ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        onClick={() => openTraceFromLog(query.sampleTraceId!)}
+                        className="h-6 px-2 font-mono text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 rounded cursor-pointer justify-start"
+                        title={`Trace ID: ${query.sampleTraceId} (Click để mở vết chi tiết)`}
+                      >
+                        #{query.sampleTraceId.slice(0, 10)}…
+                      </Button>
+                    ) : (
+                      <span className="text-muted-foreground font-mono text-[10px]">—</span>
+                    )}
                   </td>
                   <td>
-                    <div className="sql-template-cell">
-                      <Badge
-                        variant="outline"
-                        size="sm"
-                        className={cn(
-                          "font-mono font-bold text-[10px] uppercase shrink-0",
-                          query.statementType === "SELECT"
-                            ? "border-sky-500/25 bg-sky-500/10 text-sky-600 dark:text-sky-400"
-                            : query.statementType === "UPDATE"
-                              ? "border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                              : query.statementType === "INSERT"
-                                ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                : "border-rose-500/25 bg-rose-500/10 text-rose-600 dark:text-rose-400"
-                        )}
-                      >
-                        {query.statementType}
-                      </Badge>
+                    <div className="sql-template-cell group/query relative">
+                      <div className="flex items-center gap-1.5">
+                        <Badge
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "font-mono font-bold text-[10px] uppercase shrink-0",
+                            query.statementType === "SELECT"
+                              ? "border-sky-500/25 bg-sky-500/10 text-sky-600 dark:text-sky-400"
+                              : query.statementType === "UPDATE"
+                                ? "border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                                : query.statementType === "INSERT"
+                                  ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                  : "border-rose-500/25 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                          )}
+                        >
+                          {query.statementType}
+                        </Badge>
+                      </div>
                       <code className="font-sans font-medium text-xs text-foreground">
                         {query.template}
                       </code>
-                      <small className="font-sans font-mono text-[10px] text-muted-foreground">
-                        {query.fingerprint.slice(0, 16)}
-                      </small>
+                      <div className="flex items-center gap-2">
+                        <small className="font-sans font-mono text-[10px] text-muted-foreground">
+                          {query.fingerprint.slice(0, 16)}
+                        </small>
+                      </div>
                     </div>
                   </td>
                   <td>
@@ -359,13 +441,103 @@ export function SqlStudioPage({ traces, role }: { traces: DemoTrace[]; role: Use
               ))}
               {visibleQueries.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="no-sql-results font-sans">
+                  <td colSpan={9} className="no-sql-results font-sans">
                     No query fingerprints match these filters.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination Controls */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-2.5 border-t border-(--ot-border) bg-(--ot-panel)/50 text-xs">
+          <div className="flex items-center gap-2 text-(--ot-muted)">
+            <span>
+              Hiển thị{" "}
+              <strong className="text-(--ot-text)">
+                {visibleQueries.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
+              </strong>
+              {" - "}
+              <strong className="text-(--ot-text)">
+                {Math.min(visibleQueries.length, currentPage * pageSize)}
+              </strong>{" "}
+              / <strong className="text-(--ot-text)">{visibleQueries.length}</strong> câu truy vấn
+            </span>
+
+            <div className="flex items-center gap-1.5 ml-4">
+              <span className="text-[11px]">Dòng:</span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={(v) => {
+                  setPageSize(Number(v));
+                  setCurrentPage(1);
+                }}
+              >
+                <SelectTrigger size="sm" className="h-6 text-xs px-2 w-[65px] bg-(--ot-panel)">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-(--ot-panel) text-xs border-(--ot-border)">
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => setCurrentPage(1)}
+              disabled={currentPage <= 1}
+              className="h-7 w-7 p-0 cursor-pointer border-(--ot-border)"
+              title="Trang đầu"
+            >
+              <ChevronsLeft className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage <= 1}
+              className="h-7 w-7 p-0 cursor-pointer border-(--ot-border)"
+              title="Trang trước"
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </Button>
+
+            <span className="px-2 text-xs font-medium text-(--ot-muted)">
+              Trang <strong className="text-(--ot-text)">{currentPage}</strong> / {totalPages}
+            </span>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage >= totalPages}
+              className="h-7 w-7 p-0 cursor-pointer border-(--ot-border)"
+              title="Trang kế"
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              onClick={() => setCurrentPage(totalPages)}
+              disabled={currentPage >= totalPages}
+              className="h-7 w-7 p-0 cursor-pointer border-(--ot-border)"
+              title="Trang cuối"
+            >
+              <ChevronsRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
 
         <footer className="sql-table-footer font-sans">

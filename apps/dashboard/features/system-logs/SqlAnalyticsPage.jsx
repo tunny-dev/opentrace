@@ -18,22 +18,15 @@ export function SqlAnalyticsPage() {
 
   useEffect(() => {
     const prevTitle = document.title;
-    document.title = 'SQL Performance Hub | MES APM';
+    document.title = 'SpurTrace | SQL Performance Hub';
     return () => {
       document.title = prevTitle;
     };
   }, []);
 
-  const [mounted, setMounted] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [mounted, setMounted] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-    const authed = systemLogsService.isAuthenticated();
-    setIsAuthenticated(authed);
-    setShowAuthModal(!authed);
-  }, []);
   const [isFilesModalOpen, setIsFilesModalOpen] = useState(false);
   const [studioQuery, setStudioQuery] = useState(null);
 
@@ -98,8 +91,9 @@ export function SqlAnalyticsPage() {
 
   const handleLogout = () => {
     systemLogsService.clearAuth();
-    setIsAuthenticated(false);
-    setShowAuthModal(true);
+    if (typeof window !== 'undefined') {
+      window.location.href = '/telemetry/login';
+    }
   };
 
   const traces = tracesData?.traces || [];
@@ -115,18 +109,6 @@ export function SqlAnalyticsPage() {
   return (
     <TooltipProvider delayDuration={150}>
       <div className="min-h-screen bg-slate-50 dark:bg-[#111217] text-slate-900 dark:text-[#c7d0d9] font-sans antialiased transition-colors">
-        <CimdevAuthModal
-          isOpen={showAuthModal}
-          onSuccess={handleAuthSuccess}
-          onCancel={() => {
-            if (!isAuthenticated) {
-              window.location.href = '/';
-            } else {
-              setShowAuthModal(false);
-            }
-          }}
-        />
-
         <TraceFilterToolbar
           isSubPage={true}
           dates={dates}
@@ -168,13 +150,24 @@ export function SqlAnalyticsPage() {
                   studioQuery.query ||
                   studioQuery.rawSql ||
                   '',
-                paramsJson:
-                  studioQuery.paramsJson ||
-                  (typeof studioQuery.parameters === 'string'
-                    ? studioQuery.parameters
-                    : studioQuery.parameters
-                      ? JSON.stringify(studioQuery.parameters, null, 2)
-                      : ''),
+                paramsJson: (() => {
+                  let p = studioQuery.paramsJson || studioQuery.parameters || {};
+                  if (typeof p === 'string' && p.trim()) {
+                    try { p = JSON.parse(p); } catch { p = {}; }
+                  }
+                  if (!p || typeof p !== 'object') p = {};
+                  const sql = studioQuery.sql || studioQuery.sampleSql || studioQuery.query || studioQuery.rawSql || '';
+                  const matches = sql.match(/@([a-zA-Z0-9_]+)/g);
+                  if (matches) {
+                    matches.forEach((m) => {
+                      const pName = m.substring(1);
+                      if (!(pName in p) && !(`@${pName}` in p)) {
+                        p[pName] = pName.toLowerCase().includes('lang') ? 'zh-TW' : '';
+                      }
+                    });
+                  }
+                  return JSON.stringify(p, null, 2);
+                })(),
                 durationMs: Math.round(
                   Number(
                     studioQuery.durationMs ||

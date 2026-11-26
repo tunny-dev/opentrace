@@ -635,7 +635,7 @@ export function TimeRangePicker({ timeRange, onChangeTimeRange, availableDates =
                   <span className="text-[#5794f2] font-semibold">{tzOffset}</span>
                 </div>
                 <div className="text-[11px] text-[#8e94a0] flex items-center gap-1">
-                  <span>MES APM Timezone</span>
+                  <span>SpurTrace Timezone</span>
                 </div>
               </div>
             </PopoverContent>

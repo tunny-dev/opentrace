@@ -13,7 +13,10 @@ import {
   type DataTableQuickFilter,
 } from "@/components/ui/data-table";
 import { Badge } from "@/components/ui/badge";
+import { CopyButton } from "@/components/ui/copy-button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { formatDuration } from "@/lib/spurtrace/format-duration";
 
 const STATE_RANK: Record<DemoTrace["state"], number> = { error: 0, slow: 1, success: 2 };
 
@@ -31,10 +34,6 @@ const METHOD_CLASS: Record<string, string> = {
   PATCH: "border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-400",
   DELETE: "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-400",
 };
-
-function formatDuration(value: number) {
-  return value >= 1000 ? `${(value / 1000).toFixed(2)} s` : `${Math.round(value)} ms`;
-}
 
 function hasNPlusOne(trace: DemoTrace) {
   return trace.queries.some((query) => query.duplicateCount > 2);
@@ -96,43 +95,18 @@ const QUICK_FILTERS: DataTableQuickFilter<DemoTrace>[] = [
 const INITIAL_SORTING = [{ id: "duration", desc: true }];
 const INITIAL_COLUMN_VISIBILITY = { index: false, service: false };
 
-function Waterfall({ trace }: { trace: DemoTrace }) {
-  const total = Math.max(
-    trace.duration,
-    ...trace.spans.map((span) => span.start + span.duration),
-    1
-  );
-  return (
-    <div
-      className="relative h-2 w-28 overflow-hidden rounded-full bg-muted"
-      role="img"
-      aria-label={`${trace.spans.length} spans over ${formatDuration(trace.duration)}`}
-      title={`${trace.spans.length} spans · ${formatDuration(trace.duration)}`}
-    >
-      {trace.spans.map((span, index) => (
-        <span
-          key={`${span.name}-${index}`}
-          className={cn("absolute inset-y-0 rounded-full opacity-85", SPAN_COLOR[span.kind])}
-          style={{
-            left: `${(span.start / total) * 100}%`,
-            width: `${Math.max((span.duration / total) * 100, 2)}%`,
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
 export function TracesTable({
   traces,
   section,
   onSelect,
   liveStream,
+  isLoading = false,
 }: {
   traces: DemoTrace[];
   section: string;
   onSelect: (trace: DemoTrace) => void;
   liveStream: boolean;
+  isLoading?: boolean;
 }) {
   const title =
     section === "errors"
@@ -279,13 +253,6 @@ export function TracesTable({
         },
       },
       {
-        id: "waterfall",
-        header: "Waterfall",
-        enableSorting: false,
-        meta: { label: "Waterfall" },
-        cell: ({ row }) => <Waterfall trace={row.original} />,
-      },
-      {
         id: "sql",
         accessorKey: "sqlCount",
         sortDescFirst: true,
@@ -384,6 +351,7 @@ export function TracesTable({
       initialColumnVisibility={INITIAL_COLUMN_VISIBILITY}
       exportFileName="spurtrace-traces"
       emptyMessage="No traces recorded yet."
+      isLoading={isLoading}
       onRowClick={onSelect}
       getRowClassName={getRowClassName}
     />

@@ -19,13 +19,9 @@ import type { UserRole } from "./user-profile-menu";
 import { buildExplainPlan, formatSql } from "@/lib/spurtrace/sql-analytics";
 import { SqlSyntax } from "./sql-syntax";
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 import { cn } from "@/lib/utils";
-
-function formatDuration(value: number) {
-  return value >= 1000
-    ? `${(value / 1000).toFixed(2)} s`
-    : `${value.toFixed(value < 10 ? 1 : 0)} ms`;
-}
+import { formatDuration } from "@/lib/spurtrace/format-duration";
 
 export function SqlQueryDrawer({
   query,
@@ -117,6 +113,11 @@ export function SqlQueryDrawer({
               >
                 {query.fingerprint}
               </h2>
+              <CopyButton
+                value={query.fingerprint}
+                label="Fingerprint"
+                className="h-5 w-5 shrink-0"
+              />
             </div>
           </div>
 
@@ -126,7 +127,7 @@ export function SqlQueryDrawer({
                 type="button"
                 className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-xs transition-all cursor-pointer font-sans"
                 size="sm"
-                onClick={() => onOpenStudio(query.template)}
+                onClick={() => onOpenStudio(query.sampleQuery || query.template)}
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 <span>Open in Studio</span>

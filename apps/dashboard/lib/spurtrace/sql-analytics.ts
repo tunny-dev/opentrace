@@ -25,6 +25,8 @@ export interface AggregatedQuery {
   sampleQuery: string;
   sampleBindValues?: string[];
   slowCalls: number;
+  sampleTraceId?: string;
+  traceIds: string[];
 }
 
 export interface ExplainPlanNode {
@@ -112,6 +114,8 @@ export function aggregateQueries(traces: DemoTrace[]): AggregatedQuery[] {
       nPlusOneRoutes: Set<string>;
       maxDuplicateCount: number;
       slowCalls: number;
+      sampleTraceId: string;
+      traceIds: Set<string>;
     }
   >();
 
@@ -132,12 +136,15 @@ export function aggregateQueries(traces: DemoTrace[]): AggregatedQuery[] {
         nPlusOneRoutes: new Set<string>(),
         maxDuplicateCount: 0,
         slowCalls: 0,
+        sampleTraceId: trace.id,
+        traceIds: new Set<string>(),
       };
       if (!group.sampleBindValues && query.sampleBindValues)
         group.sampleBindValues = query.sampleBindValues;
       group.totalCalls += calls;
       group.totalDurationMs += query.duration * calls;
       group.routes.add(trace.route);
+      group.traceIds.add(trace.id);
       group.maxDuplicateCount = Math.max(group.maxDuplicateCount, calls);
       if (calls > 2) group.nPlusOneRoutes.add(trace.route);
       group.slowCalls += query.slowCount ?? (query.slow ? calls : 0);
@@ -167,6 +174,8 @@ export function aggregateQueries(traces: DemoTrace[]): AggregatedQuery[] {
       sampleQuery: group.sampleQuery,
       sampleBindValues: group.sampleBindValues,
       slowCalls: group.slowCalls,
+      sampleTraceId: group.sampleTraceId,
+      traceIds: [...group.traceIds],
     }))
     .sort((left, right) => right.totalDurationMs - left.totalDurationMs);
 }

@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { useState, useEffect, useMemo, useRef, useContext } from "react";
-import { demoTraces, type DemoEnvironment, type DemoService, type DemoTrace } from "./demo-data";
-import { demoLogs, type DemoLog } from "./demo-logs";
+import { useState, useEffect, useMemo, useRef, useContext, useCallback } from "react";
+import type { DemoEnvironment, DemoService, DemoTrace } from "./demo-data";
+import type { DemoLog } from "./demo-logs";
 import type { UserRole } from "@/components/spurtrace/user-profile-menu";
 import { useAuthStore } from "./auth-store";
+import { roundDuration } from "./format-duration";
 
 interface TelemetryContextType {
   traces: DemoTrace[];
@@ -19,8 +20,10 @@ interface TelemetryContextType {
   openTraceFromLog: (traceId: string) => void;
   environment: DemoEnvironment;
   setEnvironment: (env: DemoEnvironment) => void;
-  service: DemoService | "all";
-  setService: (srv: DemoService | "all") => void;
+  service: DemoService | string | "all";
+  setService: (srv: DemoService | string | "all") => void;
+  availableServices: string[];
+  appName: string;
   liveStream: boolean;
   toggleLiveStream: () => void;
   userRole: UserRole;
@@ -40,60 +43,17 @@ export function useTelemetry() {
   return ctx;
 }
 
-function buildLiveTrace(
-  sequence: number,
-  environment: DemoEnvironment,
-  service: DemoService | "all"
-): DemoTrace {
-  const matching = demoTraces.filter((trace) => service === "all" || trace.service === service);
-  const template = matching[sequence % matching.length] ?? demoTraces[sequence % demoTraces.length];
-  const timestamp = new Date();
-  const failed = sequence % 9 === 0;
-  const duration = Math.round(24 + Math.random() * 240);
-  const route = template.route;
-
-  return {
-    ...template,
-    id: `tr_live_${timestamp.getTime().toString(36)}`,
-    createdAt: timestamp.toISOString(),
-    ageLabel: "now",
-    environment,
-    service: service === "all" ? template.service : service,
-    isLive: true,
-    duration,
-    status: failed ? 500 : 200,
-    state: failed ? "error" : "success",
-    sqlCount: template.queries.length,
-    exception: failed
-      ? {
-          name: "LiveSampleError",
-          message: "Simulated intermittent dependency failure",
-          signature: "livesampleerror: simulated intermittent dependency failure",
-        }
-      : undefined,
-    spans: template.spans.map((span, index) => ({
-      ...span,
-      duration:
-        index === 0 ? duration : Math.min(duration, Math.max(2, Math.round(duration * 0.36))),
-    })),
-    queries: template.queries.map((query) => ({
-      ...query,
-      slow: false,
-      slowCount: 0,
-      duplicateCount: 1,
-    })),
-    route,
-  };
-}
-
 export function TelemetryProvider({ children }: { children: React.ReactNode }) {
   const auth = useAuthStore();
-  const [traces, setTraces] = useState<DemoTrace[]>(demoTraces);
+  const [traces, setTraces] = useState<DemoTrace[]>([]);
+  const [logs, setLogs] = useState<DemoLog[]>([]);
   const [selectedTrace, setSelectedTrace] = useState<DemoTrace | null>(null);
   const [environment, setEnvironment] = useState<DemoEnvironment>("production");
-  const [service, setService] = useState<DemoService | "all">("all");
+  const [service, setService] = useState<DemoService | string | "all">("all");
+  const [appName, setAppName] = useState<string>("Senao EMS");
   const [liveStream, setLiveStream] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [initialLoaded, setInitialLoaded] = useState(false);
 
   const isAuthenticated = auth.isAuthenticated;
   const userRole = auth.user.role;
@@ -101,35 +61,93 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
   const login = (role: UserRole, email: string) => auth.login(email, role);
   const signOut = () => auth.logout();
 
-  const traceRef = useRef<DemoTrace[]>(demoTraces);
-  const liveSequence = useRef(0);
-
+  const traceRef = useRef<DemoTrace[]>([]);
   useEffect(() => {
     traceRef.current = traces;
   }, [traces]);
 
+  // Fetch real traces from /api/traces
+  const fetchRealTraces = useCallback(async (isBackground = false) => {
+    if (!isBackground) setRefreshing(true);
+    try {
+      const res = await fetch("/api/traces?limit=500", { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (Array.isArray(data.traces) && data.traces.length > 0) {
+        const cleanTraces = data.traces.map((t: any) => ({
+          ...t,
+          duration: roundDuration(t.duration ?? t.durationMs),
+          durationMs: roundDuration(t.durationMs ?? t.duration),
+          spans: (t.spans || []).map((s: any) => ({
+            ...s,
+            start: roundDuration(s.start ?? s.startOffsetMs),
+            startOffsetMs: roundDuration(s.startOffsetMs ?? s.start),
+            duration: roundDuration(s.duration ?? s.durationMs),
+            durationMs: roundDuration(s.durationMs ?? s.duration),
+          })),
+          queries: (t.queries || t.sqlCalls || []).map((q: any) => ({
+            ...q,
+            duration: roundDuration(q.duration ?? q.durationMs),
+            durationMs: roundDuration(q.durationMs ?? q.duration),
+          })),
+        }));
+        setTraces(cleanTraces);
+        if (Array.isArray(data.logs)) {
+          setLogs(data.logs);
+        }
+      }
+    } catch (err) {
+      console.warn("Could not fetch live traces, keeping current dataset:", err);
+    } finally {
+      if (!isBackground) setRefreshing(false);
+      setInitialLoaded(true);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchRealTraces();
+    fetch("/api/telemetry/settings")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.app_name) setAppName(d.app_name);
+      })
+      .catch(() => {});
+  }, [fetchRealTraces]);
+
+  // Live polling for real new traces when liveStream is enabled
   useEffect(() => {
     if (!liveStream) return;
     const interval = window.setInterval(() => {
-      liveSequence.current += 1;
-      const nextTrace = buildLiveTrace(liveSequence.current, environment, service);
-      setTraces((current) => [nextTrace, ...current].slice(0, 100));
-    }, 4000);
+      fetchRealTraces(true);
+    }, 3500);
     return () => window.clearInterval(interval);
-  }, [liveStream, environment, service]);
+  }, [liveStream, fetchRealTraces]);
+
+  // Extract distinct services from loaded traces
+  const availableServices = useMemo(() => {
+    const set = new Set<string>();
+    traces.forEach((t) => {
+      if (t.service) set.add(t.service);
+    });
+    return Array.from(set);
+  }, [traces]);
 
   const filteredTraces = useMemo(() => {
-    return traces.filter(
-      (trace) =>
-        trace.environment === environment && (service === "all" || trace.service === service)
-    );
+    return traces.filter((trace) => {
+      const matchEnv = environment === "production" || trace.environment === environment;
+      const matchService = service === "all" || trace.service === service;
+      return matchEnv && matchService;
+    });
   }, [traces, environment, service]);
 
   const filteredLogs = useMemo(() => {
-    return demoLogs.filter(
-      (log) => log.environment === environment && (service === "all" || log.service === service)
-    );
-  }, [environment, service]);
+    return logs.filter((log) => {
+      const matchEnv = environment === "production" || log.environment === environment;
+      const matchService = service === "all" || log.service === service;
+      return matchEnv && matchService;
+    });
+  }, [logs, environment, service]);
 
   function openTrace(trace: DemoTrace) {
     setSelectedTrace(trace);
@@ -149,8 +167,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
   }
 
   function refreshDashboard() {
-    setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 500);
+    fetchRealTraces();
   }
 
   return (
@@ -158,7 +175,7 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
       value={{
         traces,
         filteredTraces,
-        logs: demoLogs,
+        logs,
         filteredLogs,
         selectedTrace,
         setSelectedTrace,
@@ -169,6 +186,8 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
         setEnvironment,
         service,
         setService,
+        availableServices,
+        appName,
         liveStream,
         toggleLiveStream,
         userRole,

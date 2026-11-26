@@ -1,5 +1,5 @@
 packages:
-  - "packages/*"
+  - "sdks/*"
   - "apps/*"
 
 pmOnFail: ignore

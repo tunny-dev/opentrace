@@ -9,15 +9,15 @@ import { Button } from '@/components/ui/button';
 
 const chartConfig = {
   ok: {
-    label: '200 OK (Th�nh c�ng)',
+    label: '200 OK (Thành công)',
     color: '#10b981', // Emerald
   },
   slow: {
-    label: 'Slow (= 1s)',
+    label: 'Slow (≥ 1s)',
     color: '#f59e0b', // Amber
   },
   error: {
-    label: 'Error (L?i)',
+    label: 'Error (Lỗi)',
     color: '#ef4444', // Red
   },
 };
@@ -26,25 +26,38 @@ export function TraceTimelineChart({ traces = [], timeline = [], onSelectBucket 
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [chartType, setChartType] = useState('bar'); // 'bar' | 'area' (default: 'bar')
 
-  // Chu?n h�a d? li?u bucket
+  // Chuẩn hóa dữ liệu bucket
   const chartData = useMemo(() => {
     if (timeline && timeline.length > 0) {
-      return timeline.map((b) => ({
-        time: b.time,
-        ok: b.ok || 0,
-        slow: b.slow || 0,
-        error: b.error || 0,
-        total: b.total || 0,
-        avgDuration: Math.round(b.avgDurationMs || b.avgDuration || 0),
-      }));
+      const mapped = timeline.map((b) => {
+        const error = b.error ?? b.errors ?? 0;
+        const total = b.total ?? b.count ?? 0;
+        const slow = b.slow ?? 0;
+        const ok = b.ok ?? Math.max(0, total - slow - error);
+        return {
+          time: b.time,
+          ok,
+          slow,
+          error,
+          total: total || (ok + slow + error),
+          avgDuration: Math.round(b.avgDurationMs || b.avgDuration || 0),
+        };
+      });
+
+      // Nếu timeline từ backend có dữ liệu (total > 0), ưu tiên dùng timeline
+      const hasData = mapped.some((b) => b.total > 0 || b.ok > 0 || b.slow > 0 || b.error > 0);
+      if (hasData) {
+        return mapped;
+      }
     }
 
+    // Fallback: nếu timeline rỗng hoặc toàn 0, tự động gom nhóm trực tiếp từ danh sách traces
     if (!traces || traces.length === 0) return [];
 
     const bucketMap = new Map();
 
     traces.forEach((trace) => {
-      const timeStr = trace.timestamp || (trace.events && trace.events[0]?.time);
+      const timeStr = trace.timestamp || trace.createdAt || (trace.events && trace.events[0]?.time);
       if (!timeStr) return;
 
       let d;
@@ -56,7 +69,7 @@ export function TraceTimelineChart({ traces = [], timeline = [], onSelectBucket 
       }
 
       const hours = String(d.getHours()).padStart(2, '0');
-      const minutes = Math.floor(d.getMinutes() / 10) * 10;
+      const minutes = Math.floor(d.getMinutes() / 5) * 5;
       const bucketKey = `${hours}:${String(minutes).padStart(2, '0')}`;
 
       if (!bucketMap.has(bucketKey)) {
@@ -72,11 +85,15 @@ export function TraceTimelineChart({ traces = [], timeline = [], onSelectBucket 
 
       const item = bucketMap.get(bucketKey);
       item.total += 1;
-      item.totalDuration += trace.totalDurationMs || 0;
+      item.totalDuration += trace.totalDurationMs || trace.durationMs || trace.duration || 0;
 
-      if (trace.hasError || trace.statusCode >= 400) {
+      if (trace.hasError || trace.statusCode >= 400 || trace.state === 'error') {
         item.error += 1;
-      } else if (trace.slowQueryCount > 0 || trace.totalDurationMs >= 1000) {
+      } else if (
+        trace.slowQueryCount > 0 ||
+        (trace.totalDurationMs || trace.durationMs || trace.duration || 0) >= 1000 ||
+        trace.state === 'slow'
+      ) {
         item.slow += 1;
       } else {
         item.ok += 1;
@@ -93,7 +110,7 @@ export function TraceTimelineChart({ traces = [], timeline = [], onSelectBucket 
     }));
   }, [traces, timeline]);
 
-  // Th?ng k� t?ng quan
+  // Thống kê tổng quan
   const stats = useMemo(() => {
     let total = 0;
     let ok = 0;
@@ -252,10 +269,8 @@ export function TraceTimelineChart({ traces = [], timeline = [], onSelectBucket 
                         const row = payload?.[0]?.payload;
                         return (
                           <div className="flex items-center justify-between gap-4 pb-1 border-b border-border/50">
-                            <span className="font-semibold text-cyan-500">Khung gi?: {val}</span>
-                            <span className="text-[10px] text-muted-foreground">
-                              �? tr? TB: {row?.avgDuration || 0}ms
-                            </span>
+                            <span className="font-semibold text-cyan-500">Khung giờ: {val}</span>
+                            <span className="text-[10px] text-muted-foreground">Độ trễ TB: {row?.avgDuration || 0}ms</span>
                           </div>
                         );
                       }}
@@ -332,12 +347,8 @@ export function TraceTimelineChart({ traces = [], timeline = [], onSelectBucket 
                         const row = payload?.[0]?.payload;
                         return (
                           <div className="flex items-center justify-between gap-4 pb-1 border-b border-border/50">
-                            <span className="font-semibold text-[#3274d9] dark:text-[#5794f2]">
-                              Time: {val}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground">
-                              Avg Latency: {row?.avgDuration || 0}ms
-                            </span>
+                            <span className="font-semibold text-[#3274d9] dark:text-[#5794f2]">Khung giờ: {val}</span>
+                            <span className="text-[10px] text-muted-foreground">Độ trễ TB: {row?.avgDuration || 0}ms</span>
                           </div>
                         );
                       }}

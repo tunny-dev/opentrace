@@ -173,18 +173,34 @@ export function SpurTraceDashboard() {
 
     syncFromLocation();
     window.addEventListener("popstate", syncFromLocation);
+
+    // Fetch real traces from API
+    fetch("/api/traces?limit=200", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.traces?.length > 0) {
+          setTraces(data.traces);
+        }
+      })
+      .catch(() => {});
+
     return () => window.removeEventListener("popstate", syncFromLocation);
   }, []);
 
   useEffect(() => {
     if (!liveStream) return;
     const interval = window.setInterval(() => {
-      liveSequence.current += 1;
-      const nextTrace = buildLiveTrace(liveSequence.current, environment, service);
-      setTraces((current) => [nextTrace, ...current].slice(0, 100));
-    }, 4000);
+      fetch("/api/traces?limit=200", { cache: "no-store" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (data?.traces?.length > 0) {
+            setTraces(data.traces);
+          }
+        })
+        .catch(() => {});
+    }, 3500);
     return () => window.clearInterval(interval);
-  }, [liveStream, environment, service]);
+  }, [liveStream]);
 
   const filteredTraces = useMemo(
     () =>
@@ -366,7 +382,7 @@ export function SpurTraceDashboard() {
               <div className="page-eyebrow">
                 <span className="service-dot" /> MES-PRODUCTION{" "}
                 <span className="page-eyebrow-divider">/</span> LIVE OBSERVABILITY{" "}
-                <span className="demo-label">POC · SAMPLE DATA</span>
+                <span className="demo-label">LIVE DATA</span>
               </div>
               <h1>{sectionTitles[section]}</h1>
               <p>

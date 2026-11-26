@@ -29,7 +29,6 @@ export function SeverityBadge({ severity }: { severity: AlertSeverity }) {
 
 const CHANNEL_STYLE: Record<AlertChannel, { icon: LucideIcon; className: string }> = {
   email: { icon: Mail, className: "bg-sky-500/10 text-sky-700 dark:text-sky-400" },
-  teams: { icon: MessageSquare, className: "bg-purple-500/10 text-purple-700 dark:text-purple-400" },
   inApp: { icon: Bell, className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400" },
 };
 

@@ -47,7 +47,7 @@ export function FilesModal({ isOpen, onClose, selectedDate }) {
               <strong className="dark:text-white text-slate-900 font-semibold">
                 {selectedDate}
               </strong>
-              <span className="text-slate-400">�</span>
+              <span className="text-slate-400">&bull;</span>
               <span>
                 Total <strong className="text-[#3274d9] dark:text-[#5794f2]">{files.length}</strong>{' '}
                 log files (.log &amp; .json)
